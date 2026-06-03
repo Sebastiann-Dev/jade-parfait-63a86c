@@ -33,7 +33,12 @@ function AdminPage() {
   async function loadProductos() {
     setLoading(true)
     const data = await fetchProductosSupabase()
-    setProductos(data)
+    const supabaseNames = new Set(data.map(p => p.nombre))
+    const hardcoded = PRODUCTOS.filter(p => !supabaseNames.has(p.nombre)).map((p, i) => ({
+      ...p,
+      id: 'hardcoded-' + i
+    }))
+    setProductos([...data, ...hardcoded])
     setLoading(false)
   }
 
@@ -44,12 +49,12 @@ function AdminPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      if (editingId) {
+      if (editingId && !editingId.startsWith('hardcoded-')) {
         await updateProductoSupabase(editingId, formData)
         alert("Producto actualizado con éxito!")
       } else {
         await saveProductoSupabase(formData)
-        alert("Producto guardado con éxito en Supabase!")
+        alert("Producto guardado con éxito en la base de datos!")
       }
       setShowForm(false)
       setEditingId(null)
