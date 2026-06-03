@@ -121,6 +121,29 @@ function AdminPage() {
         {showForm && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
             <h2 className="text-lg font-semibold mb-4 text-blue-900">{editingId ? 'Editar Producto' : 'Agregar Nuevo Producto'}</h2>
+            
+            <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
+              <label className="block text-sm font-bold text-blue-800 mb-2">¿Quieres editar un producto ya existente? Selecciónalo aquí:</label>
+              <select 
+                className="w-full p-2 border border-blue-300 rounded text-sm bg-white"
+                value={editingId || ''}
+                onChange={(e) => {
+                  const p = productos.find(prod => prod.id === e.target.value)
+                  if (p) {
+                    handleEdit(p)
+                  } else {
+                    handleCancel()
+                    setShowForm(true) // Keep form open but empty
+                  }
+                }}
+              >
+                <option value="">-- Crear Nuevo Producto (Dejar en blanco) --</option>
+                {productos.map(p => (
+                  <option key={p.id} value={p.id}>{p.nombre}</option>
+                ))}
+              </select>
+            </div>
+
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Nombre del Producto</label><input required value={formData.nombre} onChange={e=>setFormData({...formData, nombre: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
