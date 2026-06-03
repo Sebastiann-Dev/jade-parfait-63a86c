@@ -124,7 +124,17 @@ function AdminPage() {
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Nombre del Producto</label><input required value={formData.nombre} onChange={e=>setFormData({...formData, nombre: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Unidad (ej. L, saco, kit)</label><input required value={formData.unidad} onChange={e=>setFormData({...formData, unidad: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
+              <div><label className="block text-xs font-medium text-gray-700 mb-1">Unidad</label>
+                <select value={formData.unidad} onChange={e=>setFormData({...formData, unidad: e.target.value})} className="w-full p-2 border rounded text-sm bg-white">
+                  <option value="L">L (Litros)</option>
+                  <option value="Gal">Gal (Galones)</option>
+                  <option value="Kg">Kg (Kilogramos)</option>
+                  <option value="Cubeta">Cubeta</option>
+                  <option value="Saco">Saco</option>
+                  <option value="Kit">Kit</option>
+                  <option value="Pieza">Pieza</option>
+                </select>
+              </div>
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Moneda</label>
                 <select value={formData.moneda} onChange={e=>setFormData({...formData, moneda: e.target.value as 'MXN'|'USD'})} className="w-full p-2 border rounded text-sm">
                   <option value="MXN">MXN</option><option value="USD">USD</option>
