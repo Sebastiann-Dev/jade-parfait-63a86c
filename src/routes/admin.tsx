@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
-import { fetchProductosSupabase, saveProductoSupabase, deleteProductoSupabase } from '../supabase'
+import { fetchProductosSupabase, saveProductoSupabase, deleteProductoSupabase, updateProductoSupabase } from '../supabase'
 import { Producto } from '../data/productos'
 
 export const Route = createFileRoute('/admin')({
@@ -28,6 +28,7 @@ function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<Omit<Producto, 'id'>>(DEFAULT_PRODUCTO)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   async function loadProductos() {
     setLoading(true)
@@ -43,14 +44,47 @@ function AdminPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     try {
-      await saveProductoSupabase(formData)
-      alert("Producto guardado con éxito en Supabase!")
+      if (editingId) {
+        await updateProductoSupabase(editingId, formData)
+        alert("Producto actualizado con éxito!")
+      } else {
+        await saveProductoSupabase(formData)
+        alert("Producto guardado con éxito en Supabase!")
+      }
       setShowForm(false)
+      setEditingId(null)
       setFormData(DEFAULT_PRODUCTO)
       loadProductos()
     } catch (error) {
       alert("Error al guardar. Asegúrate de haber configurado tu URL y Key en src/supabase.ts")
     }
+  }
+
+  function handleCancel() {
+    setShowForm(false)
+    setEditingId(null)
+    setFormData(DEFAULT_PRODUCTO)
+  }
+
+  function handleEdit(p: Producto & {id: string}) {
+    setFormData({
+      nombre: p.nombre,
+      cantRef: p.cantRef,
+      unidad: p.unidad,
+      moneda: p.moneda,
+      precio: p.precio,
+      tieneRendimiento: p.tieneRendimiento,
+      nota: p.nota || '',
+      rendimiento: p.rendimiento || 0,
+      espesorRecomendado: p.espesorRecomendado || '',
+      manosRecomendadas: p.manosRecomendadas || '',
+      pros: p.pros || '',
+      cons: p.cons || '',
+      cuidadoCon: p.cuidadoCon || ''
+    })
+    setEditingId(p.id)
+    setShowForm(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function handleDelete(id: string) {
@@ -72,7 +106,7 @@ function AdminPage() {
           </div>
           <div className="flex gap-4">
             <button 
-              onClick={() => setShowForm(!showForm)} 
+              onClick={() => showForm ? handleCancel() : setShowForm(true)} 
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
             >
               {showForm ? 'Cancelar' : '+ Nuevo Producto'}
@@ -86,7 +120,7 @@ function AdminPage() {
         {/* Formulario */}
         {showForm && (
           <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-            <h2 className="text-lg font-semibold mb-4 text-blue-900">Agregar Nuevo Producto</h2>
+            <h2 className="text-lg font-semibold mb-4 text-blue-900">{editingId ? 'Editar Producto' : 'Agregar Nuevo Producto'}</h2>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Nombre del Producto</label><input required value={formData.nombre} onChange={e=>setFormData({...formData, nombre: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
@@ -109,12 +143,13 @@ function AdminPage() {
               </div>
 
               {formData.tieneRendimiento && (
-                <>
-                  <div><label className="block text-xs font-medium text-blue-700 mb-1">Rendimiento (m² por {formData.unidad})</label><input type="number" step="0.1" value={formData.rendimiento || ''} onChange={e=>setFormData({...formData, rendimiento: parseFloat(e.target.value)})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
-                  <div><label className="block text-xs font-medium text-blue-700 mb-1">Espesor Recomendado</label><input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e=>setFormData({...formData, espesorRecomendado: e.target.value})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
-                  <div><label className="block text-xs font-medium text-blue-700 mb-1">Pasadas Recomendadas</label><input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e=>setFormData({...formData, manosRecomendadas: e.target.value})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
-                </>
+                <div><label className="block text-xs font-medium text-blue-700 mb-1">Rendimiento (m² por {formData.unidad})</label><input type="number" step="0.1" value={formData.rendimiento || ''} onChange={e=>setFormData({...formData, rendimiento: parseFloat(e.target.value)})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
               )}
+
+              <div className="col-span-full border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><label className="block text-xs font-medium text-blue-700 mb-1">Espesor Recomendado (Todos los productos)</label><input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e=>setFormData({...formData, espesorRecomendado: e.target.value})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
+                <div><label className="block text-xs font-medium text-blue-700 mb-1">Pasadas / Manos Recomendadas</label><input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e=>setFormData({...formData, manosRecomendadas: e.target.value})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
+              </div>
 
               <div className="col-span-full border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div><label className="block text-xs font-bold text-green-700 mb-1">Pros (Ventajas)</label><input placeholder="Ej. Secado súper rápido" value={formData.pros || ''} onChange={e=>setFormData({...formData, pros: e.target.value})} className="w-full p-2 border border-green-200 rounded text-sm bg-green-50" /></div>
@@ -123,7 +158,9 @@ function AdminPage() {
               </div>
 
               <div className="col-span-full flex justify-end mt-4">
-                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">Guardar Producto</button>
+                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+                  {editingId ? 'Guardar Cambios' : 'Guardar Producto'}
+                </button>
               </div>
             </form>
           </div>
@@ -164,6 +201,9 @@ function AdminPage() {
                         {p.tieneRendimiento ? `${p.rendimiento} m²` : <span className="text-gray-300">-</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
+                        <button onClick={() => handleEdit(p)} className="text-blue-500 hover:text-blue-700 font-medium text-xs mr-3">
+                          Editar
+                        </button>
                         <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 font-medium text-xs">
                           Eliminar
                         </button>
