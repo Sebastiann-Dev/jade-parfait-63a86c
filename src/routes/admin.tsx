@@ -155,7 +155,6 @@ function AdminPage() {
                   <option value="Cubeta">Cubeta</option>
                   <option value="Saco">Saco</option>
                   <option value="Kit">Kit</option>
-                  <option value="Medio Kit">Medio Kit</option>
                   <option value="Pieza">Pieza</option>
                 </select>
               </div>

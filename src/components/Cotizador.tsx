@@ -81,12 +81,11 @@ export default function Cotizador() {
   useEffect(() => {
     async function fetchDOF() {
       try {
-        const response = await fetch('https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno', {
-          headers: {
-            'Bmx-Token': '11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c',
-            'Accept': 'application/json'
-          }
-        })
+        // Usamos corsproxy porque Banxico bloquea peticiones directas desde el navegador (CORS)
+        const banxicoUrl = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c'
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(banxicoUrl)
+        
+        const response = await fetch(proxyUrl)
         const data = await response.json()
         const valorDOF = parseFloat(data.bmx.series[0].datos[0].dato)
         if (!isNaN(valorDOF)) {
