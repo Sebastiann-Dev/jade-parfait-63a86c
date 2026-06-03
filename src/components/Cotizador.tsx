@@ -78,6 +78,27 @@ export default function Cotizador() {
     loadDatabase()
   }, [])
 
+  useEffect(() => {
+    async function fetchDOF() {
+      try {
+        const response = await fetch('https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno', {
+          headers: {
+            'Bmx-Token': '11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c',
+            'Accept': 'application/json'
+          }
+        })
+        const data = await response.json()
+        const valorDOF = parseFloat(data.bmx.series[0].datos[0].dato)
+        if (!isNaN(valorDOF)) {
+          setTipoCambio(valorDOF)
+        }
+      } catch (error) {
+        console.error("Error al obtener el DOF de Banxico", error)
+      }
+    }
+    fetchDOF()
+  }, [])
+
   const productosFiltrados = useMemo(() => {
     if (!busqueda) return productosDisponibles
     const q = busqueda.toLowerCase()
@@ -206,11 +227,12 @@ export default function Cotizador() {
                   type="number"
                   className="buca-input pl-7"
                   value={tipoCambio}
-                  step="0.10"
+                  step="0.01"
                   min="1"
                   onChange={e => setTipoCambio(parseFloat(e.target.value) || 17.5)}
                 />
               </div>
+              <p className="text-[10px] text-gray-500 mt-1 pl-1 font-medium">Actualizado vía Banxico (DOF)</p>
             </div>
           </div>
 
