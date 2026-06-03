@@ -7,15 +7,15 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const DEFAULT_PRODUCTO: Omit<Producto, 'id'> = {
+const DEFAULT_PRODUCTO: any = {
   nombre: '',
-  cantRef: 1,
+  cantRef: '',
   unidad: 'L',
   moneda: 'MXN',
-  precio: 0,
+  precio: '',
   tieneRendimiento: false,
   nota: '',
-  rendimiento: 0,
+  rendimiento: '',
   espesorRecomendado: '',
   manosRecomendadas: '',
   pros: '',
@@ -132,6 +132,7 @@ function AdminPage() {
                   <option value="Cubeta">Cubeta</option>
                   <option value="Saco">Saco</option>
                   <option value="Kit">Kit</option>
+                  <option value="Medio Kit">Medio Kit</option>
                   <option value="Pieza">Pieza</option>
                 </select>
               </div>
@@ -141,8 +142,8 @@ function AdminPage() {
                 </select>
               </div>
               
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Precio Unitario</label><input type="number" step="0.01" required value={formData.precio} onChange={e=>setFormData({...formData, precio: parseFloat(e.target.value)})} className="w-full p-2 border rounded text-sm" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Cantidad de Referencia (Cubeta de cuántos L?)</label><input type="number" step="0.1" required value={formData.cantRef} onChange={e=>setFormData({...formData, cantRef: parseFloat(e.target.value)})} className="w-full p-2 border rounded text-sm" /></div>
+              <div><label className="block text-xs font-medium text-gray-700 mb-1">Precio Unitario</label><input type="number" step="0.01" required value={formData.precio} onChange={e=>setFormData({...formData, precio: e.target.value === '' ? '' : parseFloat(e.target.value)})} className="w-full p-2 border rounded text-sm" /></div>
+              <div><label className="block text-xs font-medium text-gray-700 mb-1">Cantidad de Referencia (Cubeta de cuántos L?)</label><input type="number" step="0.1" required value={formData.cantRef} onChange={e=>setFormData({...formData, cantRef: e.target.value === '' ? '' : parseFloat(e.target.value)})} className="w-full p-2 border rounded text-sm" /></div>
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Descripción Breve / Nota</label><input value={formData.nota} onChange={e=>setFormData({...formData, nota: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
               
               <div className="col-span-full border-t pt-4 mt-2">
@@ -211,11 +212,11 @@ function AdminPage() {
                         {p.tieneRendimiento ? `${p.rendimiento} m²` : <span className="text-gray-300">-</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button onClick={() => handleEdit(p)} className="text-blue-500 hover:text-blue-700 font-medium text-xs mr-3">
-                          Editar
+                        <button onClick={() => handleEdit(p)} className="px-3 py-1 bg-blue-100 text-blue-700 font-bold rounded-md text-xs mr-3 hover:bg-blue-200">
+                          EDITAR
                         </button>
-                        <button onClick={() => handleDelete(p.id)} className="text-red-500 hover:text-red-700 font-medium text-xs">
-                          Eliminar
+                        <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-red-100 text-red-700 font-bold rounded-md text-xs hover:bg-red-200">
+                          ELIMINAR
                         </button>
                       </td>
                     </tr>
