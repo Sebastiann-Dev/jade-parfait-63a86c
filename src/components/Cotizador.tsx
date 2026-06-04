@@ -11,6 +11,7 @@ interface LineaProducto {
   precioUnitario: number
   totalMXN: number
   esMinorista: boolean
+  presentacion?: any
 }
 
 function calcularLinea(
@@ -20,6 +21,7 @@ function calcularLinea(
   esMinorista: boolean,
   tipoCambio: number,
   descuentoPorcentaje: number,
+  presentacionSeleccionada?: any
 ): { cantidad: number; precioUnitario: number; totalMXN: number } {
   const descuento = esMinorista ? 1 : (1 - descuentoPorcentaje / 100)
 
@@ -30,9 +32,20 @@ function calcularLinea(
     cantidad = cantidadManual
   }
 
-  const precioBase = producto.moneda === 'USD'
-    ? producto.precio * tipoCambio
-    : producto.precio
+  let precioBase = 0
+  let moneda = producto.moneda
+  let precio = producto.precio
+
+  if (presentacionSeleccionada) {
+    precio = presentacionSeleccionada.precio
+    moneda = presentacionSeleccionada.moneda
+  }
+
+  if (moneda === 'USD') {
+    precioBase = precio * tipoCambio
+  } else {
+    precioBase = precio
+  }
 
   const precioUnitario = precioBase * descuento
   const totalMXN = cantidad * precioUnitario
@@ -56,6 +69,7 @@ export default function Cotizador() {
   const [esMinorista, setEsMinorista] = useState(true)
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(5)
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto>(PRODUCTOS[0])
+  const [presentacionSeleccionada, setPresentacionSeleccionada] = useState<any>(null)
   const [metros, setMetros] = useState<string>('')
   const [cantidadManual, setCantidadManual] = useState<string>('1')
   const [busqueda, setBusqueda] = useState('')
@@ -74,54 +88,53 @@ export default function Cotizador() {
       const dbProducts = await fetchProductosSupabase()
       if (dbProducts && dbProducts.length > 0) {
         setProductosDisponibles(dbProducts)
-        setProductoSeleccionado(dbProducts[0])
+        const first = dbProducts[0]
+        setProductoSeleccionado(first)
+        if (first.kitInfo && first.kitInfo.startsWith('[')) {
+          try {
+            const list = JSON.parse(first.kitInfo)
+            if (list && list.length > 0) {
+              setPresentacionSeleccionada(list[0])
+            }
+          } catch (e) {}
+        }
       }
     }
     loadDatabase()
   }, [])
 
   useEffect(() => {
-    async function fetchDOF() {
+    async function fetchExchangeRate() {
       setDofCargando(true)
-      const TOKEN = '11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c'
-      const BANXICO = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=${TOKEN}`
-
-      // Proxies CORS en orden de preferencia
-      const proxies = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(BANXICO)}`,
-        `https://corsproxy.io/?${encodeURIComponent(BANXICO)}`,
-        `https://thingproxy.freeboard.io/fetch/${BANXICO}`,
-      ]
-
-      for (const proxyUrl of proxies) {
+      const apis = [
+        'https://open.er-api.com/v6/latest/USD',
+        'https://api.exchangerate-api.com/v4/latest/USD',
+        'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json'
+      ];
+      for (const url of apis) {
         try {
-          const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) })
-          if (!response.ok) continue
-          const text = await response.text()
-          let data: any
-          try {
-            const outer = JSON.parse(text)
-            // allorigins.win envuelve en { contents: "..." }
-            data = outer.contents ? JSON.parse(outer.contents) : outer
-          } catch { continue }
-          const dato = data?.bmx?.series?.[0]?.datos?.[0]
-          if (!dato) continue
-          const valor = parseFloat(dato.dato)
-          if (!isNaN(valor) && valor > 10) {
-            setTipoCambio(valor)
-            setDofFecha(dato.fecha || '')
+          const res = await fetch(url)
+          if (!res.ok) continue
+          const data = await res.json()
+          let rate: number | undefined
+          if (url.includes('currency-api')) {
+            rate = data?.usd?.mxn
+          } else {
+            rate = data?.rates?.MXN
+          }
+          if (rate && !isNaN(rate) && rate > 10 && rate < 30) {
+            setTipoCambio(rate)
+            setDofFecha(new Date().toLocaleDateString('es-MX'))
             setDofCargando(false)
             return
           }
-        } catch {
-          // proxy falló, intenta el siguiente
+        } catch (e) {
+          console.warn(`Failed to fetch exchange rate from ${url}:`, e)
         }
       }
-      // Ningún proxy funcionó — mantiene valor predeterminado
-      console.warn('No se pudo obtener el tipo de cambio DOF. Usando valor predeterminado.')
       setDofCargando(false)
     }
-    fetchDOF()
+    fetchExchangeRate()
   }, [])
 
   const productosFiltrados = useMemo(() => {
@@ -134,8 +147,8 @@ export default function Cotizador() {
 
   const preview = useMemo(() => {
     if (metrosNum <= 0 && !productoSeleccionado.tieneRendimiento && cantidadManualNum <= 0) return null
-    return calcularLinea(productoSeleccionado, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje)
-  }, [productoSeleccionado, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje])
+    return calcularLinea(productoSeleccionado, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada)
+  }, [productoSeleccionado, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada])
 
   const totalProyecto = lineas.reduce((sum, l) => sum + l.totalMXN, 0)
 
@@ -151,6 +164,7 @@ export default function Cotizador() {
       precioUnitario: preview.precioUnitario,
       totalMXN: preview.totalMXN,
       esMinorista,
+      presentacion: presentacionSeleccionada
     }
     setLineas(prev => [...prev, linea])
     setMetros('')
@@ -168,6 +182,7 @@ export default function Cotizador() {
     } else {
       setCantidadManual(String(linea.cantidad))
     }
+    setPresentacionSeleccionada(linea.presentacion || null)
     eliminarLinea(linea.id)
   }
 
@@ -176,11 +191,36 @@ export default function Cotizador() {
     setBusqueda('')
     setMostrarLista(false)
     setCantidadManual(String(p.cantRef))
+
+    if (p.kitInfo && p.kitInfo.startsWith('[')) {
+      try {
+        const list = JSON.parse(p.kitInfo)
+        if (list && list.length > 0) {
+          setPresentacionSeleccionada(list[0])
+          return
+        }
+      } catch (e) {}
+    }
+    setPresentacionSeleccionada(null)
   }
 
   const fechaHoy = new Date().toLocaleDateString('es-MX', {
     day: '2-digit', month: 'long', year: 'numeric'
   })
+
+  const tienePresentacionesKit = useMemo(() => {
+    if (!productoSeleccionado || !productoSeleccionado.kitInfo) return false
+    return productoSeleccionado.kitInfo.startsWith('[')
+  }, [productoSeleccionado])
+
+  const listaPresentacionesKit = useMemo(() => {
+    if (!tienePresentacionesKit) return []
+    try {
+      return JSON.parse(productoSeleccionado.kitInfo || '[]')
+    } catch {
+      return []
+    }
+  }, [tienePresentacionesKit, productoSeleccionado])
 
   return (
     <div className="min-h-screen bg-gray-50 print:bg-white">
@@ -250,7 +290,7 @@ export default function Cotizador() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                 <input
                   type="number"
-                  className="buca-input pl-7"
+                  className="buca-input pl-9"
                   value={tipoCambio}
                   step="0.01"
                   min="1"
@@ -259,10 +299,10 @@ export default function Cotizador() {
               </div>
               <p className="text-[10px] mt-1 pl-1 font-medium" style={{color: dofCargando ? '#f59e0b' : (dofFecha ? '#16a34a' : '#dc2626')}}>
                 {dofCargando
-                  ? '⏳ Consultando Banxico...'
+                  ? '⏳ Consultando tipo de cambio...'
                   : dofFecha
-                    ? `✅ DOF oficial Banxico · ${dofFecha}`
-                    : '⚠️ No se pudo obtener DOF — valor manual'}
+                    ? `✅ Tipo de cambio oficial · ${dofFecha}`
+                    : '⚠️ No se pudo obtener tipo de cambio — valor manual'}
               </p>
             </div>
           </div>
@@ -413,6 +453,32 @@ export default function Cotizador() {
                 </>
               )}
             </div>
+
+            {/* Selector de presentación de kit si tiene */}
+            {tienePresentacionesKit && (
+              <div className="sm:col-span-2">
+                <label className="buca-label" style={{color: '#7c3aed', fontWeight: 700}}>Presentación del Kit</label>
+                <select
+                  className="buca-input"
+                  style={{borderColor: '#c4b5fd', background: '#f5f3ff'}}
+                  value={presentacionSeleccionada ? JSON.stringify(presentacionSeleccionada) : ''}
+                  onChange={(e) => {
+                    const val = e.target.value
+                    if (val) {
+                      setPresentacionSeleccionada(JSON.parse(val))
+                    } else {
+                      setPresentacionSeleccionada(null)
+                    }
+                  }}
+                >
+                  {listaPresentacionesKit.map((pres: any, idx: number) => (
+                    <option key={idx} value={JSON.stringify(pres)}>
+                      {pres.nombre} — {pres.moneda} ${pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Preview resultado */}
@@ -493,7 +559,14 @@ export default function Cotizador() {
                   {lineas.map(l => (
                     <tr key={l.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-2">
-                        <div className="font-medium text-gray-800">{l.producto.nombre}</div>
+                        <div className="font-medium text-gray-800">
+                          {l.producto.nombre}
+                          {l.presentacion && (
+                            <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded uppercase tracking-wide">
+                              {l.presentacion.nombre}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-gray-400">{l.producto.nota}</div>
                         {l.producto.tieneRendimiento && l.metros > 0 && (
                           <div className="text-xs text-blue-400 mt-0.5">{formatNum(l.metros)} m²</div>

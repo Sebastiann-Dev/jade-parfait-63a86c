@@ -35,6 +35,13 @@ function AdminPage() {
   const [mensaje, setMensaje] = useState<{texto: string, tipo: 'ok'|'error'} | null>(null)
   const [tipoCambio, setTipoCambio] = useState<number>(17.5)
 
+  // Kit presentations state variables
+  const [esKitProduct, setEsKitProduct] = useState(false)
+  const [kitPresentaciones, setKitPresentaciones] = useState<any[]>([])
+  const [newKitNombre, setNewKitNombre] = useState('')
+  const [newKitPrecio, setNewKitPrecio] = useState('')
+  const [newKitMoneda, setNewKitMoneda] = useState<'MXN'|'USD'>('MXN')
+
   async function loadProductos() {
     setLoading(true)
     const data = await fetchProductosSupabase()
@@ -47,37 +54,33 @@ function AdminPage() {
   }, [])
 
   useEffect(() => {
-    async function fetchDOF() {
-      const TOKEN = '11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c'
-      const BANXICO = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=${TOKEN}`
-      const proxies = [
-        `https://api.allorigins.win/get?url=${encodeURIComponent(BANXICO)}`,
-        `https://corsproxy.io/?${encodeURIComponent(BANXICO)}`,
-        `https://thingproxy.freeboard.io/fetch/${BANXICO}`,
-      ]
-      for (const proxyUrl of proxies) {
+    async function fetchExchangeRate() {
+      const apis = [
+        'https://open.er-api.com/v6/latest/USD',
+        'https://api.exchangerate-api.com/v4/latest/USD',
+        'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json'
+      ];
+      for (const url of apis) {
         try {
-          const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) })
-          if (!response.ok) continue
-          const text = await response.text()
-          let data: any
-          try {
-            const outer = JSON.parse(text)
-            data = outer.contents ? JSON.parse(outer.contents) : outer
-          } catch { continue }
-          const dato = data?.bmx?.series?.[0]?.datos?.[0]
-          if (!dato) continue
-          const valor = parseFloat(dato.dato)
-          if (!isNaN(valor) && valor > 10) {
-            setTipoCambio(valor)
+          const res = await fetch(url)
+          if (!res.ok) continue
+          const data = await res.json()
+          let rate: number | undefined
+          if (url.includes('currency-api')) {
+            rate = data?.usd?.mxn
+          } else {
+            rate = data?.rates?.MXN
+          }
+          if (rate && !isNaN(rate) && rate > 10 && rate < 30) {
+            setTipoCambio(rate)
             return
           }
-        } catch {
-          // ignore
+        } catch (e) {
+          console.warn(`Failed to fetch exchange rate from ${url}:`, e)
         }
       }
     }
-    fetchDOF()
+    fetchExchangeRate()
   }, [])
 
   function showMsg(texto: string, tipo: 'ok'|'error') {
@@ -94,6 +97,7 @@ function AdminPage() {
         cantRef: formData.cantRef === '' ? null : Number(formData.cantRef),
         precio: formData.precio === '' ? null : Number(formData.precio),
         rendimiento: formData.rendimiento === '' ? null : Number(formData.rendimiento),
+        kitInfo: esKitProduct ? JSON.stringify(kitPresentaciones) : null
       }
       if (editingId) {
         await updateProductoSupabase(editingId, payload)
@@ -105,6 +109,11 @@ function AdminPage() {
       setShowForm(false)
       setEditingId(null)
       setFormData(DEFAULT_PRODUCTO)
+      setEsKitProduct(false)
+      setKitPresentaciones([])
+      setNewKitNombre('')
+      setNewKitPrecio('')
+      setNewKitMoneda('MXN')
       loadProductos()
     } catch (error) {
       showMsg('❌ Error al guardar. Verifica tu conexión con Supabase.', 'error')
@@ -117,6 +126,11 @@ function AdminPage() {
     setShowForm(false)
     setEditingId(null)
     setFormData(DEFAULT_PRODUCTO)
+    setEsKitProduct(false)
+    setKitPresentaciones([])
+    setNewKitNombre('')
+    setNewKitPrecio('')
+    setNewKitMoneda('MXN')
   }
 
   function handleEdit(p: Producto & {id: string}) {
@@ -137,6 +151,26 @@ function AdminPage() {
       kitInfo: p.kitInfo || '',
       proporcionesMezcla: p.proporcionesMezcla || ''
     })
+
+    let presentations: any[] = []
+    let isKit = false
+    if (p.kitInfo) {
+      try {
+        if (p.kitInfo.startsWith('[')) {
+          presentations = JSON.parse(p.kitInfo)
+          isKit = presentations.length > 0
+        } else {
+          presentations = [{ nombre: p.kitInfo, precio: p.precio || 0, moneda: p.moneda || 'MXN' }]
+          isKit = true
+        }
+      } catch (e) {}
+    }
+    setEsKitProduct(isKit)
+    setKitPresentaciones(presentations)
+    setNewKitNombre('')
+    setNewKitPrecio('')
+    setNewKitMoneda('MXN')
+
     setEditingId(p.id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -170,6 +204,11 @@ function AdminPage() {
                 } else {
                   setEditingId(null)
                   setFormData(DEFAULT_PRODUCTO)
+                  setEsKitProduct(false)
+                  setKitPresentaciones([])
+                  setNewKitNombre('')
+                  setNewKitPrecio('')
+                  setNewKitMoneda('MXN')
                   setShowForm(true)
                 }
               }}
@@ -293,27 +332,136 @@ function AdminPage() {
               </div>
 
               {/* Kit y Mezcla */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
-                <div>
-                  <label style={{...labelStyle, color:'#7c3aed'}}>📦 Presentación como Kit</label>
-                  <input
-                    placeholder="Vacío por ahora — ej: Kit 3L, Kit 19L, Kit completo"
-                    value={formData.kitInfo || ''}
-                    onChange={e => setFormData({...formData, kitInfo: e.target.value})}
-                    style={{...inputStyle, borderColor:'#c4b5fd', background:'#f5f3ff'}}
-                  />
-                  <span style={{fontSize:'11px', color:'#7c3aed', marginTop:'3px', display:'block'}}>Se llenará después cuando definas las versiones del kit</span>
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+                <h3 style={{fontSize:'14px', fontWeight:700, color:'#7c3aed', marginBottom: '12px'}}>📦 Configuración de Kit y Mezcla</h3>
+                
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', marginBottom: '12px', alignItems:'start'}}>
+                  <div>
+                    <label style={{...labelStyle, color:'#0369a1'}}>🧪 Proporciones de Mezcla</label>
+                    <input
+                      placeholder="Ej: 2:1 (Parte A : Parte B) · 3:1:0.5 si es tricomponente"
+                      value={formData.proporcionesMezcla || ''}
+                      onChange={e => setFormData({...formData, proporcionesMezcla: e.target.value})}
+                      style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                    />
+                    <span style={{fontSize:'11px', color:'#0369a1', marginTop:'3px', display:'block'}}>Para bicomponentes y tricomponentes</span>
+                  </div>
+                  
+                  <div>
+                    <label style={{...labelStyle, color:'#7c3aed'}}>¿Este producto se vende en diferentes presentaciones (Kit)?</label>
+                    <div style={{display:'flex', gap:'12px', alignItems:'center', height:'38px'}}>
+                      <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px'}}>
+                        <input
+                          type="checkbox"
+                          checked={esKitProduct}
+                          onChange={(e) => setEsKitProduct(e.target.checked)}
+                        />
+                        Sí, configurar presentaciones de kit
+                      </label>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <label style={{...labelStyle, color:'#0369a1'}}>🧪 Proporciones de Mezcla</label>
-                  <input
-                    placeholder="Ej: 2:1 (Parte A : Parte B) · 3:1:0.5 si es tricomponente"
-                    value={formData.proporcionesMezcla || ''}
-                    onChange={e => setFormData({...formData, proporcionesMezcla: e.target.value})}
-                    style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
-                  />
-                  <span style={{fontSize:'11px', color:'#0369a1', marginTop:'3px', display:'block'}}>Para bicomponentes y tricomponentes</span>
-                </div>
+
+                {esKitProduct && (
+                  <div style={{background:'#f5f3ff', border:'1px solid #c4b5fd', borderRadius:'8px', padding:'16px', marginBottom:'16px'}}>
+                    <h4 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#6d28d9'}}>Presentaciones del Kit</h4>
+                    
+                    {/* List of presentations table */}
+                    {kitPresentaciones.length > 0 ? (
+                      <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px', background:'white', borderRadius:'6px', overflow:'hidden', marginBottom:'12px', border:'1px solid #e2e8f0'}}>
+                        <thead>
+                          <tr style={{background:'#f3f4f6', borderBottom:'1px solid #e2e8f0'}}>
+                            <th style={{padding:'6px 12px', textAlign:'left'}}>Presentación / Nombre</th>
+                            <th style={{padding:'6px 12px', textAlign:'left'}}>Precio</th>
+                            <th style={{padding:'6px 12px', textAlign:'left'}}>Moneda</th>
+                            <th style={{padding:'6px 12px', textAlign:'right'}}>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {kitPresentaciones.map((pres, idx) => (
+                            <tr key={idx} style={{borderBottom:'1px solid #f1f5f9'}}>
+                              <td style={{padding:'6px 12px', fontWeight:600}}>{pres.nombre}</td>
+                              <td style={{padding:'6px 12px'}}>${pres.precio}</td>
+                              <td style={{padding:'6px 12px'}}>{pres.moneda}</td>
+                              <td style={{padding:'6px 12px', textAlign:'right'}}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = kitPresentaciones.filter((_, i) => i !== idx);
+                                    setKitPresentaciones(updated);
+                                    setFormData({...formData, kitInfo: JSON.stringify(updated)});
+                                  }}
+                                  style={{padding:'2px 8px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'4px', fontSize:'11px', cursor:'pointer'}}
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    ) : (
+                      <div style={{padding:'12px', textAlign:'center', color:'#7c3aed', background:'white', borderRadius:'6px', border:'1px dashed #c4b5fd', marginBottom:'12px', fontSize:'12px'}}>
+                        No hay presentaciones agregadas aún. Añade una abajo.
+                      </div>
+                    )}
+
+                    {/* Add new presentation form */}
+                    <div style={{display:'flex', gap:'8px', alignItems:'flex-end', flexWrap:'wrap'}}>
+                      <div style={{flex:'2 1 180px'}}>
+                        <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Nombre / Tamaño</label>
+                        <input
+                          type="text"
+                          value={newKitNombre}
+                          onChange={e => setNewKitNombre(e.target.value)}
+                          placeholder="Ej. Kit 3L"
+                          style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                        />
+                      </div>
+                      <div style={{flex:'1 1 100px'}}>
+                        <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Precio</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={newKitPrecio}
+                          onChange={e => setNewKitPrecio(e.target.value)}
+                          placeholder="0.00"
+                          style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                        />
+                      </div>
+                      <div style={{width:'80px'}}>
+                        <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Moneda</label>
+                        <select
+                          value={newKitMoneda}
+                          onChange={e => setNewKitMoneda(e.target.value as 'MXN' | 'USD')}
+                          style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                        >
+                          <option value="MXN">MXN</option>
+                          <option value="USD">USD</option>
+                        </select>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!newKitNombre || !newKitPrecio) return;
+                          const newItem = {
+                            nombre: newKitNombre,
+                            precio: parseFloat(newKitPrecio) || 0,
+                            moneda: newKitMoneda
+                          };
+                          const updated = [...kitPresentaciones, newItem];
+                          setKitPresentaciones(updated);
+                          setFormData({...formData, kitInfo: JSON.stringify(updated)});
+                          setNewKitNombre('');
+                          setNewKitPrecio('');
+                        }}
+                        style={{height:'32px', padding:'0 16px', background:'#7c3aed', color:'white', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
+                      >
+                        + Agregar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Pros / Cons */}
@@ -367,7 +515,19 @@ function AdminPage() {
                 <tbody>
                   {productos.map(p => (
                     <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
-                      <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>{p.nombre}</td>
+                      <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>
+                        {p.nombre}
+                        {p.kitInfo && p.kitInfo.startsWith('[') && (
+                          <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
+                            📦 Presentaciones: {JSON.parse(p.kitInfo).map((k: any) => `${k.nombre} ($${k.precio} ${k.moneda})`).join(' · ')}
+                          </div>
+                        )}
+                        {p.proporcionesMezcla && (
+                          <div style={{fontSize:'11px', fontWeight:400, color:'#0369a1', marginTop:'2px'}}>
+                            🧪 Mezcla: {p.proporcionesMezcla}
+                          </div>
+                        )}
+                      </td>
                       <td style={tdStyle}>
                         {p.moneda === 'USD' ? (
                           <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
