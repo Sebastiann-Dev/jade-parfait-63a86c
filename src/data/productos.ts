@@ -13,6 +13,10 @@ export interface Producto {
   pros?: string
   cons?: string
   cuidadoCon?: string
+  // Kit: presentación/versiones disponibles del producto como kit
+  kitInfo?: string
+  // Mezcla: proporciones para productos bicomponentes o tricomponentes
+  proporcionesMezcla?: string
 }
 
 // rendimiento: cuántos m² cubre una unidad de la cant_ref

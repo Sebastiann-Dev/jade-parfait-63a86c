@@ -20,7 +20,9 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   manosRecomendadas: '',
   pros: '',
   cons: '',
-  cuidadoCon: ''
+  cuidadoCon: '',
+  kitInfo: '',
+  proporcionesMezcla: ''
 }
 
 function AdminPage() {
@@ -96,7 +98,9 @@ function AdminPage() {
       manosRecomendadas: p.manosRecomendadas || '',
       pros: p.pros || '',
       cons: p.cons || '',
-      cuidadoCon: p.cuidadoCon || ''
+      cuidadoCon: p.cuidadoCon || '',
+      kitInfo: p.kitInfo || '',
+      proporcionesMezcla: p.proporcionesMezcla || ''
     })
     setEditingId(p.id)
     setShowForm(true)
@@ -242,6 +246,30 @@ function AdminPage() {
                 <div>
                   <label style={{...labelStyle, color:'#1d4ed8'}}>Manos / Pasadas Recomendadas</label>
                   <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({...formData, manosRecomendadas: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                </div>
+              </div>
+
+              {/* Kit y Mezcla */}
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                <div>
+                  <label style={{...labelStyle, color:'#7c3aed'}}>📦 Presentación como Kit</label>
+                  <input
+                    placeholder="Vacío por ahora — ej: Kit 3L, Kit 19L, Kit completo"
+                    value={formData.kitInfo || ''}
+                    onChange={e => setFormData({...formData, kitInfo: e.target.value})}
+                    style={{...inputStyle, borderColor:'#c4b5fd', background:'#f5f3ff'}}
+                  />
+                  <span style={{fontSize:'11px', color:'#7c3aed', marginTop:'3px', display:'block'}}>Se llenará después cuando definas las versiones del kit</span>
+                </div>
+                <div>
+                  <label style={{...labelStyle, color:'#0369a1'}}>🧪 Proporciones de Mezcla</label>
+                  <input
+                    placeholder="Ej: 2:1 (Parte A : Parte B) · 3:1:0.5 si es tricomponente"
+                    value={formData.proporcionesMezcla || ''}
+                    onChange={e => setFormData({...formData, proporcionesMezcla: e.target.value})}
+                    style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                  />
+                  <span style={{fontSize:'11px', color:'#0369a1', marginTop:'3px', display:'block'}}>Para bicomponentes y tricomponentes</span>
                 </div>
               </div>
 
