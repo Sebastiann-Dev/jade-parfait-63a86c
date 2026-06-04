@@ -51,6 +51,8 @@ function formatNum(value: number, decimals = 2) {
 export default function Cotizador() {
   const [productosDisponibles, setProductosDisponibles] = useState<Producto[]>(PRODUCTOS)
   const [tipoCambio, setTipoCambio] = useState(17.5)
+  const [dofFecha, setDofFecha] = useState('')
+  const [dofCargando, setDofCargando] = useState(true)
   const [esMinorista, setEsMinorista] = useState(true)
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(5)
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto>(PRODUCTOS[0])
@@ -80,20 +82,44 @@ export default function Cotizador() {
 
   useEffect(() => {
     async function fetchDOF() {
-      try {
-        // Usamos corsproxy porque Banxico bloquea peticiones directas desde el navegador (CORS)
-        const banxicoUrl = 'https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c'
-        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(banxicoUrl)
-        
-        const response = await fetch(proxyUrl)
-        const data = await response.json()
-        const valorDOF = parseFloat(data.bmx.series[0].datos[0].dato)
-        if (!isNaN(valorDOF)) {
-          setTipoCambio(valorDOF)
+      setDofCargando(true)
+      const TOKEN = '11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c'
+      const BANXICO = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=${TOKEN}`
+
+      // Proxies CORS en orden de preferencia
+      const proxies = [
+        `https://api.allorigins.win/get?url=${encodeURIComponent(BANXICO)}`,
+        `https://corsproxy.io/?${encodeURIComponent(BANXICO)}`,
+        `https://thingproxy.freeboard.io/fetch/${BANXICO}`,
+      ]
+
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) })
+          if (!response.ok) continue
+          const text = await response.text()
+          let data: any
+          try {
+            const outer = JSON.parse(text)
+            // allorigins.win envuelve en { contents: "..." }
+            data = outer.contents ? JSON.parse(outer.contents) : outer
+          } catch { continue }
+          const dato = data?.bmx?.series?.[0]?.datos?.[0]
+          if (!dato) continue
+          const valor = parseFloat(dato.dato)
+          if (!isNaN(valor) && valor > 10) {
+            setTipoCambio(valor)
+            setDofFecha(dato.fecha || '')
+            setDofCargando(false)
+            return
+          }
+        } catch {
+          // proxy falló, intenta el siguiente
         }
-      } catch (error) {
-        console.error("Error al obtener el DOF de Banxico", error)
       }
+      // Ningún proxy funcionó — mantiene valor predeterminado
+      console.warn('No se pudo obtener el tipo de cambio DOF. Usando valor predeterminado.')
+      setDofCargando(false)
     }
     fetchDOF()
   }, [])
@@ -231,7 +257,13 @@ export default function Cotizador() {
                   onChange={e => setTipoCambio(parseFloat(e.target.value) || 17.5)}
                 />
               </div>
-              <p className="text-[10px] text-gray-500 mt-1 pl-1 font-medium">Actualizado vía Banxico (DOF)</p>
+              <p className="text-[10px] mt-1 pl-1 font-medium" style={{color: dofCargando ? '#f59e0b' : (dofFecha ? '#16a34a' : '#dc2626')}}>
+                {dofCargando
+                  ? '⏳ Consultando Banxico...'
+                  : dofFecha
+                    ? `✅ DOF oficial Banxico · ${dofFecha}`
+                    : '⚠️ No se pudo obtener DOF — valor manual'}
+              </p>
             </div>
           </div>
 
