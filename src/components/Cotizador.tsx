@@ -354,7 +354,17 @@ export default function Cotizador() {
                         onClick={() => seleccionarProducto(p)}
                       >
                         <div className="text-sm font-medium">{p.nombre}</div>
-                        <div className="text-xs text-gray-400">{p.nota} · {p.moneda === 'USD' ? `USD $${p.precio}` : `MXN $${p.precio}`}/{p.unidad}</div>
+                        <div className="text-xs text-gray-400 flex gap-2 mt-0.5">
+                          <span>{p.nota}</span>
+                          <span className="font-semibold text-green-700">
+                            MXN ${p.moneda === 'USD' ? (p.precio * tipoCambio).toFixed(2) : p.precio}
+                          </span>
+                          <span className="text-gray-300">·</span>
+                          <span className="font-semibold text-blue-600">
+                            USD ${p.moneda === 'USD' ? p.precio : (p.precio / tipoCambio).toFixed(2)}
+                          </span>
+                          <span className="text-gray-300">/ {p.unidad}</span>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -417,12 +427,15 @@ export default function Cotizador() {
                 <div>
                   <p className="text-xs text-blue-500 font-medium uppercase tracking-wide mb-1">Precio unitario</p>
                   <p className="text-2xl font-bold text-blue-900">{formatMXN(preview.precioUnitario)}</p>
-                  <p className="text-xs text-blue-500">MXN/{productoSeleccionado.unidad}{productoSeleccionado.moneda === 'USD' ? ' (conv.)' : ''}</p>
+                  <p className="text-xs text-blue-400 font-medium">
+                    USD ${(preview.precioUnitario / tipoCambio).toFixed(2)} · MXN/{productoSeleccionado.unidad}
+                    {productoSeleccionado.moneda === 'USD' ? ' (conv.)' : ''}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs text-blue-500 font-medium uppercase tracking-wide mb-1">Total</p>
                   <p className="text-2xl font-bold text-blue-900">{formatMXN(preview.totalMXN)}</p>
-                  <p className="text-xs text-blue-500">MXN</p>
+                  <p className="text-xs text-blue-400 font-medium">USD ${(preview.totalMXN / tipoCambio).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -496,11 +509,13 @@ export default function Cotizador() {
                       <td className="py-3 px-2 text-right text-gray-700 font-medium tabular-nums">
                         {formatNum(l.cantidad)} {l.producto.unidad}
                       </td>
-                      <td className="py-3 px-2 text-right text-gray-600 tabular-nums">
-                        {formatMXN(l.precioUnitario)}
+                      <td className="py-3 px-2 text-right tabular-nums">
+                        <div className="font-semibold text-gray-800">{formatMXN(l.precioUnitario)}</div>
+                        <div className="text-xs text-blue-400 font-medium">USD ${(l.precioUnitario / tipoCambio).toFixed(2)}</div>
                       </td>
-                      <td className="py-3 px-2 text-right font-semibold text-gray-800 tabular-nums">
-                        {formatMXN(l.totalMXN)}
+                      <td className="py-3 px-2 text-right tabular-nums">
+                        <div className="font-semibold text-gray-800">{formatMXN(l.totalMXN)}</div>
+                        <div className="text-xs text-blue-400 font-medium">USD ${(l.totalMXN / tipoCambio).toFixed(2)}</div>
                       </td>
                       <td className="py-3 px-2 print:hidden flex gap-2 justify-end">
                         <button
