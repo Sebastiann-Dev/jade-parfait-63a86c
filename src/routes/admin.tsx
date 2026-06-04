@@ -364,7 +364,9 @@ function AdminPage() {
 }
 
 const labelStyle: React.CSSProperties = {
-  display: 'block',
+  display: 'flex',
+  alignItems: 'flex-end',
+  minHeight: '34px',
   fontSize: '12px',
   fontWeight: 600,
   color: '#374151',
@@ -373,6 +375,7 @@ const labelStyle: React.CSSProperties = {
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
+  height: '38px',
   padding: '8px 10px',
   border: '1px solid #d1d5db',
   borderRadius: '6px',
@@ -380,6 +383,7 @@ const inputStyle: React.CSSProperties = {
   boxSizing: 'border-box',
   background: 'white'
 }
+
 
 const thStyle: React.CSSProperties = {
   padding: '10px 16px',
