@@ -304,10 +304,9 @@ function AdminPage() {
           </div>
           <div style={{display:'flex', gap:'12px'}}>
             <button
+              disabled={showForm}
               onClick={() => {
-                if (showForm) {
-                  handleCancel()
-                } else {
+                if (!showForm) {
                   setEditingId(null)
                   setFormData(DEFAULT_PRODUCTO)
                   setEsKitProduct(false)
@@ -318,9 +317,19 @@ function AdminPage() {
                   setShowForm(true)
                 }
               }}
-              style={{padding:'8px 16px', background: showForm ? '#ef4444' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:600, cursor:'pointer'}}
+              style={{
+                padding: '8px 16px',
+                background: showForm ? '#cbd5e1' : '#2563eb',
+                color: showForm ? '#64748b' : 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: showForm ? 'not-allowed' : 'pointer',
+                opacity: showForm ? 0.7 : 1
+              }}
             >
-              {showForm ? '✕ Cancelar' : '+ Nuevo Producto'}
+              + Nuevo Producto
             </button>
             <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
               ← Ir al Cotizador
@@ -337,7 +346,14 @@ function AdminPage() {
 
         {/* Formulario */}
         {showForm && (
-          <div style={{background:'white', padding:'24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', border:'1px solid #bfdbfe'}}>
+          <div style={{
+            background: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.15), 0 10px 10px -5px rgba(37, 99, 235, 0.1)',
+            border: '2px solid #3b82f6',
+            transition: 'all 0.3s ease'
+          }}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px'}}>
               <h2 style={{margin:0, fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
                 {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
