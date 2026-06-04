@@ -22,7 +22,8 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   cons: '',
   cuidadoCon: '',
   kitInfo: '',
-  proporcionesMezcla: ''
+  proporcionesMezcla: '',
+  densidadRecomendada: ''
 }
 
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
@@ -203,7 +204,8 @@ function AdminPage() {
             ? JSON.stringify({ numPartes: numPartesKit, presentaciones: validPresentaciones })
             : undefined
         })() : undefined,
-        proporcionesMezcla: formData.proporcionesMezcla || undefined
+        proporcionesMezcla: formData.proporcionesMezcla || undefined,
+        densidadRecomendada: formData.densidadRecomendada || undefined
       }
       if (editingId) {
         await updateProductoSupabase(editingId, payload)
@@ -261,7 +263,8 @@ function AdminPage() {
       cons: p.cons || '',
       cuidadoCon: p.cuidadoCon || '',
       kitInfo: p.kitInfo || '',
-      proporcionesMezcla: p.proporcionesMezcla || ''
+      proporcionesMezcla: p.proporcionesMezcla || '',
+      densidadRecomendada: p.densidadRecomendada || ''
     })
 
     const parsed = parseKitInfo(p.kitInfo)
@@ -432,7 +435,7 @@ function AdminPage() {
               )}
 
               {/* Especificaciones técnicas */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
                 <div>
                   <label style={{...labelStyle, color:'#1d4ed8'}}>Espesor Recomendado</label>
                   <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({...formData, espesorRecomendado: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
@@ -440,6 +443,10 @@ function AdminPage() {
                 <div>
                   <label style={{...labelStyle, color:'#1d4ed8'}}>Manos / Pasadas Recomendadas</label>
                   <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({...formData, manosRecomendadas: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                </div>
+                <div>
+                  <label style={{...labelStyle, color:'#1d4ed8'}}>Densidad Recomendada</label>
+                  <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({...formData, densidadRecomendada: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
                 </div>
               </div>
 
@@ -644,6 +651,7 @@ function AdminPage() {
                     <th style={thStyle}>Unidad</th>
                     <th style={thStyle}>Kit</th>
                     <th style={thStyle}>Rendimiento</th>
+                    <th style={thStyle}>Densidad</th>
                     <th style={thStyle}>Nota</th>
                     <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
                   </tr>
@@ -709,6 +717,9 @@ function AdminPage() {
                       </td>
                       <td style={tdStyle}>
                         {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{color:'#cbd5e1'}}>—</span>}
+                      </td>
+                      <td style={tdStyle}>
+                        {p.densidadRecomendada || <span style={{color:'#cbd5e1'}}>—</span>}
                       </td>
                       <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>{p.nota}</td>
                       <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>

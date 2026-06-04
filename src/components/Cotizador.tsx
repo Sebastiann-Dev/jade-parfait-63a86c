@@ -448,12 +448,20 @@ export default function Cotizador() {
                   {productoSeleccionado.rendimiento && (
                     <p className="text-xs text-gray-400 mt-1">
                       Rendimiento aprox: {productoSeleccionado.rendimiento} m²/{productoSeleccionado.unidad}
+                      {productoSeleccionado.densidadRecomendada ? ` a una densidad de ${productoSeleccionado.densidadRecomendada}` : ''}
+                    </p>
+                  )}
+                  {productoSeleccionado.unidad.toLowerCase().includes('saco') && (
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      (El sistema calculará cuántos sacos de {productoSeleccionado.cantRef} kg se necesitan)
                     </p>
                   )}
                 </>
               ) : (
                 <>
-                  <label className="buca-label">Cantidad ({productoSeleccionado.unidad})</label>
+                  <label className="buca-label">
+                    {productoSeleccionado.unidad.toLowerCase().includes('saco') ? '¿Cuántos sacos?' : `Cantidad (${productoSeleccionado.unidad})`}
+                  </label>
                   <div className="relative">
                     <input
                       type="number"
@@ -466,7 +474,11 @@ export default function Cotizador() {
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{productoSeleccionado.unidad}</span>
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Sin rendimiento por m² — ingresa la cantidad directamente</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {productoSeleccionado.unidad.toLowerCase().includes('saco')
+                      ? `Se vende por sacos de ${productoSeleccionado.cantRef} kg`
+                      : 'Sin rendimiento por m² — ingresa la cantidad directamente'}
+                  </p>
                 </>
               )}
             </div>
@@ -570,6 +582,7 @@ export default function Cotizador() {
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="text-left py-2 px-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">Producto</th>
+                    <th className="text-right py-2 px-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">Densidad</th>
                     <th className="text-right py-2 px-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">Cantidad</th>
                     <th className="text-right py-2 px-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">P. Unitario</th>
                     <th className="text-right py-2 px-2 text-xs font-semibold text-gray-400 uppercase tracking-wide">Total MXN</th>
@@ -595,7 +608,15 @@ export default function Cotizador() {
                         </div>
                         <div className="text-xs text-gray-400">{l.producto.nota}</div>
                         {l.producto.tieneRendimiento && l.metros > 0 && (
-                          <div className="text-xs text-blue-400 mt-0.5">{formatNum(l.metros)} m²</div>
+                          <div className="text-xs text-blue-400 mt-0.5">
+                            {formatNum(l.metros)} m² (Rendimiento: {l.producto.rendimiento} m²/{l.producto.unidad}
+                            {l.producto.densidadRecomendada ? ` · Densidad recomendada: ${l.producto.densidadRecomendada}` : ''})
+                          </div>
+                        )}
+                        {!l.producto.tieneRendimiento && l.producto.densidadRecomendada && (
+                          <div className="text-xs text-blue-400 mt-0.5">
+                            Densidad recomendada: {l.producto.densidadRecomendada}
+                          </div>
                         )}
                         {(l.producto.pros || l.producto.cons || l.producto.cuidadoCon) && (
                           <div className="mt-2 text-[11px] leading-tight flex flex-col gap-0.5">
@@ -604,6 +625,9 @@ export default function Cotizador() {
                             {l.producto.cuidadoCon && <p><span className="font-semibold text-red-600">Cuidado con:</span> <span className="text-gray-500">{l.producto.cuidadoCon}</span></p>}
                           </div>
                         )}
+                      </td>
+                      <td className="py-3 px-2 text-right text-gray-500 font-medium">
+                        {l.producto.densidadRecomendada || <span className="text-gray-300">—</span>}
                       </td>
                       <td className="py-3 px-2 text-right text-gray-700 font-medium tabular-nums">
                         {formatNum(l.cantidad)} {l.producto.unidad}
@@ -637,7 +661,7 @@ export default function Cotizador() {
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-blue-900">
-                    <td colSpan={3} className="py-3 px-2 text-right font-bold text-gray-800 text-sm uppercase tracking-wide">
+                    <td colSpan={4} className="py-3 px-2 text-right font-bold text-gray-800 text-sm uppercase tracking-wide">
                       Total del proyecto
                     </td>
                     <td className="py-3 px-2 text-right font-bold text-xl buca-total tabular-nums">

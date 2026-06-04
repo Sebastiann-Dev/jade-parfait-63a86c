@@ -17,6 +17,8 @@ export interface Producto {
   kitInfo?: string
   // Mezcla: proporciones para productos bicomponentes o tricomponentes
   proporcionesMezcla?: string
+  // Densidad recomendada (morteros)
+  densidadRecomendada?: string
 }
 
 // rendimiento: cuántos m² cubre una unidad de la cant_ref
