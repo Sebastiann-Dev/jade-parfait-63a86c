@@ -33,6 +33,7 @@ function AdminPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<{texto: string, tipo: 'ok'|'error'} | null>(null)
+  const [tipoCambio, setTipoCambio] = useState<number>(17.5)
 
   async function loadProductos() {
     setLoading(true)
@@ -43,6 +44,40 @@ function AdminPage() {
 
   useEffect(() => {
     loadProductos()
+  }, [])
+
+  useEffect(() => {
+    async function fetchDOF() {
+      const TOKEN = '11b6009c1756808d4b09d450bb27cd89ccb6e4426d57290f6d809f99b328367c'
+      const BANXICO = `https://www.banxico.org.mx/SieAPIRest/service/v1/series/SF43718/datos/oportuno?token=${TOKEN}`
+      const proxies = [
+        `https://api.allorigins.win/get?url=${encodeURIComponent(BANXICO)}`,
+        `https://corsproxy.io/?${encodeURIComponent(BANXICO)}`,
+        `https://thingproxy.freeboard.io/fetch/${BANXICO}`,
+      ]
+      for (const proxyUrl of proxies) {
+        try {
+          const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(8000) })
+          if (!response.ok) continue
+          const text = await response.text()
+          let data: any
+          try {
+            const outer = JSON.parse(text)
+            data = outer.contents ? JSON.parse(outer.contents) : outer
+          } catch { continue }
+          const dato = data?.bmx?.series?.[0]?.datos?.[0]
+          if (!dato) continue
+          const valor = parseFloat(dato.dato)
+          if (!isNaN(valor) && valor > 10) {
+            setTipoCambio(valor)
+            return
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    fetchDOF()
   }, [])
 
   function showMsg(texto: string, tipo: 'ok'|'error') {
@@ -129,7 +164,15 @@ function AdminPage() {
           </div>
           <div style={{display:'flex', gap:'12px'}}>
             <button
-              onClick={() => showForm ? handleCancel() : setShowForm(true)}
+              onClick={() => {
+                if (showForm) {
+                  handleCancel()
+                } else {
+                  setEditingId(null)
+                  setFormData(DEFAULT_PRODUCTO)
+                  setShowForm(true)
+                }
+              }}
               style={{padding:'8px 16px', background: showForm ? '#ef4444' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:600, cursor:'pointer'}}
             >
               {showForm ? '✕ Cancelar' : '+ Nuevo Producto'}
@@ -326,10 +369,25 @@ function AdminPage() {
                     <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
                       <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>{p.nombre}</td>
                       <td style={tdStyle}>
-                        <span style={{fontWeight:700, color: p.moneda === 'USD' ? '#0369a1' : '#166534'}}>
-                          ${p.precio}
-                        </span>
-                        <span style={{color:'#94a3b8', fontSize:'11px', marginLeft:'4px'}}>{p.moneda}</span>
+                        {p.moneda === 'USD' ? (
+                          <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
+                            <div>
+                              <span style={{fontWeight:700, color:'#0369a1'}}>USD ${(Number(p.precio) || 0).toFixed(2)}</span>
+                            </div>
+                            <div>
+                              <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
+                            <div>
+                              <span style={{fontWeight:700, color:'#166534'}}>MXN ${(Number(p.precio) || 0).toFixed(2)}</span>
+                            </div>
+                            <div>
+                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
+                            </div>
+                          </div>
+                        )}
                       </td>
                       <td style={tdStyle}>{p.unidad}</td>
                       <td style={tdStyle}>
