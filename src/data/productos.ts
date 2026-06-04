@@ -19,6 +19,8 @@ export interface Producto {
   proporcionesMezcla?: string
   // Densidad recomendada (morteros)
   densidadRecomendada?: string
+  // Bitácora / Notas internas
+  bitacora?: string
 }
 
 // rendimiento: cuántos m² cubre una unidad de la cant_ref

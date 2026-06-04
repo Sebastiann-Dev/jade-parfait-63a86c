@@ -23,7 +23,8 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   cuidadoCon: '',
   kitInfo: '',
   proporcionesMezcla: '',
-  densidadRecomendada: ''
+  densidadRecomendada: '',
+  bitacora: ''
 }
 
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
@@ -205,7 +206,8 @@ function AdminPage() {
             : undefined
         })() : undefined,
         proporcionesMezcla: formData.proporcionesMezcla || undefined,
-        densidadRecomendada: formData.densidadRecomendada || undefined
+        densidadRecomendada: formData.densidadRecomendada || undefined,
+        bitacora: formData.bitacora || undefined
       }
       if (editingId) {
         await updateProductoSupabase(editingId, payload)
@@ -264,7 +266,8 @@ function AdminPage() {
       cuidadoCon: p.cuidadoCon || '',
       kitInfo: p.kitInfo || '',
       proporcionesMezcla: p.proporcionesMezcla || '',
-      densidadRecomendada: p.densidadRecomendada || ''
+      densidadRecomendada: p.densidadRecomendada || '',
+      bitacora: p.bitacora || ''
     })
 
     const parsed = parseKitInfo(p.kitInfo)
@@ -430,9 +433,15 @@ function AdminPage() {
                 <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({...formData, cantRef: e.target.value})} style={inputStyle} placeholder="Ej. 19 (litros)" />
               </div>
 
-              <div>
-                <label style={labelStyle}>Descripción / Nota</label>
-                <input value={formData.nota} onChange={e => setFormData({...formData, nota: e.target.value})} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
+              <div style={{gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px'}}>
+                <div>
+                  <label style={labelStyle}>Descripción</label>
+                  <input value={formData.nota} onChange={e => setFormData({...formData, nota: e.target.value})} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
+                </div>
+                <div>
+                  <label style={labelStyle}>Bitácora</label>
+                  <input value={formData.bitacora || ''} onChange={e => setFormData({...formData, bitacora: e.target.value})} style={inputStyle} placeholder="Notas internas, registro de cambios, etc." />
+                </div>
               </div>
 
               {/* Rendimiento */}
@@ -737,7 +746,14 @@ function AdminPage() {
                       <td style={tdStyle}>
                         {p.densidadRecomendada || <span style={{color:'#cbd5e1'}}>—</span>}
                       </td>
-                      <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>{p.nota}</td>
+                      <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>
+                        <div>{p.nota}</div>
+                        {p.bitacora && (
+                          <div style={{fontSize:'11px', color:'#7c3aed', marginTop:'4px', fontWeight:500}}>
+                            📓 Bitácora: {p.bitacora}
+                          </div>
+                        )}
+                      </td>
                       <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
                         <button
                           onClick={() => handleEdit(p)}
