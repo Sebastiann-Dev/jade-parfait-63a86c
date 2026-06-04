@@ -552,10 +552,10 @@ function AdminPage() {
                         {p.moneda === 'USD' ? (
                           <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
                             <div>
-                              <span style={{fontWeight:700, color:'#0369a1'}}>USD ≈$${(Number(p.precio) || 0).toFixed(2)}</span>
+                              <span style={{fontWeight:700, color:'#0369a1'}}>USD ≈${(Number(p.precio) || 0).toFixed(2)}</span>
                             </div>
                             <div>
-                              <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ≈$${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
+                              <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ≈${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
                             </div>
                           </div>
                         ) : (
@@ -564,7 +564,7 @@ function AdminPage() {
                               <span style={{fontWeight:700, color:'#166534'}}>MXN ${(Number(p.precio) || 0).toFixed(2)}</span>
                             </div>
                             <div>
-                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ≈$${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
+                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ≈${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
                             </div>
                           </div>
                         )}
