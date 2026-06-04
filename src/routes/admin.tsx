@@ -65,6 +65,66 @@ function AdminPage() {
   const [newKitMoneda, setNewKitMoneda] = useState<'MXN'|'USD'>('MXN')
   const [numPartesKit, setNumPartesKit] = useState<number>(2)
   const [partesLtrs, setPartesLtrs] = useState<string[]>(['', '', '', ''])
+  const [numPresentacionesKit, setNumPresentacionesKit] = useState<number>(1)
+
+  // Automatically adjust and size kit presentations array based on selections
+  useEffect(() => {
+    if (!esKitProduct) return
+    setKitPresentaciones(prev => {
+      let updated = [...prev]
+      // 1. Adjust number of presentations
+      if (updated.length < numPresentacionesKit) {
+        const padding = Array.from({ length: numPresentacionesKit - updated.length }).map(() => ({
+          nombre: '',
+          precio: '',
+          moneda: 'MXN',
+          partes: Array(numPartesKit).fill('')
+        }))
+        updated = [...updated, ...padding]
+      } else if (updated.length > numPresentacionesKit) {
+        updated = updated.slice(0, numPresentacionesKit)
+      }
+
+      // 2. Adjust number of parts for each presentation
+      updated = updated.map(pres => {
+        const currentPartes = pres.partes || []
+        let newPartes = [...currentPartes]
+        if (newPartes.length < numPartesKit) {
+          const padLen = numPartesKit - newPartes.length
+          newPartes = [...newPartes, ...Array(padLen).fill('')]
+        } else if (newPartes.length > numPartesKit) {
+          newPartes = newPartes.slice(0, numPartesKit)
+        }
+        return { ...pres, partes: newPartes }
+      })
+
+      return updated
+    })
+  }, [numPresentacionesKit, numPartesKit, esKitProduct])
+
+  function updatePresentacion(idx: number, field: string, value: any) {
+    setKitPresentaciones(prev => {
+      const updated = [...prev]
+      if (!updated[idx]) {
+        updated[idx] = { nombre: '', precio: '', moneda: 'MXN', partes: Array(numPartesKit).fill('') }
+      }
+      updated[idx] = { ...updated[idx], [field]: value }
+      return updated
+    })
+  }
+
+  function updateParte(idx: number, partIdx: number, value: any) {
+    setKitPresentaciones(prev => {
+      const updated = [...prev]
+      if (!updated[idx]) {
+        updated[idx] = { nombre: '', precio: '', moneda: 'MXN', partes: Array(numPartesKit).fill('') }
+      }
+      const newPartes = [...(updated[idx].partes || [])]
+      newPartes[partIdx] = value
+      updated[idx] = { ...updated[idx], partes: newPartes }
+      return updated
+    })
+  }
 
   async function loadProductos() {
     setLoading(true)
@@ -130,7 +190,19 @@ function AdminPage() {
         pros: formData.pros || undefined,
         cons: formData.cons || undefined,
         cuidadoCon: formData.cuidadoCon || undefined,
-        kitInfo: esKitProduct ? JSON.stringify({ numPartes: numPartesKit, presentaciones: kitPresentaciones }) : undefined,
+        kitInfo: esKitProduct ? (() => {
+          const validPresentaciones = kitPresentaciones
+            .filter(pres => pres && pres.nombre && pres.precio !== '')
+            .map(pres => ({
+              nombre: pres.nombre,
+              precio: parseFloat(pres.precio) || 0,
+              moneda: pres.moneda || 'MXN',
+              partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
+            }))
+          return validPresentaciones.length > 0
+            ? JSON.stringify({ numPartes: numPartesKit, presentaciones: validPresentaciones })
+            : undefined
+        })() : undefined,
         proporcionesMezcla: formData.proporcionesMezcla || undefined
       }
       if (editingId) {
@@ -150,6 +222,7 @@ function AdminPage() {
       setNewKitMoneda('MXN')
       setNumPartesKit(2)
       setPartesLtrs(['', '', '', ''])
+      setNumPresentacionesKit(1)
       loadProductos()
     } catch (error) {
       showMsg('❌ Error al guardar. Verifica tu conexión con Supabase.', 'error')
@@ -169,6 +242,7 @@ function AdminPage() {
     setNewKitMoneda('MXN')
     setNumPartesKit(2)
     setPartesLtrs(['', '', '', ''])
+    setNumPresentacionesKit(1)
   }
 
   function handleEdit(p: Producto & {id: string}) {
@@ -193,6 +267,7 @@ function AdminPage() {
     const parsed = parseKitInfo(p.kitInfo)
     setEsKitProduct(parsed.presentaciones.length > 0)
     setNumPartesKit(parsed.numPartes)
+    setNumPresentacionesKit(parsed.presentaciones.length || 1)
     setKitPresentaciones(parsed.presentaciones)
     setNewKitNombre('')
     setNewKitPrecio('')
@@ -403,162 +478,122 @@ function AdminPage() {
                   <div style={{background:'#f5f3ff', border:'1px solid #c4b5fd', borderRadius:'8px', padding:'16px', marginBottom:'16px'}}>
                     <h4 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#6d28d9'}}>Presentaciones del Kit</h4>
                     
-                    {/* Choose how many parts */}
-                    <div style={{marginBottom:'16px', background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
-                      <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
-                        ¿Cuántas partes tiene el kit?
-                      </label>
-                      <select
-                        value={numPartesKit}
-                        onChange={e => {
-                          const val = parseInt(e.target.value) || 2
-                          setNumPartesKit(val)
-                        }}
-                        style={{...inputStyle, height:'34px', padding:'4px 8px'}}
-                      >
-                        <option value="1">1 Parte (Monocomponente)</option>
-                        <option value="2">2 Partes (Bicomponente)</option>
-                        <option value="3">3 Partes (Tricomponente)</option>
-                        <option value="4">4 Partes (Tetracomponente)</option>
-                      </select>
+                    {/* Choose how many parts and presentations */}
+                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'16px', background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                      <div>
+                        <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                          ¿Cuántas partes tiene el kit?
+                        </label>
+                        <select
+                          value={numPartesKit}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 2
+                            setNumPartesKit(val)
+                          }}
+                          style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                        >
+                          <option value="1">1 Parte (Monocomponente)</option>
+                          <option value="2">2 Partes (Bicomponente)</option>
+                          <option value="3">3 Partes (Tricomponente)</option>
+                          <option value="4">4 Partes (Tetracomponente)</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                          ¿Cuántas presentaciones de kit hay?
+                        </label>
+                        <select
+                          value={numPresentacionesKit}
+                          onChange={e => {
+                            const val = parseInt(e.target.value) || 1
+                            setNumPresentacionesKit(val)
+                          }}
+                          style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                        >
+                          {[1, 2, 3, 4, 5, 6].map(n => (
+                            <option key={n} value={n}>{n} {n === 1 ? 'Presentación' : 'Presentaciones'}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
 
-                    {/* List of presentations table */}
-                    {kitPresentaciones.length > 0 ? (
-                      <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px', background:'white', borderRadius:'6px', overflow:'hidden', marginBottom:'12px', border:'1px solid #e2e8f0'}}>
-                        <thead>
-                          <tr style={{background:'#f3f4f6', borderBottom:'1px solid #e2e8f0'}}>
-                            <th style={{padding:'6px 12px', textAlign:'left'}}>Presentación / Nombre</th>
-                            <th style={{padding:'6px 12px', textAlign:'left'}}>Precio</th>
-                            <th style={{padding:'6px 12px', textAlign:'left'}}>Moneda</th>
-                            <th style={{padding:'6px 12px', textAlign:'right'}}>Acciones</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {kitPresentaciones.map((pres, idx) => (
-                            <tr key={idx} style={{borderBottom:'1px solid #f1f5f9'}}>
-                              <td style={{padding:'6px 12px', fontWeight:600}}>
-                                {pres.nombre}
-                                {pres.partes && pres.partes.length > 0 && (
-                                  <span style={{fontSize:'11px', color:'#4b5563', fontWeight:400, marginLeft:'8px'}}>
-                                    ({pres.partes.map((p: any, i: number) => `${p}L Parte ${String.fromCharCode(65 + i)}`).join(' + ')})
-                                  </span>
-                                )}
-                              </td>
-                              <td style={{padding:'6px 12px'}}>${pres.precio}</td>
-                              <td style={{padding:'6px 12px'}}>{pres.moneda}</td>
-                              <td style={{padding:'6px 12px', textAlign:'right'}}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = kitPresentaciones.filter((_, i) => i !== idx);
-                                    setKitPresentaciones(updated);
-                                  }}
-                                  style={{padding:'2px 8px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'4px', fontSize:'11px', cursor:'pointer'}}
-                                >
-                                  Eliminar
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    ) : (
-                      <div style={{padding:'12px', textAlign:'center', color:'#7c3aed', background:'white', borderRadius:'6px', border:'1px dashed #c4b5fd', marginBottom:'12px', fontSize:'12px'}}>
-                        No hay presentaciones agregadas aún. Añade una abajo.
-                      </div>
-                    )}
-
-                    {/* Add new presentation form */}
-                    <div style={{background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0', display:'flex', flexDirection:'column', gap:'12px'}}>
-                      <h5 style={{margin:0, fontSize:'12px', fontWeight:700, color:'#4b5563'}}>Añadir Nueva Presentación</h5>
-                      
-                      <div style={{display:'flex', gap:'8px', alignItems:'flex-end', flexWrap:'wrap'}}>
-                        <div style={{flex:'2 1 180px'}}>
-                          <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Nombre / Tamaño</label>
-                          <input
-                            type="text"
-                            value={newKitNombre}
-                            onChange={e => setNewKitNombre(e.target.value)}
-                            placeholder="Ej. Kit 3L"
-                            style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
-                          />
-                        </div>
-                        <div style={{flex:'1 1 100px'}}>
-                          <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Precio</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={newKitPrecio}
-                            onChange={e => setNewKitPrecio(e.target.value)}
-                            placeholder="0.00"
-                            style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
-                          />
-                        </div>
-                        <div style={{width:'80px'}}>
-                          <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Moneda</label>
-                          <select
-                            value={newKitMoneda}
-                            onChange={e => setNewKitMoneda(e.target.value as 'MXN' | 'USD')}
-                            style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
-                          >
-                            <option value="MXN">MXN</option>
-                            <option value="USD">USD</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Liter inputs for each part of the kit */}
-                      <div>
-                        <label style={{fontSize:'11px', fontWeight:700, color:'#0369a1', display:'block', marginBottom:'4px'}}>
-                          Volumen en Litros (Ltrs) por cada parte:
-                        </label>
-                        <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
-                          {Array.from({ length: numPartesKit }).map((_, i) => (
-                            <div key={i} style={{flex:'1 1 80px'}}>
-                              <label style={{fontSize:'10px', fontWeight:600, color:'#0284c7', display:'block', marginBottom:'2px'}}>
-                                Parte {String.fromCharCode(65 + i)} (L)
+                    {/* Dynamic list of presentations fields */}
+                    <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                      {Array.from({ length: numPresentacionesKit }).map((_, idx) => (
+                        <div key={idx} style={{background:'white', padding:'16px', borderRadius:'8px', border:'1px solid #e2e8f0', boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
+                          <h5 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#475569'}}>
+                            Presentación #{idx + 1}
+                          </h5>
+                          
+                          <div style={{display:'flex', gap:'12px', flexWrap:'wrap', alignItems:'flex-end'}}>
+                            <div style={{flex:'2 1 200px'}}>
+                              <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+                                Nombre / Tamaño (ej. Kit 3L)
+                              </label>
+                              <input
+                                type="text"
+                                value={kitPresentaciones[idx]?.nombre || ''}
+                                onChange={e => updatePresentacion(idx, 'nombre', e.target.value)}
+                                placeholder="Ej. Kit 3L"
+                                style={inputStyle}
+                              />
+                            </div>
+                            
+                            <div style={{flex:'1 1 120px'}}>
+                              <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+                                Precio
                               </label>
                               <input
                                 type="number"
                                 step="0.01"
-                                value={partesLtrs[i] || ''}
-                                onChange={e => {
-                                  const updated = [...partesLtrs]
-                                  updated[i] = e.target.value
-                                  setPartesLtrs(updated)
-                                }}
+                                value={kitPresentaciones[idx]?.precio ?? ''}
+                                onChange={e => updatePresentacion(idx, 'precio', e.target.value)}
                                 placeholder="0.00"
-                                style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                                style={inputStyle}
                               />
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                            
+                            <div style={{width:'100px'}}>
+                              <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+                                Moneda
+                              </label>
+                              <select
+                                value={kitPresentaciones[idx]?.moneda || 'MXN'}
+                                onChange={e => updatePresentacion(idx, 'moneda', e.target.value)}
+                                style={inputStyle}
+                              >
+                                <option value="MXN">MXN</option>
+                                <option value="USD">USD</option>
+                              </select>
+                            </div>
+                          </div>
 
-                      <div style={{display:'flex', justifyContent:'flex-end', marginTop:'4px'}}>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!newKitNombre || !newKitPrecio) return;
-                            const partsList = partesLtrs.slice(0, numPartesKit).map(val => parseFloat(val) || 0);
-                            const newItem = {
-                              nombre: newKitNombre,
-                              precio: parseFloat(newKitPrecio) || 0,
-                              moneda: newKitMoneda,
-                              partes: partsList
-                            };
-                            const updated = [...kitPresentaciones, newItem];
-                            setKitPresentaciones(updated);
-                            setNewKitNombre('');
-                            setNewKitPrecio('');
-                            setPartesLtrs(['', '', '', '']);
-                          }}
-                          style={{height:'32px', padding:'0 16px', background:'#7c3aed', color:'white', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
-                        >
-                          + Agregar Presentación
-                        </button>
-                      </div>
+                          {/* Volumes per part */}
+                          <div style={{marginTop:'12px', borderTop:'1px dashed #f1f5f9', paddingTop:'12px'}}>
+                            <label style={{fontSize:'11px', fontWeight:700, color:'#0369a1', display:'block', marginBottom:'6px'}}>
+                              Volumen por cada Parte (Litros):
+                            </label>
+                            <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
+                              {Array.from({ length: numPartesKit }).map((_, partIdx) => (
+                                <div key={partIdx} style={{flex:'1 1 80px'}}>
+                                  <label style={{fontSize:'10px', fontWeight:600, color:'#0284c7', display:'block', marginBottom:'2px'}}>
+                                    Parte {String.fromCharCode(65 + partIdx)} (L)
+                                  </label>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    value={kitPresentaciones[idx]?.partes?.[partIdx] ?? ''}
+                                    onChange={e => updateParte(idx, partIdx, e.target.value)}
+                                    placeholder="0.00"
+                                    style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
