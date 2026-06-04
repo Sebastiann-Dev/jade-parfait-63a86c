@@ -179,7 +179,7 @@ function AdminPage() {
               </select>
             </div>
 
-            <form onSubmit={handleSubmit} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px'}}>
+            <form onSubmit={handleSubmit} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', alignItems:'start'}}>
 
               <div>
                 <label style={labelStyle}>Nombre del Producto *</label>
