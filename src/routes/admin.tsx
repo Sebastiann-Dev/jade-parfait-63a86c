@@ -440,7 +440,19 @@ function AdminPage() {
                 </div>
                 <div>
                   <label style={labelStyle}>Bitácora</label>
-                  <input value={formData.bitacora || ''} onChange={e => setFormData({...formData, bitacora: e.target.value})} style={inputStyle} placeholder="Notas internas, registro de cambios, etc." />
+                  <textarea
+                    rows={3}
+                    value={formData.bitacora || ''}
+                    onChange={e => setFormData({...formData, bitacora: e.target.value})}
+                    style={{
+                      ...inputStyle,
+                      height: 'auto',
+                      minHeight: '80px',
+                      resize: 'vertical',
+                      fontFamily: 'inherit'
+                    }}
+                    placeholder="Notas internas, registro de cambios, etc."
+                  />
                 </div>
               </div>
 
