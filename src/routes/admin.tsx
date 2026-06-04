@@ -92,12 +92,22 @@ function AdminPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload = {
-        ...formData,
-        cantRef: formData.cantRef === '' ? null : Number(formData.cantRef),
-        precio: formData.precio === '' ? null : Number(formData.precio),
-        rendimiento: formData.rendimiento === '' ? null : Number(formData.rendimiento),
-        kitInfo: esKitProduct ? JSON.stringify(kitPresentaciones) : null
+      const payload: Omit<Producto, 'id'> = {
+        nombre: formData.nombre,
+        cantRef: Number(formData.cantRef),
+        unidad: formData.unidad,
+        moneda: formData.moneda,
+        precio: Number(formData.precio),
+        tieneRendimiento: !!formData.tieneRendimiento,
+        nota: formData.nota || '',
+        rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : undefined,
+        espesorRecomendado: formData.espesorRecomendado || undefined,
+        manosRecomendadas: formData.manosRecomendadas || undefined,
+        pros: formData.pros || undefined,
+        cons: formData.cons || undefined,
+        cuidadoCon: formData.cuidadoCon || undefined,
+        kitInfo: esKitProduct ? JSON.stringify(kitPresentaciones) : undefined,
+        proporcionesMezcla: formData.proporcionesMezcla || undefined
       }
       if (editingId) {
         await updateProductoSupabase(editingId, payload)
@@ -507,6 +517,7 @@ function AdminPage() {
                     <th style={thStyle}>Producto</th>
                     <th style={thStyle}>Precio</th>
                     <th style={thStyle}>Unidad</th>
+                    <th style={thStyle}>Kit</th>
                     <th style={thStyle}>Rendimiento</th>
                     <th style={thStyle}>Nota</th>
                     <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
@@ -550,6 +561,15 @@ function AdminPage() {
                         )}
                       </td>
                       <td style={tdStyle}>{p.unidad}</td>
+                      <td style={tdStyle}>
+                        {p.kitInfo && p.kitInfo.startsWith('[') ? (
+                          <span style={{color: '#7c3aed', fontWeight: 600}}>
+                            {JSON.parse(p.kitInfo).map((k: any) => k.nombre).join(', ')}
+                          </span>
+                        ) : (
+                          p.kitInfo || <span style={{color:'#cbd5e1'}}>—</span>
+                        )}
+                      </td>
                       <td style={tdStyle}>
                         {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{color:'#cbd5e1'}}>—</span>}
                       </td>

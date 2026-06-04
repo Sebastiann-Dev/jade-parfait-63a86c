@@ -290,7 +290,8 @@ export default function Cotizador() {
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
                 <input
                   type="number"
-                  className="buca-input pl-9"
+                  className="buca-input"
+                  style={{ paddingLeft: '32px' }}
                   value={tipoCambio}
                   step="0.01"
                   min="1"
