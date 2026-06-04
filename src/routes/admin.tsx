@@ -25,6 +25,28 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   proporcionesMezcla: ''
 }
 
+function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
+  if (!kitInfoStr) return { numPartes: 2, presentaciones: [] }
+  try {
+    if (kitInfoStr.startsWith('{')) {
+      const parsed = JSON.parse(kitInfoStr)
+      return {
+        numPartes: parsed.numPartes || 2,
+        presentaciones: parsed.presentaciones || []
+      }
+    } else if (kitInfoStr.startsWith('[')) {
+      const list = JSON.parse(kitInfoStr)
+      return {
+        numPartes: 2,
+        presentaciones: list || []
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing kitInfo:", e)
+  }
+  return { numPartes: 2, presentaciones: [] }
+}
+
 function AdminPage() {
   const [productos, setProductos] = useState<(Producto & {id: string})[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,6 +63,8 @@ function AdminPage() {
   const [newKitNombre, setNewKitNombre] = useState('')
   const [newKitPrecio, setNewKitPrecio] = useState('')
   const [newKitMoneda, setNewKitMoneda] = useState<'MXN'|'USD'>('MXN')
+  const [numPartesKit, setNumPartesKit] = useState<number>(2)
+  const [partesLtrs, setPartesLtrs] = useState<string[]>(['', '', '', ''])
 
   async function loadProductos() {
     setLoading(true)
@@ -106,7 +130,7 @@ function AdminPage() {
         pros: formData.pros || undefined,
         cons: formData.cons || undefined,
         cuidadoCon: formData.cuidadoCon || undefined,
-        kitInfo: esKitProduct ? JSON.stringify(kitPresentaciones) : undefined,
+        kitInfo: esKitProduct ? JSON.stringify({ numPartes: numPartesKit, presentaciones: kitPresentaciones }) : undefined,
         proporcionesMezcla: formData.proporcionesMezcla || undefined
       }
       if (editingId) {
@@ -124,6 +148,8 @@ function AdminPage() {
       setNewKitNombre('')
       setNewKitPrecio('')
       setNewKitMoneda('MXN')
+      setNumPartesKit(2)
+      setPartesLtrs(['', '', '', ''])
       loadProductos()
     } catch (error) {
       showMsg('❌ Error al guardar. Verifica tu conexión con Supabase.', 'error')
@@ -141,6 +167,8 @@ function AdminPage() {
     setNewKitNombre('')
     setNewKitPrecio('')
     setNewKitMoneda('MXN')
+    setNumPartesKit(2)
+    setPartesLtrs(['', '', '', ''])
   }
 
   function handleEdit(p: Producto & {id: string}) {
@@ -162,24 +190,14 @@ function AdminPage() {
       proporcionesMezcla: p.proporcionesMezcla || ''
     })
 
-    let presentations: any[] = []
-    let isKit = false
-    if (p.kitInfo) {
-      try {
-        if (p.kitInfo.startsWith('[')) {
-          presentations = JSON.parse(p.kitInfo)
-          isKit = presentations.length > 0
-        } else {
-          presentations = [{ nombre: p.kitInfo, precio: p.precio || 0, moneda: p.moneda || 'MXN' }]
-          isKit = true
-        }
-      } catch (e) {}
-    }
-    setEsKitProduct(isKit)
-    setKitPresentaciones(presentations)
+    const parsed = parseKitInfo(p.kitInfo)
+    setEsKitProduct(parsed.presentaciones.length > 0)
+    setNumPartesKit(parsed.numPartes)
+    setKitPresentaciones(parsed.presentaciones)
     setNewKitNombre('')
     setNewKitPrecio('')
     setNewKitMoneda('MXN')
+    setPartesLtrs(['', '', '', ''])
 
     setEditingId(p.id)
     setShowForm(true)
@@ -385,6 +403,26 @@ function AdminPage() {
                   <div style={{background:'#f5f3ff', border:'1px solid #c4b5fd', borderRadius:'8px', padding:'16px', marginBottom:'16px'}}>
                     <h4 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#6d28d9'}}>Presentaciones del Kit</h4>
                     
+                    {/* Choose how many parts */}
+                    <div style={{marginBottom:'16px', background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                      <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                        ¿Cuántas partes tiene el kit?
+                      </label>
+                      <select
+                        value={numPartesKit}
+                        onChange={e => {
+                          const val = parseInt(e.target.value) || 2
+                          setNumPartesKit(val)
+                        }}
+                        style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                      >
+                        <option value="1">1 Parte (Monocomponente)</option>
+                        <option value="2">2 Partes (Bicomponente)</option>
+                        <option value="3">3 Partes (Tricomponente)</option>
+                        <option value="4">4 Partes (Tetracomponente)</option>
+                      </select>
+                    </div>
+
                     {/* List of presentations table */}
                     {kitPresentaciones.length > 0 ? (
                       <table style={{width:'100%', borderCollapse:'collapse', fontSize:'12px', background:'white', borderRadius:'6px', overflow:'hidden', marginBottom:'12px', border:'1px solid #e2e8f0'}}>
@@ -399,7 +437,14 @@ function AdminPage() {
                         <tbody>
                           {kitPresentaciones.map((pres, idx) => (
                             <tr key={idx} style={{borderBottom:'1px solid #f1f5f9'}}>
-                              <td style={{padding:'6px 12px', fontWeight:600}}>{pres.nombre}</td>
+                              <td style={{padding:'6px 12px', fontWeight:600}}>
+                                {pres.nombre}
+                                {pres.partes && pres.partes.length > 0 && (
+                                  <span style={{fontSize:'11px', color:'#4b5563', fontWeight:400, marginLeft:'8px'}}>
+                                    ({pres.partes.map((p: any, i: number) => `${p}L Parte ${String.fromCharCode(65 + i)}`).join(' + ')})
+                                  </span>
+                                )}
+                              </td>
                               <td style={{padding:'6px 12px'}}>${pres.precio}</td>
                               <td style={{padding:'6px 12px'}}>{pres.moneda}</td>
                               <td style={{padding:'6px 12px', textAlign:'right'}}>
@@ -408,7 +453,6 @@ function AdminPage() {
                                   onClick={() => {
                                     const updated = kitPresentaciones.filter((_, i) => i !== idx);
                                     setKitPresentaciones(updated);
-                                    setFormData({...formData, kitInfo: JSON.stringify(updated)});
                                   }}
                                   style={{padding:'2px 8px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'4px', fontSize:'11px', cursor:'pointer'}}
                                 >
@@ -426,58 +470,95 @@ function AdminPage() {
                     )}
 
                     {/* Add new presentation form */}
-                    <div style={{display:'flex', gap:'8px', alignItems:'flex-end', flexWrap:'wrap'}}>
-                      <div style={{flex:'2 1 180px'}}>
-                        <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Nombre / Tamaño</label>
-                        <input
-                          type="text"
-                          value={newKitNombre}
-                          onChange={e => setNewKitNombre(e.target.value)}
-                          placeholder="Ej. Kit 3L"
-                          style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
-                        />
+                    <div style={{background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0', display:'flex', flexDirection:'column', gap:'12px'}}>
+                      <h5 style={{margin:0, fontSize:'12px', fontWeight:700, color:'#4b5563'}}>Añadir Nueva Presentación</h5>
+                      
+                      <div style={{display:'flex', gap:'8px', alignItems:'flex-end', flexWrap:'wrap'}}>
+                        <div style={{flex:'2 1 180px'}}>
+                          <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Nombre / Tamaño</label>
+                          <input
+                            type="text"
+                            value={newKitNombre}
+                            onChange={e => setNewKitNombre(e.target.value)}
+                            placeholder="Ej. Kit 3L"
+                            style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                          />
+                        </div>
+                        <div style={{flex:'1 1 100px'}}>
+                          <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Precio</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={newKitPrecio}
+                            onChange={e => setNewKitPrecio(e.target.value)}
+                            placeholder="0.00"
+                            style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                          />
+                        </div>
+                        <div style={{width:'80px'}}>
+                          <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Moneda</label>
+                          <select
+                            value={newKitMoneda}
+                            onChange={e => setNewKitMoneda(e.target.value as 'MXN' | 'USD')}
+                            style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                          >
+                            <option value="MXN">MXN</option>
+                            <option value="USD">USD</option>
+                          </select>
+                        </div>
                       </div>
-                      <div style={{flex:'1 1 100px'}}>
-                        <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Precio</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={newKitPrecio}
-                          onChange={e => setNewKitPrecio(e.target.value)}
-                          placeholder="0.00"
-                          style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
-                        />
+
+                      {/* Liter inputs for each part of the kit */}
+                      <div>
+                        <label style={{fontSize:'11px', fontWeight:700, color:'#0369a1', display:'block', marginBottom:'4px'}}>
+                          Volumen en Litros (Ltrs) por cada parte:
+                        </label>
+                        <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
+                          {Array.from({ length: numPartesKit }).map((_, i) => (
+                            <div key={i} style={{flex:'1 1 80px'}}>
+                              <label style={{fontSize:'10px', fontWeight:600, color:'#0284c7', display:'block', marginBottom:'2px'}}>
+                                Parte {String.fromCharCode(65 + i)} (L)
+                              </label>
+                              <input
+                                type="number"
+                                step="0.01"
+                                value={partesLtrs[i] || ''}
+                                onChange={e => {
+                                  const updated = [...partesLtrs]
+                                  updated[i] = e.target.value
+                                  setPartesLtrs(updated)
+                                }}
+                                placeholder="0.00"
+                                style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div style={{width:'80px'}}>
-                        <label style={{fontSize:'11px', fontWeight:600, color:'#6d28d9', display:'block', marginBottom:'2px'}}>Moneda</label>
-                        <select
-                          value={newKitMoneda}
-                          onChange={e => setNewKitMoneda(e.target.value as 'MXN' | 'USD')}
-                          style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+
+                      <div style={{display:'flex', justifyContent:'flex-end', marginTop:'4px'}}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newKitNombre || !newKitPrecio) return;
+                            const partsList = partesLtrs.slice(0, numPartesKit).map(val => parseFloat(val) || 0);
+                            const newItem = {
+                              nombre: newKitNombre,
+                              precio: parseFloat(newKitPrecio) || 0,
+                              moneda: newKitMoneda,
+                              partes: partsList
+                            };
+                            const updated = [...kitPresentaciones, newItem];
+                            setKitPresentaciones(updated);
+                            setNewKitNombre('');
+                            setNewKitPrecio('');
+                            setPartesLtrs(['', '', '', '']);
+                          }}
+                          style={{height:'32px', padding:'0 16px', background:'#7c3aed', color:'white', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
                         >
-                          <option value="MXN">MXN</option>
-                          <option value="USD">USD</option>
-                        </select>
+                          + Agregar Presentación
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!newKitNombre || !newKitPrecio) return;
-                          const newItem = {
-                            nombre: newKitNombre,
-                            precio: parseFloat(newKitPrecio) || 0,
-                            moneda: newKitMoneda
-                          };
-                          const updated = [...kitPresentaciones, newItem];
-                          setKitPresentaciones(updated);
-                          setFormData({...formData, kitInfo: JSON.stringify(updated)});
-                          setNewKitNombre('');
-                          setNewKitPrecio('');
-                        }}
-                        style={{height:'32px', padding:'0 16px', background:'#7c3aed', color:'white', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
-                      >
-                        + Agregar
-                      </button>
                     </div>
                   </div>
                 )}
@@ -537,11 +618,17 @@ function AdminPage() {
                     <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
                       <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>
                         {p.nombre}
-                        {p.kitInfo && p.kitInfo.startsWith('[') && (
-                          <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
-                            📦 Presentaciones: {JSON.parse(p.kitInfo).map((k: any) => `${k.nombre} (${k.moneda === 'USD' ? '≈$' : '$'}${k.precio} ${k.moneda})`).join(' · ')}
-                          </div>
-                        )}
+                        {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) && (() => {
+                          const parsed = parseKitInfo(p.kitInfo)
+                          return (
+                            <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
+                              📦 Presentaciones: {parsed.presentaciones.map((k: any) => {
+                                const partsStr = k.partes && k.partes.length > 0 ? ` [${k.partes.join('+')}L]` : ''
+                                return `${k.nombre}${partsStr} (${k.moneda === 'USD' ? '≈$' : '$'}${k.precio} ${k.moneda})`
+                              }).join(' · ')}
+                            </div>
+                          )
+                        })()}
                         {p.proporcionesMezcla && (
                           <div style={{fontSize:'11px', fontWeight:400, color:'#0369a1', marginTop:'2px'}}>
                             🧪 Mezcla: {p.proporcionesMezcla}
@@ -571,11 +658,17 @@ function AdminPage() {
                       </td>
                       <td style={tdStyle}>{p.unidad}</td>
                       <td style={tdStyle}>
-                        {p.kitInfo && p.kitInfo.startsWith('[') ? (
-                          <span style={{color: '#7c3aed', fontWeight: 600}}>
-                            {JSON.parse(p.kitInfo).map((k: any) => k.nombre).join(', ')}
-                          </span>
-                        ) : (
+                        {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) ? (() => {
+                          const parsed = parseKitInfo(p.kitInfo)
+                          return (
+                            <span style={{color: '#7c3aed', fontWeight: 600}}>
+                              {parsed.presentaciones.map((k: any) => {
+                                const partsStr = k.partes && k.partes.length > 0 ? ` (${k.partes.join('+')}L)` : ''
+                                return `${k.nombre}${partsStr}`
+                              }).join(', ')}
+                            </span>
+                          )
+                        })() : (
                           p.kitInfo || <span style={{color:'#cbd5e1'}}>—</span>
                         )}
                       </td>

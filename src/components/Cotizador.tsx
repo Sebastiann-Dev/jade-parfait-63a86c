@@ -90,9 +90,14 @@ export default function Cotizador() {
         setProductosDisponibles(dbProducts)
         const first = dbProducts[0]
         setProductoSeleccionado(first)
-        if (first.kitInfo && first.kitInfo.startsWith('[')) {
+        if (first.kitInfo && (first.kitInfo.startsWith('[') || first.kitInfo.startsWith('{'))) {
           try {
-            const list = JSON.parse(first.kitInfo)
+            let list: any[] = []
+            if (first.kitInfo.startsWith('{')) {
+              list = JSON.parse(first.kitInfo).presentaciones || []
+            } else {
+              list = JSON.parse(first.kitInfo) || []
+            }
             if (list && list.length > 0) {
               setPresentacionSeleccionada(list[0])
             }
@@ -192,9 +197,14 @@ export default function Cotizador() {
     setMostrarLista(false)
     setCantidadManual(String(p.cantRef))
 
-    if (p.kitInfo && p.kitInfo.startsWith('[')) {
+    if (p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{'))) {
       try {
-        const list = JSON.parse(p.kitInfo)
+        let list: any[] = []
+        if (p.kitInfo.startsWith('{')) {
+          list = JSON.parse(p.kitInfo).presentaciones || []
+        } else {
+          list = JSON.parse(p.kitInfo) || []
+        }
         if (list && list.length > 0) {
           setPresentacionSeleccionada(list[0])
           return
@@ -210,16 +220,22 @@ export default function Cotizador() {
 
   const tienePresentacionesKit = useMemo(() => {
     if (!productoSeleccionado || !productoSeleccionado.kitInfo) return false
-    return productoSeleccionado.kitInfo.startsWith('[')
+    return productoSeleccionado.kitInfo.startsWith('[') || productoSeleccionado.kitInfo.startsWith('{')
   }, [productoSeleccionado])
 
   const listaPresentacionesKit = useMemo(() => {
     if (!tienePresentacionesKit) return []
     try {
-      return JSON.parse(productoSeleccionado.kitInfo || '[]')
+      const kitInfoStr = productoSeleccionado.kitInfo || ''
+      if (kitInfoStr.startsWith('{')) {
+        return JSON.parse(kitInfoStr).presentaciones || []
+      } else if (kitInfoStr.startsWith('[')) {
+        return JSON.parse(kitInfoStr) || []
+      }
     } catch {
       return []
     }
+    return []
   }, [tienePresentacionesKit, productoSeleccionado])
 
   return (
@@ -472,11 +488,16 @@ export default function Cotizador() {
                     }
                   }}
                 >
-                  {listaPresentacionesKit.map((pres: any, idx: number) => (
-                    <option key={idx} value={JSON.stringify(pres)}>
-                      {pres.nombre} — {pres.moneda} {pres.moneda === 'USD' ? '≈$' : '$'}{pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
-                    </option>
-                  ))}
+                  {listaPresentacionesKit.map((pres: any, idx: number) => {
+                    const partsStr = pres.partes && pres.partes.length > 0
+                      ? ` (${pres.partes.map((p: any, i: number) => `${p}L Parte ${String.fromCharCode(65 + i)}`).join(' + ')})`
+                      : ''
+                    return (
+                      <option key={idx} value={JSON.stringify(pres)}>
+                        {pres.nombre}{partsStr} — {pres.moneda} {pres.moneda === 'USD' ? '≈$' : '$'}{pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
             )}
@@ -564,6 +585,11 @@ export default function Cotizador() {
                           {l.presentacion && (
                             <span className="ml-2 px-1.5 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded uppercase tracking-wide">
                               {l.presentacion.nombre}
+                              {l.presentacion.partes && l.presentacion.partes.length > 0 && (
+                                <span className="lowercase text-[9px] font-medium text-purple-600 ml-1">
+                                  ({l.presentacion.partes.map((p: any, i: number) => `${p}L Pte ${String.fromCharCode(65 + i)}`).join('+')})
+                                </span>
+                              )}
                             </span>
                           )}
                         </div>
