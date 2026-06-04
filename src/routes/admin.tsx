@@ -7,7 +7,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const DEFAULT_PRODUCTO: any = {
+const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string } = {
   nombre: '',
   cantRef: '',
   unidad: 'L',
@@ -27,18 +27,15 @@ function AdminPage() {
   const [productos, setProductos] = useState<(Producto & {id: string})[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [formData, setFormData] = useState<Omit<Producto, 'id'>>(DEFAULT_PRODUCTO)
+  const [formData, setFormData] = useState<any>(DEFAULT_PRODUCTO)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [mensaje, setMensaje] = useState<{texto: string, tipo: 'ok'|'error'} | null>(null)
 
   async function loadProductos() {
     setLoading(true)
     const data = await fetchProductosSupabase()
-    const supabaseNames = new Set(data.map(p => p.nombre))
-    const hardcoded = PRODUCTOS.filter(p => !supabaseNames.has(p.nombre)).map((p, i) => ({
-      ...p,
-      id: 'hardcoded-' + i
-    }))
-    setProductos([...data, ...hardcoded])
+    setProductos(data)
     setLoading(false)
   }
 
@@ -46,22 +43,36 @@ function AdminPage() {
     loadProductos()
   }, [])
 
+  function showMsg(texto: string, tipo: 'ok'|'error') {
+    setMensaje({texto, tipo})
+    setTimeout(() => setMensaje(null), 4000)
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    setSaving(true)
     try {
-      if (editingId && !editingId.startsWith('hardcoded-')) {
-        await updateProductoSupabase(editingId, formData)
-        alert("Producto actualizado con éxito!")
+      const payload = {
+        ...formData,
+        cantRef: formData.cantRef === '' ? null : Number(formData.cantRef),
+        precio: formData.precio === '' ? null : Number(formData.precio),
+        rendimiento: formData.rendimiento === '' ? null : Number(formData.rendimiento),
+      }
+      if (editingId) {
+        await updateProductoSupabase(editingId, payload)
+        showMsg('✅ Producto actualizado con éxito', 'ok')
       } else {
-        await saveProductoSupabase(formData)
-        alert("Producto guardado con éxito en la base de datos!")
+        await saveProductoSupabase(payload)
+        showMsg('✅ Producto guardado en la base de datos', 'ok')
       }
       setShowForm(false)
       setEditingId(null)
       setFormData(DEFAULT_PRODUCTO)
       loadProductos()
     } catch (error) {
-      alert("Error al guardar. Asegúrate de haber configurado tu URL y Key en src/supabase.ts")
+      showMsg('❌ Error al guardar. Verifica tu conexión con Supabase.', 'error')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -74,13 +85,13 @@ function AdminPage() {
   function handleEdit(p: Producto & {id: string}) {
     setFormData({
       nombre: p.nombre,
-      cantRef: p.cantRef,
+      cantRef: p.cantRef ?? '',
       unidad: p.unidad,
       moneda: p.moneda,
-      precio: p.precio,
+      precio: p.precio ?? '',
       tieneRendimiento: p.tieneRendimiento,
       nota: p.nota || '',
-      rendimiento: p.rendimiento || 0,
+      rendimiento: p.rendimiento ?? '',
       espesorRecomendado: p.espesorRecomendado || '',
       manosRecomendadas: p.manosRecomendadas || '',
       pros: p.pros || '',
@@ -92,68 +103,88 @@ function AdminPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  async function handleDelete(id: string) {
-    if (confirm("¿Seguro que deseas eliminar este producto?")) {
+  async function handleDelete(id: string, nombre: string) {
+    if (confirm(`¿Seguro que deseas eliminar "${nombre}"?`)) {
       await deleteProductoSupabase(id)
+      showMsg('🗑️ Producto eliminado', 'ok')
       loadProductos()
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto space-y-6">
-        
+    <div style={{minHeight:'100vh', background:'#f8fafc', padding:'24px', fontFamily:'sans-serif'}}>
+      <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', flexDirection:'column', gap:'20px'}}>
+
         {/* Header */}
-        <div className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm">
+        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'white', padding:'16px 24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
           <div>
-            <h1 className="text-xl font-bold text-gray-800">Panel de Administración - BUCA</h1>
-            <p className="text-sm text-gray-500">Gestiona tu catálogo de productos técnicos</p>
+            <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración — BUCA</h1>
+            <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>
+              {loading ? 'Cargando...' : `${productos.length} productos en la base de datos`}
+            </p>
           </div>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => showForm ? handleCancel() : setShowForm(true)} 
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition"
+          <div style={{display:'flex', gap:'12px'}}>
+            <button
+              onClick={() => showForm ? handleCancel() : setShowForm(true)}
+              style={{padding:'8px 16px', background: showForm ? '#ef4444' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:600, cursor:'pointer'}}
             >
-              {showForm ? 'Cancelar' : '+ Nuevo Producto'}
+              {showForm ? '✕ Cancelar' : '+ Nuevo Producto'}
             </button>
-            <Link to="/" className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
-              Ir al Cotizador
+            <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
+              ← Ir al Cotizador
             </Link>
           </div>
         </div>
 
+        {/* Mensaje de estado */}
+        {mensaje && (
+          <div style={{padding:'12px 20px', borderRadius:'8px', background: mensaje.tipo === 'ok' ? '#dcfce7' : '#fee2e2', color: mensaje.tipo === 'ok' ? '#166534' : '#991b1b', fontWeight:600, fontSize:'14px'}}>
+            {mensaje.texto}
+          </div>
+        )}
+
         {/* Formulario */}
         {showForm && (
-          <div className="bg-white p-6 rounded-xl shadow-sm border border-blue-100">
-            <h2 className="text-lg font-semibold mb-4 text-blue-900">{editingId ? 'Editar Producto' : 'Agregar Nuevo Producto'}</h2>
-            
-            <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-200">
-              <label className="block text-sm font-bold text-blue-800 mb-2">¿Quieres editar un producto ya existente? Selecciónalo aquí:</label>
-              <select 
-                className="w-full p-2 border border-blue-300 rounded text-sm bg-white"
+          <div style={{background:'white', padding:'24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', border:'1px solid #bfdbfe'}}>
+            <h2 style={{margin:'0 0 16px', fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
+              {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
+            </h2>
+
+            {/* Selector de producto existente */}
+            <div style={{background:'#eff6ff', padding:'16px', borderRadius:'8px', marginBottom:'20px', border:'1px solid #bfdbfe'}}>
+              <label style={{display:'block', fontSize:'13px', fontWeight:700, color:'#1d4ed8', marginBottom:'8px'}}>
+                ¿Quieres editar un producto existente? Selecciónalo aquí:
+              </label>
+              <select
+                style={{width:'100%', padding:'8px', border:'1px solid #93c5fd', borderRadius:'6px', fontSize:'13px', background:'white'}}
                 value={editingId || ''}
                 onChange={(e) => {
                   const p = productos.find(prod => prod.id === e.target.value)
                   if (p) {
                     handleEdit(p)
                   } else {
-                    handleCancel()
-                    setShowForm(true) // Keep form open but empty
+                    setEditingId(null)
+                    setFormData(DEFAULT_PRODUCTO)
                   }
                 }}
               >
-                <option value="">-- Crear Nuevo Producto (Dejar en blanco) --</option>
+                <option value="">-- Crear Nuevo Producto --</option>
                 {productos.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
               </select>
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Nombre del Producto</label><input required value={formData.nombre} onChange={e=>setFormData({...formData, nombre: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Unidad</label>
-                <select value={formData.unidad} onChange={e=>setFormData({...formData, unidad: e.target.value})} className="w-full p-2 border rounded text-sm bg-white">
+            <form onSubmit={handleSubmit} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px'}}>
+
+              <div>
+                <label style={labelStyle}>Nombre del Producto *</label>
+                <input required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} style={inputStyle} placeholder="Ej. BucaTrafic" />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Unidad</label>
+                <select value={formData.unidad} onChange={e => setFormData({...formData, unidad: e.target.value})} style={inputStyle}>
                   <option value="L">L (Litros)</option>
                   <option value="Gal">Gal (Galones)</option>
                   <option value="Kg">Kg (Kilogramos)</option>
@@ -163,41 +194,76 @@ function AdminPage() {
                   <option value="Pieza">Pieza</option>
                 </select>
               </div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Moneda</label>
-                <select value={formData.moneda} onChange={e=>setFormData({...formData, moneda: e.target.value as 'MXN'|'USD'})} className="w-full p-2 border rounded text-sm">
-                  <option value="MXN">MXN</option><option value="USD">USD</option>
+
+              <div>
+                <label style={labelStyle}>Moneda</label>
+                <select value={formData.moneda} onChange={e => setFormData({...formData, moneda: e.target.value as 'MXN'|'USD'})} style={inputStyle}>
+                  <option value="MXN">MXN</option>
+                  <option value="USD">USD</option>
                 </select>
               </div>
-              
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Precio Unitario</label><input type="number" step="0.01" required value={formData.precio} onChange={e=>setFormData({...formData, precio: e.target.value === '' ? '' : parseFloat(e.target.value)})} className="w-full p-2 border rounded text-sm" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Cantidad de Referencia (Cubeta de cuántos L?)</label><input type="number" step="0.1" required value={formData.cantRef} onChange={e=>setFormData({...formData, cantRef: e.target.value === '' ? '' : parseFloat(e.target.value)})} className="w-full p-2 border rounded text-sm" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Descripción Breve / Nota</label><input value={formData.nota} onChange={e=>setFormData({...formData, nota: e.target.value})} className="w-full p-2 border rounded text-sm" /></div>
-              
-              <div className="col-span-full border-t pt-4 mt-2">
-                <label className="flex items-center gap-2 mb-4">
-                  <input type="checkbox" checked={formData.tieneRendimiento} onChange={e=>setFormData({...formData, tieneRendimiento: e.target.checked})} />
-                  <span className="font-medium text-sm">¿Este producto se calcula por metros cuadrados (rendimiento)?</span>
+
+              <div>
+                <label style={labelStyle}>Precio Unitario *</label>
+                <input type="number" step="0.01" required value={formData.precio} onChange={e => setFormData({...formData, precio: e.target.value})} style={inputStyle} placeholder="0.00" />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Cantidad de Referencia (tamaño del envase)</label>
+                <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({...formData, cantRef: e.target.value})} style={inputStyle} placeholder="Ej. 19 (litros)" />
+              </div>
+
+              <div>
+                <label style={labelStyle}>Descripción / Nota</label>
+                <input value={formData.nota} onChange={e => setFormData({...formData, nota: e.target.value})} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
+              </div>
+
+              {/* Rendimiento */}
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+                <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontSize:'14px', fontWeight:500}}>
+                  <input type="checkbox" checked={formData.tieneRendimiento} onChange={e => setFormData({...formData, tieneRendimiento: e.target.checked})} />
+                  ¿Este producto se calcula por metros cuadrados (rendimiento)?
                 </label>
               </div>
 
               {formData.tieneRendimiento && (
-                <div><label className="block text-xs font-medium text-blue-700 mb-1">Rendimiento (m² por {formData.unidad})</label><input type="number" step="0.1" value={formData.rendimiento || ''} onChange={e=>setFormData({...formData, rendimiento: parseFloat(e.target.value)})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
+                <div>
+                  <label style={{...labelStyle, color:'#1d4ed8'}}>Rendimiento (m² por {formData.unidad})</label>
+                  <input type="number" step="0.1" value={formData.rendimiento} onChange={e => setFormData({...formData, rendimiento: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} placeholder="Ej. 5" />
+                </div>
               )}
 
-              <div className="col-span-full border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><label className="block text-xs font-medium text-blue-700 mb-1">Espesor Recomendado (Todos los productos)</label><input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e=>setFormData({...formData, espesorRecomendado: e.target.value})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
-                <div><label className="block text-xs font-medium text-blue-700 mb-1">Pasadas / Manos Recomendadas</label><input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e=>setFormData({...formData, manosRecomendadas: e.target.value})} className="w-full p-2 border border-blue-200 rounded text-sm bg-blue-50" /></div>
+              {/* Especificaciones técnicas */}
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                <div>
+                  <label style={{...labelStyle, color:'#1d4ed8'}}>Espesor Recomendado</label>
+                  <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({...formData, espesorRecomendado: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                </div>
+                <div>
+                  <label style={{...labelStyle, color:'#1d4ed8'}}>Manos / Pasadas Recomendadas</label>
+                  <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({...formData, manosRecomendadas: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                </div>
               </div>
 
-              <div className="col-span-full border-t pt-4 mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div><label className="block text-xs font-bold text-green-700 mb-1">Pros (Ventajas)</label><input placeholder="Ej. Secado súper rápido" value={formData.pros || ''} onChange={e=>setFormData({...formData, pros: e.target.value})} className="w-full p-2 border border-green-200 rounded text-sm bg-green-50" /></div>
-                <div><label className="block text-xs font-bold text-orange-700 mb-1">Cons (Limitantes)</label><input placeholder="Ej. Sensible a la humedad" value={formData.cons || ''} onChange={e=>setFormData({...formData, cons: e.target.value})} className="w-full p-2 border border-orange-200 rounded text-sm bg-orange-50" /></div>
-                <div><label className="block text-xs font-bold text-red-700 mb-1">Cuidado con (Advertencias)</label><input placeholder="Ej. No usar en asfalto" value={formData.cuidadoCon || ''} onChange={e=>setFormData({...formData, cuidadoCon: e.target.value})} className="w-full p-2 border border-red-200 rounded text-sm bg-red-50" /></div>
+              {/* Pros / Cons */}
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
+                <div>
+                  <label style={{...labelStyle, color:'#166534'}}>✅ Pros (Ventajas)</label>
+                  <input placeholder="Ej. Secado rápido" value={formData.pros || ''} onChange={e => setFormData({...formData, pros: e.target.value})} style={{...inputStyle, borderColor:'#86efac', background:'#f0fdf4'}} />
+                </div>
+                <div>
+                  <label style={{...labelStyle, color:'#9a3412'}}>⚠️ Cons (Limitantes)</label>
+                  <input placeholder="Ej. Sensible a humedad" value={formData.cons || ''} onChange={e => setFormData({...formData, cons: e.target.value})} style={{...inputStyle, borderColor:'#fdba74', background:'#fff7ed'}} />
+                </div>
+                <div>
+                  <label style={{...labelStyle, color:'#991b1b'}}>🚫 Cuidado con</label>
+                  <input placeholder="Ej. No usar en asfalto" value={formData.cuidadoCon || ''} onChange={e => setFormData({...formData, cuidadoCon: e.target.value})} style={{...inputStyle, borderColor:'#fca5a5', background:'#fef2f2'}} />
+                </div>
               </div>
 
-              <div className="col-span-full flex justify-end mt-4">
-                <button type="submit" className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
-                  {editingId ? 'Guardar Cambios' : 'Guardar Producto'}
+              <div style={{gridColumn:'1 / -1', display:'flex', justifyContent:'flex-end', paddingTop:'8px'}}>
+                <button type="submit" disabled={saving} style={{padding:'10px 28px', background: saving ? '#94a3b8' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'15px', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer'}}>
+                  {saving ? 'Guardando...' : (editingId ? '💾 Guardar Cambios' : '💾 Guardar Producto')}
                 </button>
               </div>
             </form>
@@ -205,45 +271,55 @@ function AdminPage() {
         )}
 
         {/* Lista de productos */}
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+        <div style={{background:'white', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', overflow:'hidden'}}>
           {loading ? (
-            <div className="p-10 text-center text-gray-500">Conectando con Supabase...</div>
+            <div style={{padding:'60px', textAlign:'center', color:'#64748b'}}>Conectando con Supabase...</div>
           ) : productos.length === 0 ? (
-            <div className="p-10 text-center">
-              <div className="text-4xl mb-3">⚡</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-1">Supabase no configurado o base vacía</h3>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                No pudimos cargar productos. Por favor asegúrate de haber pegado tus credenciales en <code>src/supabase.ts</code>.
-              </p>
+            <div style={{padding:'60px', textAlign:'center'}}>
+              <div style={{fontSize:'48px', marginBottom:'12px'}}>📦</div>
+              <h3 style={{color:'#1e293b', margin:'0 0 8px'}}>No hay productos aún</h3>
+              <p style={{color:'#64748b', fontSize:'14px'}}>La migración debería haber creado los productos automáticamente. Verifica que la integración de Supabase con GitHub esté activa.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 border-b">
-                  <tr>
-                    <th className="px-4 py-3 font-semibold text-gray-600">Producto</th>
-                    <th className="px-4 py-3 font-semibold text-gray-600">Precio</th>
-                    <th className="px-4 py-3 font-semibold text-gray-600">Rendimiento</th>
-                    <th className="px-4 py-3 text-right">Acciones</th>
+            <div style={{overflowX:'auto'}}>
+              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+                <thead>
+                  <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                    <th style={thStyle}>Producto</th>
+                    <th style={thStyle}>Precio</th>
+                    <th style={thStyle}>Unidad</th>
+                    <th style={thStyle}>Rendimiento</th>
+                    <th style={thStyle}>Nota</th>
+                    <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody>
                   {productos.map(p => (
-                    <tr key={p.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="font-medium">{p.nombre}</div>
-                        <div className="text-xs text-gray-400">{p.nota}</div>
+                    <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
+                      <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>{p.nombre}</td>
+                      <td style={tdStyle}>
+                        <span style={{fontWeight:700, color: p.moneda === 'USD' ? '#0369a1' : '#166534'}}>
+                          ${p.precio}
+                        </span>
+                        <span style={{color:'#94a3b8', fontSize:'11px', marginLeft:'4px'}}>{p.moneda}</span>
                       </td>
-                      <td className="px-4 py-3">${p.precio} {p.moneda} / {p.unidad}</td>
-                      <td className="px-4 py-3">
-                        {p.tieneRendimiento ? `${p.rendimiento} m²` : <span className="text-gray-300">-</span>}
+                      <td style={tdStyle}>{p.unidad}</td>
+                      <td style={tdStyle}>
+                        {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{color:'#cbd5e1'}}>—</span>}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <button onClick={() => handleEdit(p)} className="px-3 py-1 bg-blue-100 text-blue-700 font-bold rounded-md text-xs mr-3 hover:bg-blue-200">
-                          EDITAR
+                      <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>{p.nota}</td>
+                      <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
+                        <button
+                          onClick={() => handleEdit(p)}
+                          style={{padding:'4px 12px', background:'#dbeafe', color:'#1d4ed8', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer', marginRight:'8px'}}
+                        >
+                          ✏️ Editar
                         </button>
-                        <button onClick={() => handleDelete(p.id)} className="px-3 py-1 bg-red-100 text-red-700 font-bold rounded-md text-xs hover:bg-red-200">
-                          ELIMINAR
+                        <button
+                          onClick={() => handleDelete(p.id, p.nombre)}
+                          style={{padding:'4px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}
+                        >
+                          🗑️ Eliminar
                         </button>
                       </td>
                     </tr>
@@ -257,4 +333,38 @@ function AdminPage() {
       </div>
     </div>
   )
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#374151',
+  marginBottom: '4px'
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 10px',
+  border: '1px solid #d1d5db',
+  borderRadius: '6px',
+  fontSize: '13px',
+  boxSizing: 'border-box',
+  background: 'white'
+}
+
+const thStyle: React.CSSProperties = {
+  padding: '10px 16px',
+  textAlign: 'left',
+  fontWeight: 600,
+  color: '#374151',
+  fontSize: '12px',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em'
+}
+
+const tdStyle: React.CSSProperties = {
+  padding: '10px 16px',
+  color: '#374151',
+  transition: 'background 0.15s'
 }
