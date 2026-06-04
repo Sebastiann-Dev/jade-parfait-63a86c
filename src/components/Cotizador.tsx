@@ -398,11 +398,11 @@ export default function Cotizador() {
                         <div className="text-xs text-gray-400 flex gap-2 mt-0.5">
                           <span>{p.nota}</span>
                           <span className="font-semibold text-green-700">
-                            MXN ${p.moneda === 'USD' ? (p.precio * tipoCambio).toFixed(2) : p.precio}
+                            {p.moneda === 'USD' ? `MXN ≈$${(p.precio * tipoCambio).toFixed(2)}` : `MXN $${p.precio.toFixed(2)}`}
                           </span>
                           <span className="text-gray-300">·</span>
                           <span className="font-semibold text-blue-600">
-                            USD ${p.moneda === 'USD' ? p.precio : (p.precio / tipoCambio).toFixed(2)}
+                            {p.moneda === 'USD' ? `USD ≈$${p.precio.toFixed(2)}` : `USD ≈$${(p.precio / tipoCambio).toFixed(2)}`}
                           </span>
                           <span className="text-gray-300">/ {p.unidad}</span>
                         </div>
@@ -474,7 +474,7 @@ export default function Cotizador() {
                 >
                   {listaPresentacionesKit.map((pres: any, idx: number) => (
                     <option key={idx} value={JSON.stringify(pres)}>
-                      {pres.nombre} — {pres.moneda} ${pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
+                      {pres.nombre} — {pres.moneda} {pres.moneda === 'USD' ? '≈$' : '$'}{pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
                     </option>
                   ))}
                 </select>
@@ -495,14 +495,13 @@ export default function Cotizador() {
                   <p className="text-xs text-blue-500 font-medium uppercase tracking-wide mb-1">Precio unitario</p>
                   <p className="text-2xl font-bold text-blue-900">{formatMXN(preview.precioUnitario)}</p>
                   <p className="text-xs text-blue-400 font-medium">
-                    USD ${(preview.precioUnitario / tipoCambio).toFixed(2)} · MXN/{productoSeleccionado.unidad}
-                    {productoSeleccionado.moneda === 'USD' ? ' (conv.)' : ''}
+                    USD ≈${(preview.precioUnitario / tipoCambio).toFixed(2)} · MXN/{productoSeleccionado.unidad}
                   </p>
                 </div>
                 <div>
                   <p className="text-xs text-blue-500 font-medium uppercase tracking-wide mb-1">Total</p>
                   <p className="text-2xl font-bold text-blue-900">{formatMXN(preview.totalMXN)}</p>
-                  <p className="text-xs text-blue-400 font-medium">USD ${(preview.totalMXN / tipoCambio).toFixed(2)}</p>
+                  <p className="text-xs text-blue-400 font-medium">USD ≈${(preview.totalMXN / tipoCambio).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -585,11 +584,11 @@ export default function Cotizador() {
                       </td>
                       <td className="py-3 px-2 text-right tabular-nums">
                         <div className="font-semibold text-gray-800">{formatMXN(l.precioUnitario)}</div>
-                        <div className="text-xs text-blue-400 font-medium">USD ${(l.precioUnitario / tipoCambio).toFixed(2)}</div>
+                        <div className="text-xs text-blue-400 font-medium">USD ≈${(l.precioUnitario / tipoCambio).toFixed(2)}</div>
                       </td>
                       <td className="py-3 px-2 text-right tabular-nums">
                         <div className="font-semibold text-gray-800">{formatMXN(l.totalMXN)}</div>
-                        <div className="text-xs text-blue-400 font-medium">USD ${(l.totalMXN / tipoCambio).toFixed(2)}</div>
+                        <div className="text-xs text-blue-400 font-medium">USD ≈${(l.totalMXN / tipoCambio).toFixed(2)}</div>
                       </td>
                       <td className="py-3 px-2 print:hidden flex gap-2 justify-end">
                         <button
@@ -645,6 +644,13 @@ export default function Cotizador() {
             <p className="text-sm">Selecciona un producto y agrégalo para comenzar la cotización</p>
           </div>
         )}
+
+        {/* Footer legend */}
+        <footer className="mt-8 py-6 border-t border-gray-200 text-center text-xs text-gray-500 space-y-1 print:hidden">
+          <p className="font-semibold text-gray-700">⚠️ Nota Importante sobre el Tipo de Cambio:</p>
+          <p>El valor del dólar es el aproximado y el único oficial es el del Diario Oficial de la Federación (DOF).</p>
+          <p className="text-amber-600 font-semibold">Se sugiere confirmar de manera manual antes de pasarlo así.</p>
+        </footer>
       </main>
     </div>
   )

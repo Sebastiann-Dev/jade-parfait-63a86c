@@ -242,9 +242,18 @@ function AdminPage() {
         {/* Formulario */}
         {showForm && (
           <div style={{background:'white', padding:'24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', border:'1px solid #bfdbfe'}}>
-            <h2 style={{margin:'0 0 16px', fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
-              {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
-            </h2>
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px'}}>
+              <h2 style={{margin:0, fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
+                {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
+              </h2>
+              <button
+                type="button"
+                onClick={handleCancel}
+                style={{padding:'6px 12px', background:'#ef4444', color:'white', border:'none', borderRadius:'6px', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
+              >
+                ✕ Cancelar
+              </button>
+            </div>
 
             {/* Selector de producto existente */}
             <div style={{background:'#eff6ff', padding:'16px', borderRadius:'8px', marginBottom:'20px', border:'1px solid #bfdbfe'}}>
@@ -264,7 +273,7 @@ function AdminPage() {
                   }
                 }}
               >
-                <option value="">-- Crear Nuevo Producto --</option>
+                <option value="">-- Seleccionar producto para editar --</option>
                 {productos.map(p => (
                   <option key={p.id} value={p.id}>{p.nombre}</option>
                 ))}
@@ -530,7 +539,7 @@ function AdminPage() {
                         {p.nombre}
                         {p.kitInfo && p.kitInfo.startsWith('[') && (
                           <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
-                            📦 Presentaciones: {JSON.parse(p.kitInfo).map((k: any) => `${k.nombre} ($${k.precio} ${k.moneda})`).join(' · ')}
+                            📦 Presentaciones: {JSON.parse(p.kitInfo).map((k: any) => `${k.nombre} (${k.moneda === 'USD' ? '≈$' : '$'}${k.precio} ${k.moneda})`).join(' · ')}
                           </div>
                         )}
                         {p.proporcionesMezcla && (
@@ -543,10 +552,10 @@ function AdminPage() {
                         {p.moneda === 'USD' ? (
                           <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
                             <div>
-                              <span style={{fontWeight:700, color:'#0369a1'}}>USD ${(Number(p.precio) || 0).toFixed(2)}</span>
+                              <span style={{fontWeight:700, color:'#0369a1'}}>USD ≈$${(Number(p.precio) || 0).toFixed(2)}</span>
                             </div>
                             <div>
-                              <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
+                              <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ≈$${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
                             </div>
                           </div>
                         ) : (
@@ -555,7 +564,7 @@ function AdminPage() {
                               <span style={{fontWeight:700, color:'#166534'}}>MXN ${(Number(p.precio) || 0).toFixed(2)}</span>
                             </div>
                             <div>
-                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
+                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ≈$${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
                             </div>
                           </div>
                         )}
@@ -595,6 +604,13 @@ function AdminPage() {
             </div>
           )}
         </div>
+
+        {/* Footer legend */}
+        <footer style={{marginTop:'32px', padding:'24px 0 12px', borderTop:'1px solid #e2e8f0', textAlign:'center', fontSize:'12px', color:'#64748b', lineHeight:'1.6'}}>
+          <p style={{margin:0, fontWeight:700, color:'#475569'}}>⚠️ Nota Importante sobre el Tipo de Cambio:</p>
+          <p style={{margin:'4px 0 0'}}>El valor del dólar es el aproximado y el único oficial es el del Diario Oficial de la Federación (DOF).</p>
+          <p style={{margin:'4px 0 0', color:'#d97706', fontWeight:600}}>Se sugiere confirmar de manera manual antes de pasarlo así.</p>
+        </footer>
 
       </div>
     </div>
