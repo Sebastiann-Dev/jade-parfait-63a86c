@@ -21,8 +21,8 @@ if len(sys.argv) < 3:
 email = sys.argv[1]
 password = sys.argv[2]
 
-if not email.endswith("@bucamx.com"):
-    print(f"Error: El correo '{email}' no es un correo oficial @bucamx.com")
+if not email.endswith("@bucamx.com") and email != "sebastian.grajales.rmzz@gmail.com":
+    print(f"Error: El correo '{email}' no es un correo oficial @bucamx.com ni el administrador autorizado")
     sys.exit(1)
 
 if len(password) < 6:
