@@ -1,97 +1,53 @@
 # Ruta de Madurez y Especificaciones Técnicas: BUCA Recubrimientos
 
-Este documento detalla la ruta de madurez para el cotizador interno de **BUCA Recubrimientos**, refinada a partir de tu retroalimentación. Se eliminaron los componentes de presupuesto de mano de obra y viáticos por no ser de utilidad, y se profundizaron los temas clave de precisión técnica, mermas y seguridad del backend.
+Este documento detalla el plan de evolución del cotizador interno de **BUCA Recubrimientos**, dividido en dos fases: desde lo más fácil y necesario hasta lo más complejo o laborioso.
 
 ---
 
-## 1. Mermas y Estado del Piso (Explicación Extendida)
+## 🚀 FASE 1: Fácil y Necesario (Corto Plazo)
 
-En lugar de implementar una compleja matriz de perfiles industriales (CSP) que resulta poco viable a corto plazo, el cotizador puede incorporar un **selector simplificado del estado del piso**. 
+Estas características son sumamente necesarias para asegurar la rentabilidad de las cotizaciones y proteger la base de datos de modificaciones maliciosas. Son rápidas de implementar ya que no requieren integraciones externas complejas ni grandes cambios estructurales.
 
-El consumo real de resina y mortero se ve afectado directamente por los poros y grietas del concreto. Un piso poroso absorbe mucho más producto que un piso sellado y liso.
+### 1. Factor de Merma por Estado del Piso
+El consumo real de resinas y morteros se ve afectado directamente por los poros y grietas del concreto. Un piso poroso absorbe mucho más producto que un piso sellado y liso.
+*   **Implementación:** Añadiremos un selector rápido en el cotizador (ej. *Liso +5%*, *Estándar +10%*, *Rugoso/Poroso +15%*).
+*   **Algoritmo:**
+    ```typescript
+    const multiplicadorMerma = 
+      estadoPiso === 'liso' ? 1.05 :
+      estadoPiso === 'rugoso' ? 1.15 : 
+      1.10; // Estándar por defecto
 
-### Implementación en la Interfaz (React)
-Añadiremos un selector en la barra de configuración o al lado del producto:
+    const cantidadFinal = cantidadCalculada * multiplicadorMerma;
+    ```
+*   **Importancia:** Evita que BUCA pierda dinero reponiendo material faltante en obra debido a la porosidad imprevista del concreto.
 
-*   **Piso Liso / Pulido (+5% de merma):** Para concreto nuevo pulido o pisos con recubrimiento previo en buen estado.
-*   **Piso Estándar (+10% de merma):** Concreto promedio desbastado o con porosidad media.
-*   **Piso Rugoso / Poroso (+15% de merma):** Concreto viejo, muy absorbente, o con imperfecciones notables.
+### 2. Rendimiento de Morteros por Espesor Dinámico
+A diferencia de una pintura convencional, un **mortero (ej. BucaCrete HL)** se aplica a diferentes espesores (de 3 mm a 9 mm) según el tráfico o choque térmico que recibirá. Usar un "rendimiento fijo" en m² causa graves errores de cotización.
+*   **El Cálculo:** Usamos la **Densidad Recomendada** del mortero (ej. $1.8\text{ kg/L}$) y el espesor en mm ingresado por el vendedor:
+    $$\text{Rendimiento (kg/m²)} = \text{Espesor (mm)} \times \text{Densidad (kg/L)}$$
+    $$\text{Total Kilos} = \text{Área (m²)} \times \text{Rendimiento (kg/m²)}$$
+    $$\text{Sacos de 25 kg} = \frac{\text{Total Kilos}}{25}$$
+*   **Ejemplo Práctico:** Para $100\text{ m²}$ a un espesor de $6\text{ mm}$ con densidad de $1.8\text{ kg/L}$:
+    $$\text{Rendimiento} = 6 \times 1.8 = 10.8\text{ kg/m²}$$
+    $$\text{Total Kilos} = 100 \times 10.8 = 1080\text{ kg}$$
+    $$\text{Sacos} = \frac{1080}{25} = 43.2 \approx 44\text{ sacos}$$
+*   **Implementación:** Al elegir un mortero, el cotizador pide el "Espesor requerido (mm)" y realiza este cálculo exacto en lugar de usar un número estático.
 
-### El Algoritmo en la Calculadora
-Al calcular la cantidad del producto a cotizar, el sistema aplicará automáticamente el multiplicador seleccionado:
-
-```typescript
-const multiplicadorMerma = 
-  estadoPiso === 'liso' ? 1.05 :
-  estadoPiso === 'rugoso' ? 1.15 : 
-  1.10; // Estándar por defecto
-
-// Ajuste automático de cantidad en el cotizador
-const cantidadFinal = cantidadCalculada * multiplicadorMerma;
-```
-
-Esto asegura que las propuestas enviadas al cliente contemplen la realidad física del piso, evitando pérdidas económicas para BUCA al tener que reponer material gratis en obra.
-
----
-
-## 2. Morteros por Espesor Dinámico (Explicación Extendida)
-
-### ¿Por qué el rendimiento de un mortero no es fijo?
-A diferencia de una pintura o sello epóxico convencional, un **mortero de poliuretano-cemento (ej. BucaCrete HL)** se aplica a diferentes espesores (usualmente entre **3 mm y 9 mm**) según la carga de tráfico o temperatura que recibirá el piso. 
-Si el cotizador usa un "rendimiento fijo" (ej. 4 m² por saco), cometerá un gran error si el cliente requiere un espesor de 6 mm en lugar de 3 mm (necesitará exactamente el doble de material).
-
-### El Cálculo Matemático Basado en Densidad
-Para obtener la cantidad exacta de sacos de 25 kg requeridos, usamos la densidad recomendada del mortero (ej. $1.8\text{ kg/L}$):
-
-$$\text{Rendimiento (kg/m²)} = \text{Espesor (mm)} \times \text{Densidad (kg/L)}$$
-
-$$\text{Total Kilos} = \text{Área (m²)} \times \text{Rendimiento (kg/m²)}$$
-
-$$\text{Sacos de 25 kg} = \frac{\text{Total Kilos}}{25}$$
-
-#### Ejemplo Práctico:
-*   **Área a recubrir:** $100\text{ m²}$
-*   **Espesor deseado:** $6\text{ mm}$
-*   **Densidad de BucaCrete:** $1.8\text{ kg/L}$ (es decir, $1.8\text{ kg}$ de mezcla rellenan exactamente un litro de volumen).
-*   **Fórmula:**
-    $$\text{Rendimiento} = 6\text{ mm} \times 1.8\text{ kg/L} = 10.8\text{ kg/m²}$$
-    $$\text{Total Kilos} = 100\text{ m²} \times 10.8\text{ kg/m²} = 1080\text{ kg}$$
-    $$\text{Sacos de 25 kg} = \frac{1080\text{ kg}}{25\text{ kg}} = 43.2\text{ sacos} \approx 44\text{ sacos}$$
-
-### Cómo se vería en el Cotizador:
-Si el producto seleccionado tiene una `densidadRecomendada` en su ficha técnica y el usuario ingresa a cotizar por m²:
-1. El cotizador habilita un campo numérico: **Espesor requerido (mm)**.
-2. El sistema calcula y muestra en tiempo real cuántos sacos se necesitan utilizando la densidad del producto.
-3. El vendedor entiende perfectamente el rendimiento por m² a esa densidad y espesor elegidos.
-
----
-
-## 3. Cotización por Sistemas Multicapa (Fase 2)
-
-Dado que es una propuesta de alto valor para BUCA, la lógica consistiría en:
-1. Crear una tabla `sistemas` en la base de datos (ej. "Sistema BucaCrete HD 6mm").
-2. Crear una tabla de relación `sistema_productos` donde se defina qué productos contiene (ej. *Base Primer + Mortero BucaCrete + Sello Bucathane*) y su factor de dosificación por m².
-3. En la interfaz, al cotizar $200\text{ m²}$ de dicho sistema, se agregarán de forma automática 3 líneas de cotización con sus respectivas cantidades exactas y precios individuales.
-
----
-
-## 4. Generación de PDF Premium con Hipervínculos a Fichas Técnicas
-
-Esta herramienta le dará un toque sumamente profesional a tus propuestas:
-*   En la base de datos se añaden dos campos de tipo URL a la tabla de productos: `ficha_tecnica_url` (TDS) y `ficha_seguridad_url` (SDS).
-*   Al presionar el botón "Descargar PDF", se genera un archivo formal (con membrete de BUCA, desglose del proyecto y cotización).
-*   En la tabla de conceptos del PDF, el nombre de cada producto será un enlace cliqueable. Al pulsarlo, el cliente podrá ver o descargar la Ficha Técnica directamente en su teléfono o computadora.
-
----
-
-## 5. Seguridad de Supabase: Permisos de Dominio `@bucamx.com`
-
-Para evitar accesos no autorizados y permitir cuentas internas seguras, estructuramos las políticas de Supabase bajo las siguientes reglas:
-
-### A. Autenticación Restringida por Dominio
-Para asegurar que solo empleados autorizados de BUCA puedan crear cuentas o acceder a la sección de administración:
-1.  **Restricción en el Registro:** Se configura Supabase Auth para restringir registros únicamente a direcciones de correo electrónico que terminen en `@bucamx.com`.
-2.  **Trigger de Validación (PostgreSQL):** Se crea una función de validación en la base de datos de Supabase que se ejecuta automáticamente cada vez que un usuario intenta registrarse:
+### 3. Seguridad de Supabase: Restringir por Dominio `@bucamx.com`
+Actualmente, las claves de Supabase están expuestas en el código del frontend. Es crucial proteger la base de datos de alteraciones externas.
+*   **Políticas Row Level Security (RLS) en la tabla `productos`:**
+    *   **Lectura (`SELECT`):** Permitida para todos (público / anónimo) para que la calculadora cargue la información de precios sin loguearse.
+    *   **Modificaciones (`INSERT / UPDATE / DELETE`):** Permitida únicamente para usuarios autenticados con cuentas del correo oficial `@bucamx.com`:
+        ```sql
+        CREATE POLICY "Solo administradores BUCA pueden modificar productos"
+        ON public.productos
+        FOR ALL
+        TO authenticated
+        USING (auth.jwt()->>'email' LIKE '%@bucamx.com');
+        ```
+*   **Filtro en Base de Datos (Postgres Trigger):**
+    Evita que personas ajenas a la empresa puedan crear cuentas desde la API:
     ```sql
     CREATE OR REPLACE FUNCTION public.check_user_domain()
     RETURNS TRIGGER AS $$
@@ -108,14 +64,18 @@ Para asegurar que solo empleados autorizados de BUCA puedan crear cuentas o acce
     FOR EACH ROW EXECUTE FUNCTION public.check_user_domain();
     ```
 
-### B. Políticas Row Level Security (RLS) en la tabla `productos`
-Implementaremos políticas basadas en el correo autenticado para autorizar operaciones:
-*   **Lectura (`SELECT`):** Permitida para todos los usuarios (público / anónimo), para que la calculadora cargue la información de precios sin necesidad de loguearse.
-*   **Modificaciones (`INSERT / UPDATE / DELETE`):** Permitida únicamente para usuarios cuya sesión autenticada (`auth.jwt()`) pertenezca a un correo `@bucamx.com`:
-    ```sql
-    CREATE POLICY "Solo administradores BUCA pueden modificar productos"
-    ON public.productos
-    FOR ALL
-    TO authenticated
-    USING (auth.jwt()->>'email' LIKE '%@bucamx.com');
-    ```
+---
+
+## 🛠️ FASE 2: Complejo o Tedioso (Mediano/Largo Plazo)
+
+Estas características aportan un valor de automatización muy alto y una experiencia de usuario premium, pero requieren de mayor tiempo de desarrollo, lógica avanzada en el servidor (Edge Functions) y rediseño de las tablas de datos.
+
+### 1. Cotización por Sistemas Multicapa
+Permite cotizar paquetes completos de recubrimientos (ej. "Sistema Autonivelante de 3mm") en lugar de añadir cada componente por separado.
+*   **Por qué es complejo:** Requiere crear dos nuevas tablas en la base de datos (`sistemas` y `sistema_productos`) para enlazar las proporciones relativas, y programar una lógica en React que desglose dinámicamente múltiples filas al añadir un sistema a la cotización.
+*   **Beneficio:** Ahorra tiempo al vendedor y estandariza los sistemas que ofrece la empresa.
+
+### 2. Generador de PDF Premium con Hipervínculos a Fichas Técnicas
+Genera un presupuesto en PDF formal y elegante listo para enviar al cliente.
+*   **Por qué es tedioso:** Requiere configurar **Supabase Edge Functions** en Deno/Node para compilar y maquetar el PDF con código en el servidor, crear un bucket de almacenamiento para guardar los PDFs generados y diseñar una plantilla visual comercial que no se descuadre.
+*   **Beneficio:** El cliente recibe un PDF formal y estético directamente en su WhatsApp. Al pulsar el nombre de cualquier producto en el PDF, este abre la **Ficha Técnica (TDS)** o **Ficha de Seguridad (SDS)** del mismo desde internet.
