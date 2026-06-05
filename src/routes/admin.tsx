@@ -158,6 +158,134 @@ function AdminPage() {
     setLoading(false)
   }
 
+  // Systems state variables
+  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas'>('productos')
+  const [sistemas, setSistemas] = useState<Sistema[]>([])
+  const [loadingSistemas, setLoadingSistemas] = useState(false)
+  const [showSistemaForm, setShowSistemaForm] = useState(false)
+  const [editingSistemaId, setEditingSistemaId] = useState<string | null>(null)
+  
+  const DEFAULT_SISTEMA = {
+    nombre: '',
+    descripcion: '',
+    productos: [] as { producto_id: string; consumo_por_m2: string; orden: string }[]
+  }
+  const [sistemaFormData, setSistemaFormData] = useState(DEFAULT_SISTEMA)
+
+  async function loadSistemas() {
+    setLoadingSistemas(true)
+    const data = await fetchSistemasSupabase()
+    setSistemas(data)
+    setLoadingSistemas(false)
+  }
+
+  async function handleSistemaSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!sistemaFormData.nombre.trim()) {
+      showMsg('❌ El nombre del sistema es obligatorio', 'error')
+      return
+    }
+    const validProds = sistemaFormData.productos
+      .filter(p => p.producto_id && parseFloat(p.consumo_por_m2) > 0)
+      .map(p => ({
+        producto_id: p.producto_id,
+        consumo_por_m2: parseFloat(p.consumo_por_m2) || 0,
+        orden: parseInt(p.orden) || 0
+      }))
+
+    setSaving(true)
+    try {
+      if (editingSistemaId) {
+        await updateSistemaSupabase(editingSistemaId, sistemaFormData.nombre, sistemaFormData.descripcion, validProds)
+        showMsg('✅ Sistema actualizado con éxito', 'ok')
+      } else {
+        await saveSistemaSupabase(sistemaFormData.nombre, sistemaFormData.descripcion, validProds)
+        showMsg('✅ Sistema guardado con éxito', 'ok')
+      }
+      setShowSistemaForm(false)
+      setEditingSistemaId(null)
+      setSistemaFormData(DEFAULT_SISTEMA)
+      loadSistemas()
+    } catch (err) {
+      showMsg('❌ Error al guardar el sistema', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSistemaEdit(sys: Sistema) {
+    setSaving(true)
+    try {
+      const rels = await fetchSistemaProductosSupabase(sys.id)
+      setSistemaFormData({
+        nombre: sys.nombre,
+        descripcion: sys.descripcion || '',
+        productos: rels.map(r => ({
+          producto_id: r.producto_id,
+          consumo_por_m2: String(r.consumo_por_m2),
+          orden: String(r.orden)
+        }))
+      })
+      setEditingSistemaId(sys.id)
+      setShowSistemaForm(true)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } catch (err) {
+      showMsg('❌ Error al cargar los detalles del sistema', 'error')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSistemaDelete(id: string, nombre: string) {
+    if (confirm(`¿Seguro que deseas eliminar el sistema "${nombre}"?`)) {
+      setLoadingSistemas(true)
+      try {
+        await deleteSistemaSupabase(id)
+        showMsg('🗑️ Sistema eliminado', 'ok')
+        loadSistemas()
+      } catch (err) {
+        showMsg('❌ Error al eliminar el sistema', 'error')
+      } finally {
+        setLoadingSistemas(false)
+      }
+    }
+  }
+
+  function handleSistemaCancel() {
+    setShowSistemaForm(false)
+    setEditingSistemaId(null)
+    setSistemaFormData(DEFAULT_SISTEMA)
+  }
+
+  function agregarProductoAlSistema() {
+    setSistemaFormData(prev => ({
+      ...prev,
+      productos: [
+        ...prev.productos,
+        {
+          producto_id: productos[0]?.id || '',
+          consumo_por_m2: '0.1',
+          orden: String(prev.productos.length + 1)
+        }
+      ]
+    }))
+  }
+
+  function eliminarProductoDelSistema(idx: number) {
+    setSistemaFormData(prev => ({
+      ...prev,
+      productos: prev.productos.filter((_, i) => i !== idx)
+    }))
+  }
+
+  function actualizarProductoEnSistema(idx: number, field: string, value: string) {
+    setSistemaFormData(prev => {
+      const updated = [...prev.productos]
+      updated[idx] = { ...updated[idx], [field]: value }
+      return { ...prev, productos: updated }
+    })
+  }
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null)
@@ -175,6 +303,7 @@ function AdminPage() {
   useEffect(() => {
     if (user) {
       loadProductos()
+      loadSistemas()
     }
   }, [user])
 
@@ -456,45 +585,71 @@ function AdminPage() {
 
   return (
     <div style={{minHeight:'100vh', background:'#f8fafc', padding:'24px', fontFamily:'sans-serif'}}>
-      <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', flexDirection:'column', gap:'20px'}}>
-
-        {/* Header */}
+      <div style={{maxWidth:'1100px',        {/* Header */}
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'white', padding:'16px 24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
           <div>
             <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración — BUCA</h1>
             <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>
-              {loading ? 'Cargando...' : `${productos.length} productos en la base de datos`}
+              {currentTab === 'productos' 
+                ? (loading ? 'Cargando productos...' : `${productos.length} productos en la base de datos`)
+                : (loadingSistemas ? 'Cargando sistemas...' : `${sistemas.length} sistemas en la base de datos`)}
             </p>
           </div>
           <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
-            <button
-              disabled={showForm}
-              onClick={() => {
-                if (!showForm) {
-                  setEditingId(null)
-                  setFormData(DEFAULT_PRODUCTO)
-                  setEsKitProduct(false)
-                  setKitPresentaciones([])
-                  setNewKitNombre('')
-                  setNewKitPrecio('')
-                  setNewKitMoneda('MXN')
-                  setShowForm(true)
-                }
-              }}
-              style={{
-                padding: '8px 16px',
-                background: showForm ? '#cbd5e1' : '#2563eb',
-                color: showForm ? '#64748b' : 'white',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: 600,
-                cursor: showForm ? 'not-allowed' : 'pointer',
-                opacity: showForm ? 0.7 : 1
-              }}
-            >
-              + Nuevo Producto
-            </button>
+            {currentTab === 'productos' ? (
+              <button
+                disabled={showForm}
+                onClick={() => {
+                  if (!showForm) {
+                    setEditingId(null)
+                    setFormData(DEFAULT_PRODUCTO)
+                    setEsKitProduct(false)
+                    setKitPresentaciones([])
+                    setNewKitNombre('')
+                    setNewKitPrecio('')
+                    setNewKitMoneda('MXN')
+                    setShowForm(true)
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: showForm ? '#cbd5e1' : '#2563eb',
+                  color: showForm ? '#64748b' : 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: showForm ? 'not-allowed' : 'pointer',
+                  opacity: showForm ? 0.7 : 1
+                }}
+              >
+                + Nuevo Producto
+              </button>
+            ) : (
+              <button
+                disabled={showSistemaForm}
+                onClick={() => {
+                  if (!showSistemaForm) {
+                    setEditingSistemaId(null)
+                    setSistemaFormData(DEFAULT_SISTEMA)
+                    setShowSistemaForm(true)
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: showSistemaForm ? '#cbd5e1' : '#7c3aed',
+                  color: showSistemaForm ? '#64748b' : 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: showSistemaForm ? 'not-allowed' : 'pointer',
+                  opacity: showSistemaForm ? 0.7 : 1
+                }}
+              >
+                + Nuevo Sistema
+              </button>
+            )}
             <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
               ← Ir al Cotizador
             </Link>
@@ -507,6 +662,43 @@ function AdminPage() {
           </div>
         </div>
 
+        {/* Navigation Tabs */}
+        <div style={{display:'flex', gap:'12px', borderBottom:'1px solid #e2e8f0', paddingBottom:'8px', marginTop:'4px'}}>
+          <button
+            onClick={() => setCurrentTab('productos')}
+            style={{
+              padding: '8px 16px',
+              background: currentTab === 'productos' ? '#2563eb' : 'transparent',
+              color: currentTab === 'productos' ? 'white' : '#475569',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            📦 Productos ({productos.length})
+          </button>
+          <button
+            onClick={() => {
+              setCurrentTab('sistemas');
+              loadSistemas();
+            }}
+            style={{
+              padding: '8px 16px',
+              background: currentTab === 'sistemas' ? '#7c3aed' : 'transparent',
+              color: currentTab === 'sistemas' ? 'white' : '#475569',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            🧪 Sistemas Multicapa ({sistemas.length})
+          </button>
+        </div>
+
         {/* Mensaje de estado */}
         {mensaje && (
           <div style={{padding:'12px 20px', borderRadius:'8px', background: mensaje.tipo === 'ok' ? '#dcfce7' : '#fee2e2', color: mensaje.tipo === 'ok' ? '#166534' : '#991b1b', fontWeight:600, fontSize:'14px'}}>
@@ -515,7 +707,7 @@ function AdminPage() {
         )}
 
         {/* Formulario */}
-        {showForm && (
+        {currentTab === 'productos' && showForm && (
           <div style={{
             background: 'white',
             padding: '24px',
@@ -875,124 +1067,328 @@ function AdminPage() {
         )}
 
         {/* Lista de productos */}
-        <div style={{background:'white', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', overflow:'hidden'}}>
-          {loading ? (
-            <div style={{padding:'60px', textAlign:'center', color:'#64748b'}}>Conectando con Supabase...</div>
-          ) : productos.length === 0 ? (
-            <div style={{padding:'60px', textAlign:'center'}}>
-              <div style={{fontSize:'48px', marginBottom:'12px'}}>📦</div>
-              <h3 style={{color:'#1e293b', margin:'0 0 8px'}}>No hay productos aún</h3>
-              <p style={{color:'#64748b', fontSize:'14px'}}>La migración debería haber creado los productos automáticamente. Verifica que la integración de Supabase con GitHub esté activa.</p>
-            </div>
-          ) : (
-            <div style={{overflowX:'auto'}}>
-              <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
-                <thead>
-                  <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
-                    <th style={thStyle}>Producto</th>
-                    <th style={thStyle}>Precio</th>
-                    <th style={thStyle}>Unidad</th>
-                    <th style={thStyle}>Kit</th>
-                    <th style={thStyle}>Rendimiento</th>
-                    <th style={thStyle}>Densidad</th>
-                    <th style={thStyle}>Nota</th>
-                    <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {productos.map(p => (
-                    <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
-                      <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>
-                        {p.nombre}
-                        {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) && (() => {
-                          const parsed = parseKitInfo(p.kitInfo)
-                          return (
-                            <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
-                              📦 Presentaciones: {parsed.presentaciones.map((k: any) => {
-                                const partsStr = k.partes && k.partes.length > 0 ? ` [${k.partes.join('+')}L]` : ''
-                                return `${k.nombre}${partsStr} (${k.moneda === 'USD' ? '≈$' : '$'}${k.precio} ${k.moneda})`
-                              }).join(' · ')}
-                            </div>
-                          )
-                        })()}
-                        {p.proporcionesMezcla && (
-                          <div style={{fontSize:'11px', fontWeight:400, color:'#0369a1', marginTop:'2px'}}>
-                            🧪 Mezcla: {p.proporcionesMezcla}
-                          </div>
-                        )}
-                      </td>
-                      <td style={tdStyle}>
-                        {p.moneda === 'USD' ? (
-                          <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
-                            <div>
-                              <span style={{fontWeight:700, color:'#0369a1'}}>USD ≈${(Number(p.precio) || 0).toFixed(2)}</span>
-                            </div>
-                            <div>
-                              <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ≈${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
-                            <div>
-                              <span style={{fontWeight:700, color:'#166534'}}>MXN ${(Number(p.precio) || 0).toFixed(2)}</span>
-                            </div>
-                            <div>
-                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ≈${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td style={tdStyle}>{p.unidad}</td>
-                      <td style={tdStyle}>
-                        {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) ? (() => {
-                          const parsed = parseKitInfo(p.kitInfo)
-                          return (
-                            <span style={{color: '#7c3aed', fontWeight: 600}}>
-                              {parsed.presentaciones.map((k: any) => {
-                                const partsStr = k.partes && k.partes.length > 0 ? ` (${k.partes.join('+')}L)` : ''
-                                return `${k.nombre}${partsStr}`
-                              }).join(', ')}
-                            </span>
-                          )
-                        })() : (
-                          p.kitInfo || <span style={{color:'#cbd5e1'}}>—</span>
-                        )}
-                      </td>
-                      <td style={tdStyle}>
-                        {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{color:'#cbd5e1'}}>—</span>}
-                      </td>
-                      <td style={tdStyle}>
-                        {p.densidadRecomendada || <span style={{color:'#cbd5e1'}}>—</span>}
-                      </td>
-                      <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>
-                        <div>{p.nota}</div>
-                        {p.bitacora && (
-                          <div style={{fontSize:'11px', color:'#7c3aed', marginTop:'4px', fontWeight:500}}>
-                            📓 Bitácora: {p.bitacora}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
-                        <button
-                          onClick={() => handleEdit(p)}
-                          style={{padding:'4px 12px', background:'#dbeafe', color:'#1d4ed8', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer', marginRight:'8px'}}
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id, p.nombre)}
-                          style={{padding:'4px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}
-                        >
-                          🗑️ Eliminar
-                        </button>
-                      </td>
+        {currentTab === 'productos' && !showForm && (
+          <div style={{background:'white', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', overflow:'hidden'}}>
+            {loading ? (
+              <div style={{padding:'60px', textAlign:'center', color:'#64748b'}}>Conectando con Supabase...</div>
+            ) : productos.length === 0 ? (
+              <div style={{padding:'60px', textAlign:'center'}}>
+                <div style={{fontSize:'48px', marginBottom:'12px'}}>📦</div>
+                <h3 style={{color:'#1e293b', margin:'0 0 8px'}}>No hay productos aún</h3>
+                <p style={{color:'#64748b', fontSize:'14px'}}>La migración debería haber creado los productos automáticamente. Verifica que la integración de Supabase con GitHub esté activa.</p>
+              </div>
+            ) : (
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+                  <thead>
+                    <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                      <th style={thStyle}>Producto</th>
+                      <th style={thStyle}>Precio</th>
+                      <th style={thStyle}>Unidad</th>
+                      <th style={thStyle}>Kit</th>
+                      <th style={thStyle}>Rendimiento</th>
+                      <th style={thStyle}>Densidad</th>
+                      <th style={thStyle}>Nota</th>
+                      <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                  </thead>
+                  <tbody>
+                    {productos.map(p => (
+                      <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
+                        <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>
+                          {p.nombre}
+                          {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) && (() => {
+                            const parsed = parseKitInfo(p.kitInfo)
+                            return (
+                              <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
+                                📦 Presentaciones: {parsed.presentaciones.map((k: any) => {
+                                  const partsStr = k.partes && k.partes.length > 0 ? ` [${k.partes.join('+')}L]` : ''
+                                  return `${k.nombre}${partsStr} (${k.moneda === 'USD' ? '≈$' : '$'}${k.precio} ${k.moneda})`
+                                }).join(' · ')}
+                              </div>
+                            )
+                          })()}
+                          {p.proporcionesMezcla && (
+                            <div style={{fontSize:'11px', fontWeight:400, color:'#0369a1', marginTop:'2px'}}>
+                              🧪 Mezcla: {p.proporcionesMezcla}
+                            </div>
+                          )}
+                        </td>
+                        <td style={tdStyle}>
+                          {p.moneda === 'USD' ? (
+                            <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
+                              <div>
+                                <span style={{fontWeight:700, color:'#0369a1'}}>USD ≈${(Number(p.precio) || 0).toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span style={{fontSize:'11px', color:'#166534', fontWeight:500}}>MXN ≈${( (Number(p.precio) || 0) * tipoCambio ).toFixed(2)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
+                              <div>
+                                <span style={{fontWeight:700, color:'#166534'}}>MXN ${(Number(p.precio) || 0).toFixed(2)}</span>
+                              </div>
+                              <div>
+                                <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>USD ≈${( (Number(p.precio) || 0) / tipoCambio ).toFixed(2)}</span>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td style={tdStyle}>{p.unidad}</td>
+                        <td style={tdStyle}>
+                          {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) ? (() => {
+                            const parsed = parseKitInfo(p.kitInfo)
+                            return (
+                              <span style={{color: '#7c3aed', fontWeight: 600}}>
+                                {parsed.presentaciones.map((k: any) => {
+                                  const partsStr = k.partes && k.partes.length > 0 ? ` (${k.partes.join('+')}L)` : ''
+                                  return `${k.nombre}${partsStr}`
+                                }).join(', ')}
+                              </span>
+                            )
+                          })() : (
+                            p.kitInfo || <span style={{color:'#cbd5e1'}}>—</span>
+                          )}
+                        </td>
+                        <td style={tdStyle}>
+                          {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{color:'#cbd5e1'}}>—</span>}
+                        </td>
+                        <td style={tdStyle}>
+                          {p.densidadRecomendada || <span style={{color:'#cbd5e1'}}>—</span>}
+                        </td>
+                        <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>
+                          <div>{p.nota}</div>
+                          {p.bitacora && (
+                            <div style={{fontSize:'11px', color:'#7c3aed', marginTop:'4px', fontWeight:500}}>
+                              📓 Bitácora: {p.bitacora}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
+                          <button
+                            onClick={() => handleEdit(p)}
+                            style={{padding:'4px 12px', background:'#dbeafe', color:'#1d4ed8', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer', marginRight:'8px'}}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p.id, p.nombre)}
+                            style={{padding:'4px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Formulario de Sistemas */}
+        {currentTab === 'sistemas' && showSistemaForm && (
+          <div style={{
+            background: 'white',
+            padding: '24px',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(124, 58, 237, 0.15), 0 10px 10px -5px rgba(124, 58, 237, 0.1)',
+            border: '2px solid #a78bfa',
+            marginBottom: '20px'
+          }}>
+            <h2 style={{marginTop: 0, fontSize: '18px', fontWeight: 700, color: '#6d28d9', borderBottom: '1px solid #f3e8ff', paddingBottom: '12px', marginBottom: '16px'}}>
+              {editingSistemaId ? '📝 Editar Sistema Multicapa' : '🧪 Crear Nuevo Sistema Multicapa'}
+            </h2>
+            
+            <form onSubmit={handleSistemaSubmit} style={{display:'grid', gridTemplateColumns:'1fr', gap:'16px'}}>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:'16px'}}>
+                <div>
+                  <label style={labelStyle}>Nombre del Sistema *</label>
+                  <input
+                    required
+                    placeholder="Ej. Sistema Autonivelante 3mm"
+                    value={sistemaFormData.nombre}
+                    onChange={e => setSistemaFormData({...sistemaFormData, nombre: e.target.value})}
+                    style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Descripción del Sistema</label>
+                  <input
+                    placeholder="Ej. Recomendado para tráfico pesado y choque térmico ligero..."
+                    value={sistemaFormData.descripcion}
+                    onChange={e => setSistemaFormData({...sistemaFormData, descripcion: e.target.value})}
+                    style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                  />
+                </div>
+              </div>
+
+              <div style={{borderTop: '1px solid #f3e8ff', paddingTop: '16px', marginTop: '8px'}}>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
+                  <h3 style={{margin: 0, fontSize: '14px', fontWeight: 700, color: '#6d28d9'}}>
+                    Componentes / Capas del Sistema
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={agregarProductoAlSistema}
+                    style={{padding: '6px 12px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer'}}
+                  >
+                    ➕ Añadir Producto/Capa
+                  </button>
+                </div>
+
+                {sistemaFormData.productos.length === 0 ? (
+                  <div style={{padding: '24px', textAlign: 'center', background: '#faf5ff', borderRadius: '8px', border: '1px dashed #d8b4fe', color: '#6b21a8', fontSize: '13px'}}>
+                    No hay productos agregados a este sistema. Añade al menos uno para poder guardarlo.
+                  </div>
+                ) : (
+                  <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                    {sistemaFormData.productos.map((prodRow, idx) => (
+                      <div key={idx} style={{display: 'flex', gap: '12px', alignItems: 'center', background: '#fdfbfd', padding: '10px', borderRadius: '8px', border: '1px solid #f3e8ff'}}>
+                        
+                        <div style={{flex: '2 1 200px'}}>
+                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
+                            Producto
+                          </label>
+                          <select
+                            value={prodRow.producto_id}
+                            onChange={e => actualizarProductoEnSistema(idx, 'producto_id', e.target.value)}
+                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
+                          >
+                            {productos.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.nombre} ({p.unidad})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div style={{width: '120px'}}>
+                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
+                            Consumo por m²
+                          </label>
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0.001"
+                            value={prodRow.consumo_por_m2}
+                            onChange={e => actualizarProductoEnSistema(idx, 'consumo_por_m2', e.target.value)}
+                            placeholder="0.25"
+                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
+                          />
+                        </div>
+
+                        <div style={{width: '80px'}}>
+                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
+                            Orden Capa
+                          </label>
+                          <input
+                            type="number"
+                            value={prodRow.orden}
+                            onChange={e => actualizarProductoEnSistema(idx, 'orden', e.target.value)}
+                            placeholder="1"
+                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
+                          />
+                        </div>
+
+                        <div style={{paddingTop: '20px'}}>
+                          <button
+                            type="button"
+                            onClick={() => eliminarProductoDelSistema(idx)}
+                            style={{padding: '6px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 600}}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #f3e8ff', paddingTop: '16px', marginTop: '8px'}}>
+                <button
+                  type="button"
+                  onClick={handleSistemaCancel}
+                  style={{padding: '10px 20px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer'}}
+                >
+                  ✕ Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || sistemaFormData.productos.length === 0}
+                  style={{
+                    padding: '10px 24px',
+                    background: (saving || sistemaFormData.productos.length === 0) ? '#cbd5e1' : '#7c3aed',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: 700,
+                    cursor: (saving || sistemaFormData.productos.length === 0) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {saving ? 'Guardando...' : '💾 Guardar Sistema'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Lista de Sistemas */}
+        {!showSistemaForm && currentTab === 'sistemas' && (
+          <div style={{background:'white', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', overflow:'hidden'}}>
+            {loadingSistemas ? (
+              <div style={{padding:'60px', textAlign:'center', color:'#64748b'}}>Cargando sistemas...</div>
+            ) : sistemas.length === 0 ? (
+              <div style={{padding:'60px', textAlign:'center'}}>
+                <div style={{fontSize:'48px', marginBottom:'12px'}}>🧪</div>
+                <h3 style={{color:'#1e293b', margin:'0 0 8px'}}>No hay sistemas multicapa aún</h3>
+                <p style={{color:'#64748b', fontSize:'14px'}}>Crea uno nuevo presionando el botón "+ Nuevo Sistema".</p>
+              </div>
+            ) : (
+              <div style={{overflowX:'auto'}}>
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+                  <thead>
+                    <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                      <th style={thStyle}>Nombre del Sistema</th>
+                      <th style={thStyle}>Descripción</th>
+                      <th style={thStyle}>Productos Vinculados (Dosificación)</th>
+                      <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sistemas.map(sys => (
+                      <tr key={sys.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
+                        <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>{sys.nombre}</td>
+                        <td style={{...tdStyle, color:'#64748b'}}>{sys.descripcion || 'Sin descripción'}</td>
+                        <td style={tdStyle}>
+                          <SystemProductListSummary sysId={sys.id} productosDisponibles={productos} />
+                        </td>
+                        <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
+                          <button
+                            onClick={() => handleSistemaEdit(sys)}
+                            style={{padding:'4px 12px', background:'#f5f3ff', color:'#7c3aed', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer', marginRight:'8px'}}
+                          >
+                            ✏️ Editar
+                          </button>
+                          <button
+                            onClick={() => handleSistemaDelete(sys.id, sys.nombre)}
+                            style={{padding:'4px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}
+                          >
+                            🗑️ Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Footer legend */}
         <footer style={{marginTop:'32px', padding:'24px 0 12px', borderTop:'1px solid #e2e8f0', textAlign:'center', fontSize:'12px', color:'#64748b', lineHeight:'1.6'}}>
@@ -1042,4 +1438,33 @@ const tdStyle: React.CSSProperties = {
   padding: '10px 16px',
   color: '#374151',
   transition: 'background 0.15s'
+}
+
+function SystemProductListSummary({ sysId, productosDisponibles }: { sysId: string; productosDisponibles: any[] }) {
+  const [rels, setRels] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchSistemaProductosSupabase(sysId).then(data => {
+      setRels(data)
+      setLoading(false)
+    })
+  }, [sysId])
+
+  if (loading) return <span style={{color: '#94a3b8'}}>Cargando...</span>
+  if (rels.length === 0) return <span style={{color: '#94a3b8'}}>Sin productos asignados</span>
+
+  return (
+    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+      {rels.map(r => {
+        const prod = productosDisponibles.find(p => p.id === r.producto_id)
+        return (
+          <div key={r.id} style={{fontSize: '12px'}}>
+            <span style={{fontWeight: 600, color: '#334155'}}>{prod ? prod.nombre : 'Producto desconocido'}</span>
+            <span style={{color: '#64748b'}}> (Dosificación: {r.consumo_por_m2} {prod?.unidad || 'L'}/m² · Capa {r.orden})</span>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
