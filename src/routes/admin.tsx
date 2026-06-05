@@ -374,7 +374,7 @@ function AdminPage() {
                 required
                 value={authEmail}
                 onChange={e => setAuthEmail(e.target.value)}
-                placeholder="ejemplo@correo.com"
+                placeholder=""
                 style={{width:'100%', height:'38px', padding:'8px 12px', border:'1px solid #d1d5db', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box'}}
               />
             </div>
