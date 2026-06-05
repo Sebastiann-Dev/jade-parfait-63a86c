@@ -76,6 +76,7 @@ function AdminPage() {
 
   // Auth state variables
   const [user, setUser] = useState<any>(null)
+  const [authChecking, setAuthChecking] = useState(true)
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
@@ -289,10 +290,12 @@ function AdminPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null)
+      setAuthChecking(false)
     })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user || null)
+      setAuthChecking(false)
     })
 
     return () => {
@@ -503,6 +506,17 @@ function AdminPage() {
       showMsg('🗑️ Producto eliminado', 'ok')
       loadProductos()
     }
+  }
+
+  if (authChecking) {
+    return (
+      <div style={{minHeight:'100vh', background:'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display:'flex', alignItems:'center', justifyContent:'center'}}>
+        <div style={{textAlign:'center', color:'#2563eb', fontFamily:'sans-serif'}}>
+          <div style={{fontSize:'32px', marginBottom:'12px'}}>🔐</div>
+          <p style={{fontWeight:600, color:'#1e293b'}}>Verificando sesión...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
