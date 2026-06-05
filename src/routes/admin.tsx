@@ -587,11 +587,7 @@ function AdminPage() {
             </button>
           </div>
 
-          <div style={{marginTop:'12px', textAlign:'center'}}>
-            <Link to="/" style={{fontSize:'12px', color:'#64748b', textDecoration:'none'}}>
-              ← Volver al cotizador público
-            </Link>
-          </div>
+
         </div>
       </div>
     )
@@ -666,7 +662,7 @@ function AdminPage() {
               </button>
             )}
             <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
-              ← Ir al Cotizador
+              ← Cotizador
             </Link>
             <button
               onClick={handleLogout}
