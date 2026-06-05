@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
-import { fetchProductosSupabase, saveProductoSupabase, deleteProductoSupabase, updateProductoSupabase } from '../supabase'
+import { useState, useEffect, useMemo } from 'react'
+import { fetchProductosSupabase, saveProductoSupabase, deleteProductoSupabase, updateProductoSupabase, supabase } from '../supabase'
 import { Producto } from '../data/productos'
 
 export const Route = createFileRoute('/admin')({
@@ -58,6 +58,14 @@ function AdminPage() {
   const [saving, setSaving] = useState(false)
   const [mensaje, setMensaje] = useState<{texto: string, tipo: 'ok'|'error'} | null>(null)
   const [tipoCambio, setTipoCambio] = useState<number>(17.5)
+
+  // Auth state variables
+  const [user, setUser] = useState<any>(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [authIsSignUp, setAuthIsSignUp] = useState(false)
 
   // Kit presentations state variables
   const [esKitProduct, setEsKitProduct] = useState(false)
@@ -136,8 +144,58 @@ function AdminPage() {
   }
 
   useEffect(() => {
-    loadProductos()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null)
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user || null)
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
+
+  useEffect(() => {
+    if (user) {
+      loadProductos()
+    }
+  }, [user])
+
+  async function handleAuth(e: React.FormEvent) {
+    e.preventDefault()
+    setAuthLoading(true)
+    setAuthError('')
+    try {
+      if (authIsSignUp) {
+        if (!authEmail.endsWith('@bucamx.com')) {
+          throw new Error('Solo se permiten registros con correos oficiales @bucamx.com')
+        }
+        const { error } = await supabase.auth.signUp({
+          email: authEmail,
+          password: authPassword,
+        })
+        if (error) throw error
+        showMsg('📩 Registro enviado. Revisa tu correo para confirmar cuenta.', 'ok')
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: authEmail,
+          password: authPassword,
+        })
+        if (error) throw error
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Error de autenticación')
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    setUser(null)
+  }
 
   useEffect(() => {
     async function fetchExchangeRate() {
@@ -293,6 +351,84 @@ function AdminPage() {
     }
   }
 
+  if (!user) {
+    return (
+      <div style={{minHeight:'100vh', background:'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', fontFamily:'sans-serif'}}>
+        <div style={{maxWidth:'400px', width:'100%', background:'white', padding:'32px', borderRadius:'16px', boxShadow:'0 10px 25px -5px rgba(37, 99, 235, 0.1), 0 8px 10px -6px rgba(37, 99, 235, 0.1)', border:'1px solid #bfdbfe', margin:'auto'}}>
+          <div style={{textAlign:'center', marginBottom:'24px'}}>
+            <div style={{width:'48px', height:'48px', background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px', fontSize:'20px', fontWeight:800, margin:'0 auto 12px'}}>B</div>
+            <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración</h1>
+            <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>Acceso exclusivo para personal de BUCA</p>
+          </div>
+
+          {authError && (
+            <div style={{background:'#fee2e2', color:'#991b1b', padding:'10px 14px', borderRadius:'8px', fontSize:'12px', fontWeight:600, marginBottom:'16px'}}>
+              ⚠️ {authError}
+            </div>
+          )}
+
+          {mensaje && (
+            <div style={{background:'#dcfce7', color:'#166534', padding:'10px 14px', borderRadius:'8px', fontSize:'12px', fontWeight:600, marginBottom:'16px'}}>
+              {mensaje.texto}
+            </div>
+          )}
+
+          <form onSubmit={handleAuth} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+            <div>
+              <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#374151', marginBottom:'6px'}}>Correo Electrónico *</label>
+              <input
+                type="email"
+                required
+                value={authEmail}
+                onChange={e => setAuthEmail(e.target.value)}
+                placeholder="ejemplo@bucamx.com"
+                style={{width:'100%', height:'38px', padding:'8px 12px', border:'1px solid #d1d5db', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box'}}
+              />
+            </div>
+
+            <div>
+              <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#374151', marginBottom:'6px'}}>Contraseña *</label>
+              <input
+                type="password"
+                required
+                value={authPassword}
+                onChange={e => setAuthPassword(e.target.value)}
+                placeholder="••••••••"
+                style={{width:'100%', height:'38px', padding:'8px 12px', border:'1px solid #d1d5db', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box'}}
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={authLoading}
+              style={{width:'100%', height:'40px', background:'#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.2s'}}
+            >
+              {authLoading ? 'Procesando...' : (authIsSignUp ? 'Registrarse' : 'Iniciar Sesión')}
+            </button>
+          </form>
+
+          <div style={{marginTop:'20px', textAlign:'center', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+            <button
+              onClick={() => {
+                setAuthIsSignUp(!authIsSignUp)
+                setAuthError('')
+              }}
+              style={{background:'none', border:'none', color:'#2563eb', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
+            >
+              {authIsSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
+            </button>
+          </div>
+          
+          <div style={{marginTop:'12px', textAlign:'center'}}>
+            <Link to="/" style={{fontSize:'12px', color:'#64748b', textDecoration:'none'}}>
+              ← Volver al cotizador público
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{minHeight:'100vh', background:'#f8fafc', padding:'24px', fontFamily:'sans-serif'}}>
       <div style={{maxWidth:'1100px', margin:'0 auto', display:'flex', flexDirection:'column', gap:'20px'}}>
@@ -305,7 +441,7 @@ function AdminPage() {
               {loading ? 'Cargando...' : `${productos.length} productos en la base de datos`}
             </p>
           </div>
-          <div style={{display:'flex', gap:'12px'}}>
+          <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
             <button
               disabled={showForm}
               onClick={() => {
@@ -337,6 +473,12 @@ function AdminPage() {
             <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
               ← Ir al Cotizador
             </Link>
+            <button
+              onClick={handleLogout}
+              style={{padding:'8px 16px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', fontSize:'14px', color:'#dc2626', fontWeight:600, cursor:'pointer'}}
+            >
+              🚪 Salir
+            </button>
           </div>
         </div>
 

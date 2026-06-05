@@ -21,7 +21,8 @@ function calcularLinea(
   esMinorista: boolean,
   tipoCambio: number,
   descuentoPorcentaje: number,
-  presentacionSeleccionada?: any
+  presentacionSeleccionada?: any,
+  estadoPiso: 'liso' | 'estandar' | 'rugoso' = 'estandar'
 ): { cantidad: number; precioUnitario: number; totalMXN: number } {
   const descuento = esMinorista ? 1 : (1 - descuentoPorcentaje / 100)
 
@@ -30,6 +31,13 @@ function calcularLinea(
     cantidad = metros / producto.rendimiento
   } else {
     cantidad = cantidadManual
+  }
+
+  // Apply waste factor (Mermas) only to non-accessories
+  const esAccesorio = producto.unidad.toLowerCase().includes('pza') || producto.unidad.toLowerCase().includes('pieza');
+  if (!esAccesorio) {
+    const factorMerma = estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : 1.10;
+    cantidad = cantidad * factorMerma;
   }
 
   let precioBase = 0
@@ -80,8 +88,22 @@ export default function Cotizador() {
   const [notasProyecto, setNotasProyecto] = useState('')
   const busquedaRef = useRef<HTMLDivElement>(null)
 
+  const [estadoPiso, setEstadoPiso] = useState<'liso' | 'estandar' | 'rugoso'>('estandar')
+  const [espesorMm, setEspesorMm] = useState<string>('')
+
   const metrosNum = parseFloat(metros) || 0
   const cantidadManualNum = parseFloat(cantidadManual) || 1
+
+  const productoSeleccionadoConRendimientoDinamico = useMemo(() => {
+    const densidadNum = parseFloat(productoSeleccionado.densidadRecomendada || '0')
+    const espesorNum = parseFloat(espesorMm || '0')
+
+    let p = { ...productoSeleccionado }
+    if (productoSeleccionado.tieneRendimiento && densidadNum > 0 && espesorNum > 0) {
+      p.rendimiento = productoSeleccionado.cantRef / (espesorNum * densidadNum)
+    }
+    return p
+  }, [productoSeleccionado, espesorMm])
 
   useEffect(() => {
     async function loadDatabase() {
@@ -151,19 +173,19 @@ export default function Cotizador() {
   }, [busqueda, productosDisponibles])
 
   const preview = useMemo(() => {
-    if (metrosNum <= 0 && !productoSeleccionado.tieneRendimiento && cantidadManualNum <= 0) return null
-    return calcularLinea(productoSeleccionado, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada)
-  }, [productoSeleccionado, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada])
+    if (metrosNum <= 0 && !productoSeleccionadoConRendimientoDinamico.tieneRendimiento && cantidadManualNum <= 0) return null
+    return calcularLinea(productoSeleccionadoConRendimientoDinamico, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada, estadoPiso)
+  }, [productoSeleccionadoConRendimientoDinamico, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada, estadoPiso])
 
   const totalProyecto = lineas.reduce((sum, l) => sum + l.totalMXN, 0)
 
   function agregarProducto() {
     if (!preview) return
-    if (productoSeleccionado.tieneRendimiento && metrosNum <= 0) return
+    if (productoSeleccionadoConRendimientoDinamico.tieneRendimiento && metrosNum <= 0) return
 
     const linea: LineaProducto = {
       id: crypto.randomUUID(),
-      producto: productoSeleccionado,
+      producto: productoSeleccionadoConRendimientoDinamico,
       metros: metrosNum,
       cantidad: preview.cantidad,
       precioUnitario: preview.precioUnitario,
@@ -174,6 +196,7 @@ export default function Cotizador() {
     setLineas(prev => [...prev, linea])
     setMetros('')
     setCantidadManual('1')
+    setEspesorMm('')
   }
 
   function eliminarLinea(id: string) {
@@ -184,6 +207,11 @@ export default function Cotizador() {
     seleccionarProducto(linea.producto)
     if (linea.producto.tieneRendimiento) {
       setMetros(String(linea.metros))
+      const dens = parseFloat(linea.producto.densidadRecomendada || '0')
+      if (linea.producto.rendimiento && dens > 0) {
+        const calcEspesor = linea.producto.cantRef / (linea.producto.rendimiento * dens)
+        setEspesorMm(String(Math.round(calcEspesor * 10) / 10))
+      }
     } else {
       setCantidadManual(String(linea.cantidad))
     }
@@ -324,36 +352,51 @@ export default function Cotizador() {
             </div>
           </div>
 
-          {/* Tipo de cliente toggle */}
-          <div className="mt-4 flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-600">Tipo de cliente:</span>
-            <div className="buca-toggle-group">
-              <button
-                className={`buca-toggle-btn ${esMinorista ? 'active' : ''}`}
-                onClick={() => setEsMinorista(true)}
-              >
-                Minorista
-              </button>
-              <div className={`flex items-center buca-toggle-btn ${!esMinorista ? 'active' : ''}`}>
+          {/* Tipo de cliente toggle y Mermas */}
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-medium text-gray-600">Tipo de cliente:</span>
+              <div className="buca-toggle-group">
                 <button
-                  onClick={() => setEsMinorista(false)}
-                  className="mr-2"
+                  className={`buca-toggle-btn ${esMinorista ? 'active' : ''}`}
+                  onClick={() => setEsMinorista(true)}
                 >
-                  Mayorista / Descuento
+                  Minorista
                 </button>
-                {!esMinorista && (
-                  <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded-lg px-2 py-0.5">
-                    <span className="text-xs text-green-700 font-medium">−</span>
-                    <input
-                      type="number"
-                      className="w-8 bg-transparent text-xs text-green-700 font-bold outline-none text-center"
-                      value={descuentoPorcentaje}
-                      onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
-                    />
-                    <span className="text-xs text-green-700 font-medium">%</span>
-                  </div>
-                )}
+                <div className={`flex items-center buca-toggle-btn ${!esMinorista ? 'active' : ''}`}>
+                  <button
+                    onClick={() => setEsMinorista(false)}
+                    className="mr-2"
+                  >
+                    Mayorista / Descuento
+                  </button>
+                  {!esMinorista && (
+                    <div className="flex items-center gap-1 bg-green-50 border border-green-200 rounded-lg px-2 py-0.5">
+                      <span className="text-xs text-green-700 font-medium">−</span>
+                      <input
+                        type="number"
+                        className="w-8 bg-transparent text-xs text-green-700 font-bold outline-none text-center"
+                        value={descuentoPorcentaje}
+                        onChange={e => setDescuentoPorcentaje(parseFloat(e.target.value) || 0)}
+                      />
+                      <span className="text-xs text-green-700 font-medium">%</span>
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-gray-600">Estado del piso (Mermas):</span>
+              <select
+                className="w-48 text-xs font-semibold px-2 py-1.5 border border-gray-200 rounded-lg bg-white outline-none focus:border-blue-400"
+                value={estadoPiso}
+                onChange={e => setEstadoPiso(e.target.value as any)}
+              >
+                <option value="liso">Piso Liso (+5% merma)</option>
+                <option value="estandar">Piso Estándar (+10% merma)</option>
+                <option value="rugoso">Piso Rugoso (+15% merma)</option>
+              </select>
             </div>
           </div>
         </div>
@@ -364,6 +407,7 @@ export default function Cotizador() {
           {proyectoNombre && <p><span className="font-semibold">Proyecto:</span> {proyectoNombre}</p>}
           {notasProyecto && <p><span className="font-semibold">Notas:</span> {notasProyecto}</p>}
           <p><span className="font-semibold">Tipo de cliente:</span> {esMinorista ? 'Minorista' : `Mayorista (−${descuentoPorcentaje}%)`}</p>
+          <p><span className="font-semibold">Estado del piso:</span> {estadoPiso === 'liso' ? 'Liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Rugoso (+15% merma)' : 'Estándar (+10% merma)'}</p>
           <p><span className="font-semibold">Tipo de cambio:</span> ${tipoCambio} MXN/USD</p>
           <p><span className="font-semibold">Fecha:</span> {fechaHoy}</p>
         </div>
@@ -431,7 +475,7 @@ export default function Cotizador() {
 
             {/* Input m² o cantidad */}
             <div>
-              {productoSeleccionado.tieneRendimiento ? (
+              {productoSeleccionadoConRendimientoDinamico.tieneRendimiento ? (
                 <>
                   <label className="buca-label">Metros cuadrados (m²)</label>
                   <div className="relative">
@@ -445,38 +489,58 @@ export default function Cotizador() {
                     />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">m²</span>
                   </div>
-                  {productoSeleccionado.rendimiento && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Rendimiento aprox: {productoSeleccionado.rendimiento} m²/{productoSeleccionado.unidad}
-                      {productoSeleccionado.densidadRecomendada ? ` a una densidad de ${productoSeleccionado.densidadRecomendada}` : ''}
+
+                  {/* Espesor requerido para morteros/productos con densidad */}
+                  {productoSeleccionadoConRendimientoDinamico.densidadRecomendada && (
+                    <div className="mt-3">
+                      <label className="buca-label" style={{color: '#1d4ed8', fontWeight: 700}}>Espesor requerido (mm)</label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          className="buca-input pr-12"
+                          placeholder="Ej. 6"
+                          min="0.1"
+                          step="0.5"
+                          value={espesorMm}
+                          onChange={e => setEspesorMm(e.target.value)}
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">mm</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {productoSeleccionadoConRendimientoDinamico.rendimiento && (
+                    <p className="text-xs text-gray-400 mt-1 font-medium">
+                      Rendimiento aprox: {productoSeleccionadoConRendimientoDinamico.rendimiento.toFixed(2)} m²/{productoSeleccionadoConRendimientoDinamico.unidad}
+                      {productoSeleccionadoConRendimientoDinamico.densidadRecomendada ? ` a una densidad de ${productoSeleccionadoConRendimientoDinamico.densidadRecomendada}` : ''}
                     </p>
                   )}
-                  {productoSeleccionado.unidad.toLowerCase().includes('saco') && (
+                  {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco') && (
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      (El sistema calculará cuántos sacos de {productoSeleccionado.cantRef} kg se necesitan)
+                      (El sistema calculará cuántos sacos de {productoSeleccionadoConRendimientoDinamico.cantRef} kg se necesitan)
                     </p>
                   )}
                 </>
               ) : (
                 <>
                   <label className="buca-label">
-                    {productoSeleccionado.unidad.toLowerCase().includes('saco') ? '¿Cuántos sacos?' : `Cantidad (${productoSeleccionado.unidad})`}
+                    {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco') ? '¿Cuántos sacos?' : `Cantidad (${productoSeleccionadoConRendimientoDinamico.unidad})`}
                   </label>
                   <div className="relative">
                     <input
                       type="number"
                       className="buca-input pr-16"
-                      placeholder={String(productoSeleccionado.cantRef)}
+                      placeholder={String(productoSeleccionadoConRendimientoDinamico.cantRef)}
                       min="0"
                       step="0.5"
                       value={cantidadManual}
                       onChange={e => setCantidadManual(e.target.value)}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{productoSeleccionado.unidad}</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{productoSeleccionadoConRendimientoDinamico.unidad}</span>
                   </div>
                   <p className="text-xs text-gray-400 mt-1">
-                    {productoSeleccionado.unidad.toLowerCase().includes('saco')
-                      ? `Se vende por sacos de ${productoSeleccionado.cantRef} kg`
+                    {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco')
+                      ? `Se vende por sacos de ${productoSeleccionadoConRendimientoDinamico.cantRef} kg`
                       : 'Sin rendimiento por m² — ingresa la cantidad directamente'}
                   </p>
                 </>
@@ -675,7 +739,7 @@ export default function Cotizador() {
 
             <div className="mt-4 flex items-center justify-between print:hidden">
               <p className="text-xs text-gray-400">
-                {lineas.length} {lineas.length === 1 ? 'producto' : 'productos'} · {esMinorista ? 'Precio minorista' : `Precio con descuento (−${descuentoPorcentaje}%)`}
+                {lineas.length} {lineas.length === 1 ? 'producto' : 'productos'} · {esMinorista ? 'Precio minorista' : `Precio con descuento (−${descuentoPorcentaje}%)`} · {estadoPiso === 'liso' ? 'Piso liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Piso rugoso (+15% merma)' : 'Piso estándar (+10% merma)'}
               </p>
             </div>
 
