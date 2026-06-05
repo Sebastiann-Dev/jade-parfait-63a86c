@@ -585,7 +585,8 @@ function AdminPage() {
 
   return (
     <div style={{minHeight:'100vh', background:'#f8fafc', padding:'24px', fontFamily:'sans-serif'}}>
-      <div style={{maxWidth:'1100px',        {/* Header */}
+      <div style={{maxWidth:'1100px', margin:'0 auto'}}>
+        {/* Header */}
         <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'white', padding:'16px 24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
           <div>
             <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración — BUCA</h1>
