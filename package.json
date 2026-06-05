@@ -7,17 +7,15 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@tailwindcss/vite": "4.2.2",
-    "@tanstack/react-router": "1.168.22",
-    "@tanstack/react-start": "1.168.22",
+    "@tanstack/react-router": "1.168.18",
+    "@tanstack/react-start": "1.168.18",
     "@tanstack/react-store": "0.10.0",
-    "@tanstack/router-plugin": "1.168.22",
+    "@tanstack/router-plugin": "1.168.18",
     "@tanstack/store": "0.10.0",
     "@supabase/supabase-js": "^2.43.0",
     "lucide-react": "0.576.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",
-    "tailwindcss": "4.2.2",
     "vite-tsconfig-paths": "6.1.1"
   },
   "devDependencies": {
@@ -27,7 +25,6 @@
     "@types/react": "19.2.15",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
-    "lucide-react": "0.576.0",
     "tailwindcss": "4.2.2",
     "typescript": "5.9.3",
     "rimraf": "6.1.3",
