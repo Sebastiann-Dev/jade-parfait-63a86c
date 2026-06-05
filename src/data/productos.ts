@@ -21,6 +21,9 @@ export interface Producto {
   densidadRecomendada?: string
   // Bitácora / Notas internas
   bitacora?: string
+  // Documentación técnica
+  ficha_tecnica_url?: string
+  ficha_seguridad_url?: string
 }
 
 // rendimiento: cuántos m² cubre una unidad de la cant_ref

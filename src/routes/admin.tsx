@@ -24,7 +24,9 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   kitInfo: '',
   proporcionesMezcla: '',
   densidadRecomendada: '',
-  bitacora: ''
+  bitacora: '',
+  ficha_tecnica_url: '',
+  ficha_seguridad_url: ''
 }
 
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
@@ -170,7 +172,7 @@ function AdminPage() {
     try {
       if (authIsSignUp) {
         if (!authEmail.endsWith('@bucamx.com')) {
-          throw new Error('Solo se permiten registros con correos oficiales @bucamx.com')
+          throw new Error('Registro restringido a cuentas autorizadas de la organización.')
         }
         const { error } = await supabase.auth.signUp({
           email: authEmail,
@@ -265,7 +267,9 @@ function AdminPage() {
         })() : undefined,
         proporcionesMezcla: formData.proporcionesMezcla || undefined,
         densidadRecomendada: formData.densidadRecomendada || undefined,
-        bitacora: formData.bitacora || undefined
+        bitacora: formData.bitacora || undefined,
+        ficha_tecnica_url: formData.ficha_tecnica_url || undefined,
+        ficha_seguridad_url: formData.ficha_seguridad_url || undefined
       }
       if (editingId) {
         await updateProductoSupabase(editingId, payload)
@@ -325,7 +329,9 @@ function AdminPage() {
       kitInfo: p.kitInfo || '',
       proporcionesMezcla: p.proporcionesMezcla || '',
       densidadRecomendada: p.densidadRecomendada || '',
-      bitacora: p.bitacora || ''
+      bitacora: p.bitacora || '',
+      ficha_tecnica_url: p.ficha_tecnica_url || '',
+      ficha_seguridad_url: p.ficha_seguridad_url || ''
     })
 
     const parsed = parseKitInfo(p.kitInfo)
@@ -356,9 +362,9 @@ function AdminPage() {
       <div style={{minHeight:'100vh', background:'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', fontFamily:'sans-serif'}}>
         <div style={{maxWidth:'400px', width:'100%', background:'white', padding:'32px', borderRadius:'16px', boxShadow:'0 10px 25px -5px rgba(37, 99, 235, 0.1), 0 8px 10px -6px rgba(37, 99, 235, 0.1)', border:'1px solid #bfdbfe', margin:'auto'}}>
           <div style={{textAlign:'center', marginBottom:'24px'}}>
-            <div style={{width:'48px', height:'48px', background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px', fontSize:'20px', fontWeight:800, margin:'0 auto 12px'}}>B</div>
+            <div style={{width:'48px', height:'48px', background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px', fontSize:'20px', fontWeight:800, margin:'0 auto 12px'}}>🔐</div>
             <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración</h1>
-            <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>Acceso exclusivo para personal de BUCA</p>
+            <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>Acceso exclusivo para personal autorizado</p>
           </div>
 
           {authError && (
@@ -381,7 +387,7 @@ function AdminPage() {
                 required
                 value={authEmail}
                 onChange={e => setAuthEmail(e.target.value)}
-                placeholder="ejemplo@bucamx.com"
+                placeholder="ejemplo@correo.com"
                 style={{width:'100%', height:'38px', padding:'8px 12px', border:'1px solid #d1d5db', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box'}}
               />
             </div>
@@ -626,6 +632,45 @@ function AdminPage() {
                 <div>
                   <label style={{...labelStyle, color:'#1d4ed8'}}>Densidad Recomendada</label>
                   <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({...formData, densidadRecomendada: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                </div>
+              </div>
+
+              {/* Documentación técnica */}
+              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+                <h3 style={{fontSize:'14px', fontWeight:700, color:'#0369a1', marginBottom:'12px'}}>📄 Documentación Técnica (PDFs)</h3>
+                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                  <div>
+                    <label style={{...labelStyle, color:'#0369a1'}}>Ficha Técnica (TDS) — URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://...supabase.co/.../BucaTrafic-TDS.pdf"
+                      value={formData.ficha_tecnica_url || ''}
+                      onChange={e => setFormData({...formData, ficha_tecnica_url: e.target.value})}
+                      style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                    />
+                    {formData.ficha_tecnica_url && (
+                      <a href={formData.ficha_tecnica_url} target="_blank" rel="noreferrer"
+                        style={{fontSize:'11px', color:'#0369a1', display:'inline-block', marginTop:'4px'}}>
+                        📄 Verificar enlace →
+                      </a>
+                    )}
+                  </div>
+                  <div>
+                    <label style={{...labelStyle, color:'#0369a1'}}>Hoja de Seguridad (SDS) — URL</label>
+                    <input
+                      type="url"
+                      placeholder="https://...supabase.co/.../BucaTrafic-SDS.pdf"
+                      value={formData.ficha_seguridad_url || ''}
+                      onChange={e => setFormData({...formData, ficha_seguridad_url: e.target.value})}
+                      style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                    />
+                    {formData.ficha_seguridad_url && (
+                      <a href={formData.ficha_seguridad_url} target="_blank" rel="noreferrer"
+                        style={{fontSize:'11px', color:'#0369a1', display:'inline-block', marginTop:'4px'}}>
+                        🛡️ Verificar enlace →
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
 

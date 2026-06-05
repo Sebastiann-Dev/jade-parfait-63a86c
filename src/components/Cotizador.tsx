@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
 import { PRODUCTOS, type Producto } from '../data/productos'
 import { fetchProductosSupabase } from '../supabase'
+import { generarPDF } from '../utils/generarPDF'
 
 interface LineaProducto {
   id: string
@@ -22,7 +23,7 @@ function calcularLinea(
   tipoCambio: number,
   descuentoPorcentaje: number,
   presentacionSeleccionada?: any,
-  estadoPiso: 'liso' | 'estandar' | 'rugoso' = 'estandar'
+  estadoPiso: 'liso' | 'estandar' | 'rugoso' | 'ninguno' = 'ninguno'
 ): { cantidad: number; precioUnitario: number; totalMXN: number } {
   const descuento = esMinorista ? 1 : (1 - descuentoPorcentaje / 100)
 
@@ -36,7 +37,7 @@ function calcularLinea(
   // Apply waste factor (Mermas) only to non-accessories
   const esAccesorio = producto.unidad.toLowerCase().includes('pza') || producto.unidad.toLowerCase().includes('pieza');
   if (!esAccesorio) {
-    const factorMerma = estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : 1.10;
+    const factorMerma = estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1.00;
     cantidad = cantidad * factorMerma;
   }
 
@@ -88,7 +89,7 @@ export default function Cotizador() {
   const [notasProyecto, setNotasProyecto] = useState('')
   const busquedaRef = useRef<HTMLDivElement>(null)
 
-  const [estadoPiso, setEstadoPiso] = useState<'liso' | 'estandar' | 'rugoso'>('estandar')
+  const [estadoPiso, setEstadoPiso] = useState<'liso' | 'estandar' | 'rugoso' | 'ninguno'>('ninguno')
   const [espesorMm, setEspesorMm] = useState<string>('')
 
   const metrosNum = parseFloat(metros) || 0
@@ -393,6 +394,7 @@ export default function Cotizador() {
                 value={estadoPiso}
                 onChange={e => setEstadoPiso(e.target.value as any)}
               >
+                <option value="ninguno">Sin merma (0%)</option>
                 <option value="liso">Piso Liso (+5% merma)</option>
                 <option value="estandar">Piso Estándar (+10% merma)</option>
                 <option value="rugoso">Piso Rugoso (+15% merma)</option>
@@ -407,7 +409,7 @@ export default function Cotizador() {
           {proyectoNombre && <p><span className="font-semibold">Proyecto:</span> {proyectoNombre}</p>}
           {notasProyecto && <p><span className="font-semibold">Notas:</span> {notasProyecto}</p>}
           <p><span className="font-semibold">Tipo de cliente:</span> {esMinorista ? 'Minorista' : `Mayorista (−${descuentoPorcentaje}%)`}</p>
-          <p><span className="font-semibold">Estado del piso:</span> {estadoPiso === 'liso' ? 'Liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Rugoso (+15% merma)' : 'Estándar (+10% merma)'}</p>
+          <p><span className="font-semibold">Estado del piso:</span> {estadoPiso === 'liso' ? 'Liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Rugoso (+15% merma)' : estadoPiso === 'estandar' ? 'Estándar (+10% merma)' : 'Sin merma (0%)'}</p>
           <p><span className="font-semibold">Tipo de cambio:</span> ${tipoCambio} MXN/USD</p>
           <p><span className="font-semibold">Fecha:</span> {fechaHoy}</p>
         </div>
@@ -631,7 +633,24 @@ export default function Cotizador() {
                   onClick={() => window.print()}
                   className="buca-btn-secondary text-sm"
                 >
-                  🖨️ Imprimir / Exportar
+                  🖨️ Imprimir
+                </button>
+                <button
+                  onClick={() => generarPDF({
+                    clienteNombre,
+                    proyectoNombre,
+                    notasProyecto,
+                    fechaHoy,
+                    tipoCambio,
+                    esMinorista,
+                    descuentoPorcentaje,
+                    estadoPiso,
+                    lineas,
+                    totalProyecto
+                  })}
+                  className="buca-btn-primary text-sm"
+                >
+                  📄 Exportar PDF
                 </button>
               </div>
             </div>
@@ -689,6 +708,32 @@ export default function Cotizador() {
                             {l.producto.cuidadoCon && <p><span className="font-semibold text-red-600">Cuidado con:</span> <span className="text-gray-500">{l.producto.cuidadoCon}</span></p>}
                           </div>
                         )}
+                        {(l.producto.ficha_tecnica_url || l.producto.ficha_seguridad_url) && (
+                          <div className="mt-2 flex gap-2 flex-wrap">
+                            {l.producto.ficha_tecnica_url && (
+                              <a
+                                href={l.producto.ficha_tecnica_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors print:hidden"
+                                title="Ficha Técnica"
+                              >
+                                📄 TDS
+                              </a>
+                            )}
+                            {l.producto.ficha_seguridad_url && (
+                              <a
+                                href={l.producto.ficha_seguridad_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors print:hidden"
+                                title="Hoja de Seguridad"
+                              >
+                                🛡️ SDS
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="py-3 px-2 text-right text-gray-500 font-medium">
                         {l.producto.densidadRecomendada || <span className="text-gray-300">—</span>}
@@ -739,7 +784,7 @@ export default function Cotizador() {
 
             <div className="mt-4 flex items-center justify-between print:hidden">
               <p className="text-xs text-gray-400">
-                {lineas.length} {lineas.length === 1 ? 'producto' : 'productos'} · {esMinorista ? 'Precio minorista' : `Precio con descuento (−${descuentoPorcentaje}%)`} · {estadoPiso === 'liso' ? 'Piso liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Piso rugoso (+15% merma)' : 'Piso estándar (+10% merma)'}
+                {lineas.length} {lineas.length === 1 ? 'producto' : 'productos'} · {esMinorista ? 'Precio minorista' : `Precio con descuento (−${descuentoPorcentaje}%)`} · {estadoPiso === 'liso' ? 'Piso liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Piso rugoso (+15% merma)' : estadoPiso === 'estandar' ? 'Piso estándar (+10% merma)' : 'Sin merma (0%)'}
               </p>
             </div>
 
