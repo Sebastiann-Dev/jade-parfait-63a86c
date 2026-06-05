@@ -120,3 +120,26 @@ Permite cotizar paquetes completos de recubrimientos (ej. "Sistema Autonivelante
 ### 2. Generador de PDF Premium con Hipervínculos a Fichas Técnicas
 Genera un presupuesto en PDF formal y elegante listo para enviar al cliente.
 *   **Por qué es tedioso:** Requiere configurar **Supabase Edge Functions** en Deno/Node para compilar y maquetar el PDF con código en el servidor, crear un bucket de almacenamiento para guardar los PDFs generados y diseñar una plantilla visual comercial que no se descuadre.
+
+#### 📂 ¿Cómo usar tus PDFs en la Fase 2? (Guía de Almacenamiento)
+Para integrar tus PDFs de Fichas Técnicas (TDS) y Hojas de Seguridad (SDS):
+
+1.  **Crear el Bucket de Almacenamiento:**
+    *   Entra a tu consola de Supabase.
+    *   Ve a la sección **Storage** (Menú izquierdo, icono de balde/cubeta).
+    *   Haz clic en **New Bucket**.
+    *   Nómbralo `documentacion-productos` y asegúrate de marcarlo como **Public** (para que cualquiera con el enlace pueda descargar el PDF).
+2.  **Subir las Fichas en PDF:**
+    *   Entra a la carpeta de tu nuevo bucket y arrastra tus archivos PDF (ej. `BucaTrafic-TDS.pdf` y `BucaTrafic-SDS.pdf`).
+    *   Haz clic en los tres puntos de cada archivo y selecciona **Get URL**. Obtendrás un enlace directo como:
+        `https://[id-proyecto].supabase.co/storage/v1/object/public/documentacion-productos/BucaTrafic-TDS.pdf`
+3.  **Vincularlas a los Productos:**
+    *   En tu base de datos de Supabase, agrega dos nuevas columnas de tipo texto a la tabla `productos`:
+        ```sql
+        ALTER TABLE public.productos ADD COLUMN IF NOT EXISTS "ficha_tecnica_url" text;
+        ALTER TABLE public.productos ADD COLUMN IF NOT EXISTS "ficha_seguridad_url" text;
+        ```
+    *   En el **Panel de Administración**, introduce las URLs públicas de Supabase Storage en sus respectivos inputs al editar o crear el producto.
+4.  **Generar los hipervínculos en el PDF de Cotización:**
+    *   Al cotizar, el código del PDF tomará dinámicamente `ficha_tecnica_url` y `ficha_seguridad_url` del producto y los pintará como textos cliqueables (ej. *Ficha Técnica*). El cliente solo tendrá que hacer clic en la propuesta digital para abrir tus PDFs directamente.
+
