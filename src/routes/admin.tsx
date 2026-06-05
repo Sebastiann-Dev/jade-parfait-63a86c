@@ -67,7 +67,6 @@ function AdminPage() {
   const [authPassword, setAuthPassword] = useState('')
   const [authLoading, setAuthLoading] = useState(false)
   const [authError, setAuthError] = useState('')
-  const [authIsSignUp, setAuthIsSignUp] = useState(false)
 
   // Kit presentations state variables
   const [esKitProduct, setEsKitProduct] = useState(false)
@@ -170,25 +169,13 @@ function AdminPage() {
     setAuthLoading(true)
     setAuthError('')
     try {
-      if (authIsSignUp) {
-        if (!authEmail.endsWith('@bucamx.com')) {
-          throw new Error('Registro restringido a cuentas autorizadas de la organización.')
-        }
-        const { error } = await supabase.auth.signUp({
-          email: authEmail,
-          password: authPassword,
-        })
-        if (error) throw error
-        showMsg('📩 Registro enviado. Revisa tu correo para confirmar cuenta.', 'ok')
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password: authPassword,
-        })
-        if (error) throw error
-      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: authEmail,
+        password: authPassword,
+      })
+      if (error) throw error
     } catch (err: any) {
-      setAuthError(err.message || 'Error de autenticación')
+      setAuthError(err.message || 'Credenciales incorrectas. Intenta de nuevo.')
     } finally {
       setAuthLoading(false)
     }
@@ -409,22 +396,10 @@ function AdminPage() {
               disabled={authLoading}
               style={{width:'100%', height:'40px', background:'#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.2s'}}
             >
-              {authLoading ? 'Procesando...' : (authIsSignUp ? 'Registrarse' : 'Iniciar Sesión')}
+              {authLoading ? 'Verificando...' : 'Iniciar Sesión'}
             </button>
           </form>
 
-          <div style={{marginTop:'20px', textAlign:'center', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-            <button
-              onClick={() => {
-                setAuthIsSignUp(!authIsSignUp)
-                setAuthError('')
-              }}
-              style={{background:'none', border:'none', color:'#2563eb', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
-            >
-              {authIsSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
-            </button>
-          </div>
-          
           <div style={{marginTop:'12px', textAlign:'center'}}>
             <Link to="/" style={{fontSize:'12px', color:'#64748b', textDecoration:'none'}}>
               ← Volver al cotizador público
