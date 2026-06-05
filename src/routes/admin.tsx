@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useMemo } from 'react'
 import { 
   fetchProductosSupabase, 
@@ -345,9 +345,10 @@ function AdminPage() {
     }
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    setUser(null)
+  const navigate = useNavigate()
+
+  function handleLogout() {
+    navigate({ to: '/' })
   }
 
   useEffect(() => {
@@ -587,6 +588,11 @@ function AdminPage() {
             </button>
           </div>
 
+          <div style={{marginTop:'16px', textAlign:'center'}}>
+            <Link to="/" style={{fontSize:'12px', color:'#64748b', textDecoration:'none'}}>
+              ← Volver al Cotizador
+            </Link>
+          </div>
 
         </div>
       </div>
