@@ -9,9 +9,10 @@ import sys
 import json
 import urllib.request
 import urllib.error
+import os
 
 SUPABASE_URL = "https://flefgvaddvviayctxoou.supabase.co"
-SERVICE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsZWZndmFkZHZ2aWF5Y3R4b291Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDQ5MTAxMywiZXhwIjoyMDk2MDY3MDEzfQ.MeUZ8PMTMPB7-4Mmly57-sFBi1UWmZDi_dPdO7LBPYY"
+SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "AQUI_TU_NUEVO_SERVICE_KEY")
 
 if len(sys.argv) < 3:
     print("Uso: python crear_admin.py correo@bucamx.com contraseña")

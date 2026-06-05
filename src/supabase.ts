@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Producto } from './data/productos';
 
 const supabaseUrl = 'https://flefgvaddvviayctxoou.supabase.co';
-const supabaseKey = 'sb_publishable_Fo02EzvNfNgQqcUkwLu6mQ_D4JqCodp';
+const supabaseKey = 'sb_publishable_i1JKutd_pGnC2wGz49d8xQ_WDjy_FMs';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
