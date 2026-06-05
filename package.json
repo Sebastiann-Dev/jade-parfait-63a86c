@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 3000",
-    "build": "tsr generate && vite build"
+    "build": "npx @tanstack/router-cli generate && vite build"
   },
   "dependencies": {
     "@tanstack/react-router": "^1.168.0",
