@@ -347,7 +347,8 @@ function AdminPage() {
 
   const navigate = useNavigate()
 
-  function handleLogout() {
+  async function handleLogout() {
+    await supabase.auth.signOut()
     navigate({ to: '/' })
   }
 
@@ -1250,15 +1251,17 @@ function AdminPage() {
                   <button
                     type="button"
                     onClick={agregarProductoAlSistema}
-                    style={{padding: '6px 12px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 600, cursor: 'pointer'}}
+                    style={{padding: '8px 16px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'}}
                   >
-                    ➕ Añadir Producto/Capa
+                    ➕ Agregar producto al sistema
                   </button>
                 </div>
 
                 {sistemaFormData.productos.length === 0 ? (
-                  <div style={{padding: '24px', textAlign: 'center', background: '#faf5ff', borderRadius: '8px', border: '1px dashed #d8b4fe', color: '#6b21a8', fontSize: '13px'}}>
-                    No hay productos agregados a este sistema. Añade al menos uno para poder guardarlo.
+                  <div style={{padding: '28px', textAlign: 'center', background: '#faf5ff', borderRadius: '8px', border: '2px dashed #d8b4fe', color: '#6b21a8', fontSize: '13px'}}>
+                    <div style={{fontSize: '28px', marginBottom: '8px'}}>📦</div>
+                    <strong>Sin productos aún</strong><br/>
+                    <span style={{color: '#9333ea', fontSize: '12px'}}>Haz clic en "Agregar producto al sistema" para elegir de tu catálogo</span>
                   </div>
                 ) : (
                   <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
