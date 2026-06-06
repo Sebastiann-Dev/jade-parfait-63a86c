@@ -169,6 +169,7 @@ function AdminPage() {
   const DEFAULT_SISTEMA = {
     nombre: '',
     descripcion: '',
+    consumo_por_m2: '0.25',
     productos: [] as { producto_id: string; consumo_por_m2: string; orden: string }[]
   }
   const [sistemaFormData, setSistemaFormData] = useState(DEFAULT_SISTEMA)
@@ -186,12 +187,13 @@ function AdminPage() {
       showMsg('❌ El nombre del sistema es obligatorio', 'error')
       return
     }
+    const consumo = parseFloat(sistemaFormData.consumo_por_m2) || 0
     const validProds = sistemaFormData.productos
-      .filter(p => p.producto_id && parseFloat(p.consumo_por_m2) > 0)
-      .map(p => ({
+      .filter(p => p.producto_id)
+      .map((p, i) => ({
         producto_id: p.producto_id,
-        consumo_por_m2: parseFloat(p.consumo_por_m2) || 0,
-        orden: parseInt(p.orden) || 0
+        consumo_por_m2: consumo,
+        orden: i + 1
       }))
 
     setSaving(true)
@@ -221,6 +223,7 @@ function AdminPage() {
       setSistemaFormData({
         nombre: sys.nombre,
         descripcion: sys.descripcion || '',
+        consumo_por_m2: rels.length > 0 ? String(rels[0].consumo_por_m2) : '0.25',
         productos: rels.map(r => ({
           producto_id: r.producto_id,
           consumo_por_m2: String(r.consumo_por_m2),
@@ -265,7 +268,7 @@ function AdminPage() {
         ...prev.productos,
         {
           producto_id: productos[0]?.id || '',
-          consumo_por_m2: '0.1',
+          consumo_por_m2: prev.consumo_por_m2,
           orden: String(prev.productos.length + 1)
         }
       ]
@@ -671,12 +674,6 @@ function AdminPage() {
             <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
               ← Cotizador
             </Link>
-            <button
-              onClick={handleLogout}
-              style={{padding:'8px 16px', background:'#f1f5f9', border:'1px solid #cbd5e1', borderRadius:'8px', fontSize:'14px', color:'#dc2626', fontWeight:600, cursor:'pointer'}}
-            >
-              🚪 Salir
-            </button>
           </div>
         </div>
 
@@ -1221,7 +1218,7 @@ function AdminPage() {
             </h2>
             
             <form onSubmit={handleSistemaSubmit} style={{display:'grid', gridTemplateColumns:'1fr', gap:'16px'}}>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr', gap:'16px'}}>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr 140px', gap:'16px'}}>
                 <div>
                   <label style={labelStyle}>Nombre del Sistema *</label>
                   <input
@@ -1235,9 +1232,22 @@ function AdminPage() {
                 <div>
                   <label style={labelStyle}>Descripción del Sistema</label>
                   <input
-                    placeholder="Ej. Recomendado para tráfico pesado y choque térmico ligero..."
+                    placeholder="Ej. Recomendado para tráfico pesado..."
                     value={sistemaFormData.descripcion}
                     onChange={e => setSistemaFormData({...sistemaFormData, descripcion: e.target.value})}
+                    style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>Consumo por m² *</label>
+                  <input
+                    required
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    placeholder="0.25"
+                    value={sistemaFormData.consumo_por_m2}
+                    onChange={e => setSistemaFormData({...sistemaFormData, consumo_por_m2: e.target.value})}
                     style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
                   />
                 </div>
@@ -1268,7 +1278,7 @@ function AdminPage() {
                     {sistemaFormData.productos.map((prodRow, idx) => (
                       <div key={idx} style={{display: 'flex', gap: '12px', alignItems: 'center', background: '#fdfbfd', padding: '10px', borderRadius: '8px', border: '1px solid #f3e8ff'}}>
                         
-                        <div style={{flex: '2 1 200px'}}>
+                        <div style={{flex: '1 1 auto'}}>
                           <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
                             Producto
                           </label>
@@ -1283,34 +1293,6 @@ function AdminPage() {
                               </option>
                             ))}
                           </select>
-                        </div>
-
-                        <div style={{width: '120px'}}>
-                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
-                            Consumo por m²
-                          </label>
-                          <input
-                            type="number"
-                            step="0.001"
-                            min="0.001"
-                            value={prodRow.consumo_por_m2}
-                            onChange={e => actualizarProductoEnSistema(idx, 'consumo_por_m2', e.target.value)}
-                            placeholder="0.25"
-                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
-                          />
-                        </div>
-
-                        <div style={{width: '80px'}}>
-                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
-                            Orden Capa
-                          </label>
-                          <input
-                            type="number"
-                            value={prodRow.orden}
-                            onChange={e => actualizarProductoEnSistema(idx, 'orden', e.target.value)}
-                            placeholder="1"
-                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
-                          />
                         </div>
 
                         <div style={{paddingTop: '20px'}}>
