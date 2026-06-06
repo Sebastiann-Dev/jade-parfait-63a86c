@@ -165,6 +165,8 @@ function AdminPage() {
   const [loadingSistemas, setLoadingSistemas] = useState(false)
   const [showSistemaForm, setShowSistemaForm] = useState(false)
   const [editingSistemaId, setEditingSistemaId] = useState<string | null>(null)
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [dropIdx, setDropIdx] = useState<number | null>(null)
   
   const DEFAULT_SISTEMA = {
     nombre: '',
@@ -1283,20 +1285,50 @@ function AdminPage() {
                     <span style={{color: '#9333ea', fontSize: '12px'}}>Haz clic en "Agregar producto al sistema" para elegir de tu catálogo</span>
                   </div>
                 ) : (
-                  <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
+                  <div
+                    style={{display: 'flex', flexDirection: 'column', gap: '0px'}}
+                    onDragOver={e => e.preventDefault()}
+                  >
                     {sistemaFormData.productos.map((prodRow, idx) => (
-                      <div
-                        key={idx}
-                        draggable
-                        onDragStart={e => e.dataTransfer.setData('text/plain', String(idx))}
-                        onDragOver={e => e.preventDefault()}
-                        onDrop={e => {
-                          e.preventDefault()
-                          const from = parseInt(e.dataTransfer.getData('text/plain'))
-                          if (from !== idx) reordenarProductos(from, idx)
-                        }}
-                        style={{display: 'flex', gap: '10px', alignItems: 'center', background: '#fdfbfd', padding: '10px', borderRadius: '8px', border: '1px solid #f3e8ff', cursor: 'grab'}}
-                      >
+                      <>
+                        {/* Línea indicadora ENCIMA del elemento si dropIdx === idx */}
+                        {dragIdx !== null && dropIdx === idx && dragIdx !== idx && dragIdx !== idx - 1 && (
+                          <div style={{height: '3px', background: '#7c3aed', borderRadius: '2px', margin: '2px 0', transition: 'all 0.15s'}} />
+                        )}
+                        <div
+                          key={idx}
+                          draggable
+                          onDragStart={e => {
+                            e.dataTransfer.setData('text/plain', String(idx))
+                            setDragIdx(idx)
+                          }}
+                          onDragEnter={e => {
+                            e.preventDefault()
+                            setDropIdx(idx)
+                          }}
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={e => {
+                            e.preventDefault()
+                            const from = parseInt(e.dataTransfer.getData('text/plain'))
+                            if (from !== idx) reordenarProductos(from, idx)
+                            setDragIdx(null)
+                            setDropIdx(null)
+                          }}
+                          onDragEnd={() => {
+                            setDragIdx(null)
+                            setDropIdx(null)
+                          }}
+                          style={{
+                            display: 'flex', gap: '10px', alignItems: 'center',
+                            background: dragIdx === idx ? '#f3e8ff' : '#fdfbfd',
+                            padding: '10px', borderRadius: '8px',
+                            border: dropIdx === idx && dragIdx !== idx ? '2px solid #7c3aed' : '1px solid #f3e8ff',
+                            cursor: 'grab',
+                            opacity: dragIdx === idx ? 0.5 : 1,
+                            marginBottom: '8px',
+                            transition: 'border 0.1s, opacity 0.1s'
+                          }}
+                        >
                         {/* Badge de orden */}
                         <div style={{width: '28px', height: '28px', borderRadius: '50%', background: '#7c3aed', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0}}>
                           {idx + 1}
@@ -1335,7 +1367,12 @@ function AdminPage() {
                             🗑️
                           </button>
                         </div>
-                      </div>
+                        </div>
+                        {/* Línea indicadora DEBAJO del último elemento */}
+                        {dragIdx !== null && dropIdx === idx && idx === sistemaFormData.productos.length - 1 && dragIdx !== idx && (
+                          <div style={{height: '3px', background: '#7c3aed', borderRadius: '2px', margin: '2px 0'}} />
+                        )}
+                      </>
                     ))}
                   </div>
                 )}
