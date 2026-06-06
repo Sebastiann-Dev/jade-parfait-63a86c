@@ -267,12 +267,21 @@ function AdminPage() {
       productos: [
         ...prev.productos,
         {
-          producto_id: productos[0]?.id || '',
+          producto_id: '',
           consumo_por_m2: prev.consumo_por_m2,
           orden: String(prev.productos.length + 1)
         }
       ]
     }))
+  }
+
+  function reordenarProductos(fromIdx: number, toIdx: number) {
+    setSistemaFormData(prev => {
+      const updated = [...prev.productos]
+      const [moved] = updated.splice(fromIdx, 1)
+      updated.splice(toIdx, 0, moved)
+      return { ...prev, productos: updated }
+    })
   }
 
   function eliminarProductoDelSistema(idx: number) {
@@ -1276,17 +1285,39 @@ function AdminPage() {
                 ) : (
                   <div style={{display: 'flex', flexDirection: 'column', gap: '8px'}}>
                     {sistemaFormData.productos.map((prodRow, idx) => (
-                      <div key={idx} style={{display: 'flex', gap: '12px', alignItems: 'center', background: '#fdfbfd', padding: '10px', borderRadius: '8px', border: '1px solid #f3e8ff'}}>
-                        
+                      <div
+                        key={idx}
+                        draggable
+                        onDragStart={e => e.dataTransfer.setData('text/plain', String(idx))}
+                        onDragOver={e => e.preventDefault()}
+                        onDrop={e => {
+                          e.preventDefault()
+                          const from = parseInt(e.dataTransfer.getData('text/plain'))
+                          if (from !== idx) reordenarProductos(from, idx)
+                        }}
+                        style={{display: 'flex', gap: '10px', alignItems: 'center', background: '#fdfbfd', padding: '10px', borderRadius: '8px', border: '1px solid #f3e8ff', cursor: 'grab'}}
+                      >
+                        {/* Badge de orden */}
+                        <div style={{width: '28px', height: '28px', borderRadius: '50%', background: '#7c3aed', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0}}>
+                          {idx + 1}
+                        </div>
+
+                        {/* Handle de arrastre */}
+                        <div style={{color: '#a78bfa', fontSize: '16px', flexShrink: 0, userSelect: 'none'}} title="Arrastra para reordenar">
+                          ⠿
+                        </div>
+
                         <div style={{flex: '1 1 auto'}}>
                           <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
                             Producto
                           </label>
                           <select
+                            required
                             value={prodRow.producto_id}
                             onChange={e => actualizarProductoEnSistema(idx, 'producto_id', e.target.value)}
-                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
+                            style={{...inputStyle, height: '34px', padding: '4px 8px', borderColor: prodRow.producto_id ? '#c4b5fd' : '#dc2626'}}
                           >
+                            <option value="">-- Elige un producto --</option>
                             {productos.map(p => (
                               <option key={p.id} value={p.id}>
                                 {p.nombre} ({p.unidad})
@@ -1295,7 +1326,7 @@ function AdminPage() {
                           </select>
                         </div>
 
-                        <div style={{paddingTop: '20px'}}>
+                        <div style={{flexShrink: 0, paddingTop: '18px'}}>
                           <button
                             type="button"
                             onClick={() => eliminarProductoDelSistema(idx)}
