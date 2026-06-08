@@ -242,7 +242,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       alert("🎉 Información extraída con éxito de la ficha técnica/seguridad. Los campos han sido rellenados en el formulario de la izquierda. Por favor, revísalos y guarda el producto.")
     } catch (error: any) {
       console.error(error)
-      alert(\`❌ Error al extraer información con Gemini: \${error.message || 'Verifica tu API Key y que el PDF sea válido.'}\`)
+      alert(`❌ Error al extraer información con Gemini: ${error.message || 'Verifica tu API Key y que el PDF sea válido.'}`)
     } finally {
       setIsExtracting(false)
     }
