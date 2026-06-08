@@ -128,6 +128,24 @@ function AdminPage() {
     })
   }
 
+  function calcularConsumoSugerido(p: any): number | null {
+    if (p.tieneRendimiento && p.rendimiento && parseFloat(p.rendimiento) > 0) {
+      return Number((1 / parseFloat(p.rendimiento)).toFixed(4))
+    }
+    if (p.espesorRecomendado && p.densidadRecomendada) {
+      const espMatch = String(p.espesorRecomendado).match(/(\d+(\.\d+)?)/)
+      const denMatch = String(p.densidadRecomendada).match(/(\d+(\.\d+)?)/)
+      if (espMatch && denMatch) {
+        const esp = parseFloat(espMatch[1])
+        const den = parseFloat(denMatch[1])
+        if (esp > 0 && den > 0) {
+          return Number((esp * den).toFixed(3))
+        }
+      }
+    }
+    return null
+  }
+
   async function extraerConGemini() {
     if (!geminiApiKey) {
       alert("Por favor, configura tu Gemini API Key en la parte superior del panel de referencia.")
@@ -344,12 +362,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       showMsg('❌ El nombre del sistema es obligatorio', 'error')
       return
     }
-    const consumo = parseFloat(sistemaFormData.consumo_por_m2) || 0
     const validProds = sistemaFormData.productos
       .filter(p => p.producto_id)
       .map((p, i) => ({
         producto_id: p.producto_id,
-        consumo_por_m2: consumo,
+        consumo_por_m2: parseFloat(p.consumo_por_m2) || 0.25,
         orden: i + 1
       }))
 
@@ -452,6 +469,19 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setSistemaFormData(prev => {
       const updated = [...prev.productos]
       updated[idx] = { ...updated[idx], [field]: value }
+
+      // If product_id changes, auto-calculate suggested consumption from its technical data
+      if (field === 'producto_id' && value) {
+        const prod = productos.find(p => p.id === value)
+        if (prod) {
+          const sugerido = calcularConsumoSugerido(prod)
+          if (sugerido !== null) {
+            updated[idx].consumo_por_m2 = String(sugerido)
+          } else {
+            updated[idx].consumo_por_m2 = '0.25' // Default fallback
+          }
+        }
+      }
       return { ...prev, productos: updated }
     })
   }
@@ -1744,7 +1774,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             </h2>
             
             <form onSubmit={handleSistemaSubmit} style={{display:'grid', gridTemplateColumns:'1fr', gap:'16px'}}>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr 140px', gap:'16px'}}>
+              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr 260px', gap:'16px'}}>
                 <div>
                   <label style={labelStyle}>Nombre del Sistema *</label>
                   <input
@@ -1758,24 +1788,39 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 <div>
                   <label style={labelStyle}>Descripción del Sistema</label>
                   <input
-                    placeholder="Ej. Recomendado para tráfico pesado..."
+                    placeholder="Ej. Recommended para tráfico pesado..."
                     value={sistemaFormData.descripcion}
                     onChange={e => setSistemaFormData({...sistemaFormData, descripcion: e.target.value})}
                     style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>Consumo por m² *</label>
-                  <input
-                    required
-                    type="number"
-                    step="0.001"
-                    min="0.001"
-                    placeholder="0.25"
-                    value={sistemaFormData.consumo_por_m2}
-                    onChange={e => setSistemaFormData({...sistemaFormData, consumo_por_m2: e.target.value})}
-                    style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
-                  />
+                  <label style={labelStyle}>Consumo por defecto *</label>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    <input
+                      required
+                      type="number"
+                      step="0.001"
+                      min="0.001"
+                      placeholder="0.25"
+                      value={sistemaFormData.consumo_por_m2}
+                      onChange={e => setSistemaFormData({...sistemaFormData, consumo_por_m2: e.target.value})}
+                      style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = sistemaFormData.consumo_por_m2
+                        setSistemaFormData(prev => ({
+                          ...prev,
+                          productos: prev.productos.map(p => ({ ...p, consumo_por_m2: val }))
+                        }))
+                      }}
+                      style={{padding: '0 10px', background: '#e9d5ff', color: '#6d28d9', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'}}
+                    >
+                      Aplicar a todos
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1871,6 +1916,32 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               </option>
                             ))}
                           </select>
+                        </div>
+
+                        <div style={{width: '130px', flexShrink: 0}}>
+                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
+                            Consumo por m²
+                          </label>
+                          <input
+                            type="number"
+                            step="0.001"
+                            required
+                            placeholder="0.25"
+                            value={prodRow.consumo_por_m2}
+                            onChange={e => actualizarProductoEnSistema(idx, 'consumo_por_m2', e.target.value)}
+                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
+                          />
+                          {(() => {
+                            const prod = productos.find(p => p.id === prodRow.producto_id)
+                            if (!prod) return null
+                            const sugerido = calcularConsumoSugerido(prod)
+                            if (sugerido === null) return null
+                            return (
+                              <span style={{fontSize: '10px', color: '#16a34a', fontWeight: 600, display: 'block', marginTop: '3px'}}>
+                                💡 Sugerido: {sugerido} {prod.unidad}/m²
+                              </span>
+                            )
+                          })()}
                         </div>
 
                         <div style={{flexShrink: 0, paddingTop: '18px'}}>
