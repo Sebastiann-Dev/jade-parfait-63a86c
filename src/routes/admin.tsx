@@ -1775,33 +1775,71 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               {/* AI Extraction Button */}
               {((activePdfPreview === 'ficha_tecnica' && (fichaTecnicaFile || formData.ficha_tecnica_url)) ||
                 (activePdfPreview === 'ficha_seguridad' && (fichaSeguridadFile || formData.ficha_seguridad_url))) ? (
-                <button
-                  type="button"
-                  disabled={isExtracting}
-                  onClick={extraerConGemini}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    background: isExtracting ? '#94a3b8' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: isExtracting ? 'not-allowed' : 'pointer',
-                    boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {isExtracting ? (
-                    <>⏳ Analizando PDF y extrayendo campos...</>
-                  ) : (
-                    <>🤖 Rellenar campos automáticamente con Gemini IA</>
-                  )}
-                </button>
+                <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                  <button
+                    type="button"
+                    disabled={isExtracting}
+                    onClick={extraerConGemini}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      background: isExtracting ? '#94a3b8' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      cursor: isExtracting ? 'not-allowed' : 'pointer',
+                      boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    {isExtracting ? (
+                      <>⏳ Analizando PDF y extrayendo campos...</>
+                    ) : (
+                      <>🤖 Rellenar campos automáticamente con Gemini IA</>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (activePdfPreview === 'ficha_tecnica') {
+                        fileInputTdsRef.current?.click()
+                      } else {
+                        fileInputSdsRef.current?.click()
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.borderColor = '#94a3b8';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.background = '#f8fafc';
+                      e.currentTarget.style.borderColor = '#cbd5e1';
+                    }}
+                  >
+                    📁 Reemplazar archivo PDF
+                  </button>
+                </div>
               ) : null}
 
               {/* PDF Viewer Display */}
@@ -1820,13 +1858,47 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   }
 
                   if (!hasLocal && !hasRemote) {
+                    const isTds = activePdfPreview === 'ficha_tecnica'
                     return (
-                      <div style={{padding:'24px', textAlign:'center', color:'#64748b'}}>
-                        <div style={{fontSize:'36px', marginBottom:'8px'}}>📤</div>
-                        <p style={{fontSize:'13px', fontWeight:600}}>No hay ningún archivo cargado.</p>
-                        <p style={{fontSize:'12px', color:'#94a3b8', marginTop:'4px'}}>
-                          Sube un archivo PDF en la sección de Documentación Técnica a la izquierda para poder previsualizarlo y extraer sus datos.
+                      <div style={{padding:'24px', textAlign:'center', color:'#64748b', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'12px'}}>
+                        <div style={{fontSize:'36px', marginBottom:'4px'}}>📤</div>
+                        <p style={{fontSize:'13px', fontWeight:600, margin:0}}>No hay ningún archivo cargado.</p>
+                        <p style={{fontSize:'12px', color:'#94a3b8', margin:0, maxWidth:'280px'}}>
+                          Selecciona un archivo PDF local para previsualizarlo y poder rellenar el formulario con IA.
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isTds) {
+                              fileInputTdsRef.current?.click()
+                            } else {
+                              fileInputSdsRef.current?.click()
+                            }
+                          }}
+                          style={{
+                            marginTop: '8px',
+                            padding: '8px 16px',
+                            background: isTds ? '#f0f9ff' : '#fff7ed',
+                            color: isTds ? '#0284c7' : '#ea580c',
+                            border: `1px solid ${isTds ? '#bae6fd' : '#fed7aa'}`,
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.background = isTds ? '#e0f2fe' : '#ffedd5';
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.background = isTds ? '#f0f9ff' : '#fff7ed';
+                          }}
+                        >
+                          {isTds ? '📁 Importar Ficha Técnica (TDS)' : '🛡️ Importar Hoja de Seguridad (SDS)'}
+                        </button>
                       </div>
                     )
                   }
