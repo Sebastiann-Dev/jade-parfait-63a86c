@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { 
   fetchProductosSupabase, 
   saveProductoSupabase, 
@@ -101,6 +101,8 @@ function getMaskedKey(key: string): string {
 }
 
 function AdminPage() {
+  const fileInputTdsRef = useRef<HTMLInputElement>(null)
+  const fileInputSdsRef = useRef<HTMLInputElement>(null)
   const [productos, setProductos] = useState<(Producto & {id: string})[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -1273,7 +1275,40 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                         </div>
                       )}
 
+                      <button
+                        type="button"
+                        onClick={() => fileInputTdsRef.current?.click()}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: '#f0f9ff',
+                          color: '#0284c7',
+                          border: '2px dashed #bae6fd',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s',
+                          marginBottom: '8px',
+                          outline: 'none'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = '#e0f2fe';
+                          e.currentTarget.style.borderColor = '#7dd3fc';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = '#f0f9ff';
+                          e.currentTarget.style.borderColor = '#bae6fd';
+                        }}
+                      >
+                        📁 Importar desde mis archivos
+                      </button>
                       <input
+                        ref={fileInputTdsRef}
                         type="file"
                         accept=".pdf"
                         onChange={e => {
@@ -1283,7 +1318,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             setActivePdfPreview('ficha_tecnica')
                           }
                         }}
-                        style={inputStyle}
+                        style={{ display: 'none' }}
                       />
                       
                       {fichaTecnicaFile && (
@@ -1333,7 +1368,40 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                         </div>
                       )}
 
+                      <button
+                        type="button"
+                        onClick={() => fileInputSdsRef.current?.click()}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: '#fff7ed',
+                          color: '#ea580c',
+                          border: '2px dashed #fed7aa',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s',
+                          marginBottom: '8px',
+                          outline: 'none'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = '#ffedd5';
+                          e.currentTarget.style.borderColor = '#fdba74';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = '#fff7ed';
+                          e.currentTarget.style.borderColor = '#fed7aa';
+                        }}
+                      >
+                        🛡️ Importar desde mis archivos
+                      </button>
                       <input
+                        ref={fileInputSdsRef}
                         type="file"
                         accept=".pdf"
                         onChange={e => {
@@ -1343,7 +1411,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             setActivePdfPreview('ficha_seguridad')
                           }
                         }}
-                        style={inputStyle}
+                        style={{ display: 'none' }}
                       />
 
                       {fichaSeguridadFile && (
