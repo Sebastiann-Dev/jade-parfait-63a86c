@@ -617,13 +617,14 @@ export default function Cotizador() {
                       <div className="relative">
                         <input
                           type="number"
-                          className="buca-input pr-12"
+                          className="buca-input"
+                          style={{paddingRight: '56px'}}
                           placeholder="0"
                           min="0"
                           value={metros}
                           onChange={e => setMetros(e.target.value)}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">m²</span>
+                        <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>m²</span>
                       </div>
 
                       {/* Espesor requerido para morteros/productos con densidad */}
@@ -633,14 +634,15 @@ export default function Cotizador() {
                           <div className="relative">
                             <input
                               type="number"
-                              className="buca-input pr-12"
+                              className="buca-input"
+                              style={{paddingRight: '56px'}}
                               placeholder="Ej. 6"
                               min="0.1"
                               step="0.5"
                               value={espesorMm}
                               onChange={e => setEspesorMm(e.target.value)}
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">mm</span>
+                            <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>mm</span>
                           </div>
                         </div>
                       )}
@@ -665,14 +667,15 @@ export default function Cotizador() {
                       <div className="relative">
                         <input
                           type="number"
-                          className="buca-input pr-16"
+                          className="buca-input"
+                          style={{paddingRight: '72px'}}
                           placeholder={String(productoSeleccionadoConRendimientoDinamico.cantRef)}
                           min="0"
                           step="0.5"
                           value={cantidadManual}
                           onChange={e => setCantidadManual(e.target.value)}
                         />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">{productoSeleccionadoConRendimientoDinamico.unidad}</span>
+                        <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>{productoSeleccionadoConRendimientoDinamico.unidad}</span>
                       </div>
                       <p className="text-xs text-gray-400 mt-1">
                         {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco')
@@ -786,13 +789,14 @@ export default function Cotizador() {
                   <div className="relative">
                     <input
                       type="number"
-                      className="buca-input pr-12"
+                      className="buca-input"
+                      style={{paddingRight: '56px'}}
                       placeholder="0"
                       min="0"
                       value={sistemaMetros}
                       onChange={e => setSistemaMetros(e.target.value)}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">m²</span>
+                    <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>m²</span>
                   </div>
                 </div>
               </div>
