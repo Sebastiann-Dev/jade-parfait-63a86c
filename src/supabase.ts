@@ -6,14 +6,14 @@ const supabaseKey = 'sb_publishable_i1JKutd_pGnC2wGz49d8xQ_WDjy_FMs';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-export async function fetchProductosSupabase(): Promise<(Producto & { id: string })[]> {
+export async function fetchProductosSupabase(includeDrafts = false): Promise<(Producto & { id: string, estado?: string, motivo_incompleto?: string, updated_at?: string })[]> {
   try {
-    const { data, error } = await supabase
-      .from('productos')
-      .select('*');
-      
+    let query = supabase.from('productos').select('*');
+    if (!includeDrafts) {
+      query = query.or('estado.eq.completo,estado.is.null');
+    }
+    const { data, error } = await query;
     if (error) throw error;
-    
     return data || [];
   } catch (error) {
     console.error("Error fetching products from Supabase (¿Configuraste tus credenciales?):", error);
@@ -21,7 +21,7 @@ export async function fetchProductosSupabase(): Promise<(Producto & { id: string
   }
 }
 
-export async function saveProductoSupabase(producto: Omit<Producto, 'id'>) {
+export async function saveProductoSupabase(producto: Omit<Producto, 'id'> & { estado?: string; motivo_incompleto?: string }) {
   try {
     const { data, error } = await supabase
       .from('productos')
@@ -36,14 +36,32 @@ export async function saveProductoSupabase(producto: Omit<Producto, 'id'>) {
   }
 }
 
-export async function updateProductoSupabase(id: string, data: Partial<Producto>) {
+export async function updateProductoSupabase(
+  id: string,
+  data: Partial<Producto> & { estado?: string; motivo_incompleto?: string },
+  expectedUpdatedAt?: string
+) {
   try {
-    const { error } = await supabase
+    let query = supabase
       .from('productos')
-      .update(data)
+      .update({
+        ...data,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', id);
-      
+
+    if (expectedUpdatedAt) {
+      query = query.eq('updated_at', expectedUpdatedAt);
+    }
+
+    const { data: updatedData, error } = await query.select();
+
     if (error) throw error;
+
+    // Si esperábamos un timestamp específico y no se actualizó nada, hay conflicto de concurrencia
+    if (expectedUpdatedAt && (!updatedData || updatedData.length === 0)) {
+      throw new Error("CONCURRENCY_ERROR");
+    }
   } catch (error) {
     console.error("Error updating product:", error);
     throw error;
@@ -61,6 +79,27 @@ export async function deleteProductoSupabase(id: string) {
   } catch (error) {
     console.error("Error deleting product:", error);
     throw error;
+  }
+}
+
+export async function registrarLogActividad(
+  usuario: string,
+  accion: 'CREAR' | 'EDITAR' | 'ELIMINAR',
+  productoId: string | null,
+  detalles: any
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('logs_actividad')
+      .insert([{
+        usuario_email: usuario || 'admin_anonimo',
+        accion,
+        producto_id: productoId,
+        detalles
+      }]);
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error logging activity to Supabase:", error);
   }
 }
 

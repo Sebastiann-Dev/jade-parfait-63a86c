@@ -24,6 +24,10 @@ export interface Producto {
   // Documentación técnica
   ficha_tecnica_url?: string
   ficha_seguridad_url?: string
+  // Estado de publicación y auditoría
+  estado?: string
+  motivo_incompleto?: string
+  updated_at?: string
 }
 
 // rendimiento: cuántos m² cubre una unidad de la cant_ref

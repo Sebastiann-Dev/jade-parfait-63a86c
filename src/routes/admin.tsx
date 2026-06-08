@@ -13,6 +13,7 @@ import {
   deleteSistemaSupabase,
   uploadPdfProducto,
   deletePdfProducto,
+  registrarLogActividad,
   type Sistema,
   type SistemaProducto
 } from '../supabase'
@@ -22,7 +23,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string } = {
+const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string } = {
   nombre: '',
   cantRef: '',
   unidad: 'L',
@@ -41,7 +42,9 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   densidadRecomendada: '',
   bitacora: '',
   ficha_tecnica_url: '',
-  ficha_seguridad_url: ''
+  ficha_seguridad_url: '',
+  estado: 'borrador',
+  motivo_incompleto: ''
 }
 
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
@@ -132,6 +135,7 @@ function AdminPage() {
   const [activePdfPreview, setActivePdfPreview] = useState<'ficha_tecnica' | 'ficha_seguridad' | null>(null)
   const [activeKeyIndex, setActiveKeyIndex] = useState<number>(0)
   const [isExtracting, setIsExtracting] = useState(false)
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | undefined>(undefined)
 
   function fileToBase64(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -382,7 +386,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   async function loadProductos() {
     setLoading(true)
-    const data = await fetchProductosSupabase()
+    const data = await fetchProductosSupabase(true) // includeDrafts = true en admin panel
     setProductos(data)
     setLoading(false)
   }
@@ -641,15 +645,91 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setTimeout(() => setMensaje(null), 4000)
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  function validarCamposProducto(data: any): string[] {
+    const missing: string[] = []
+    
+    if (!data.nombre?.trim()) {
+      missing.push("Nombre comercial")
+    }
+    if (data.precio === '' || isNaN(Number(data.precio)) || Number(data.precio) <= 0) {
+      missing.push("Precio válido")
+    }
+    if (data.cantRef === '' || isNaN(Number(data.cantRef)) || Number(data.cantRef) <= 0) {
+      missing.push("Cantidad de referencia (envase)")
+    }
+    if (data.tieneRendimiento) {
+      if (data.rendimiento === '' || isNaN(Number(data.rendimiento)) || Number(data.rendimiento) <= 0) {
+        missing.push("Rendimiento por m²")
+      }
+    }
+    
+    const hasTds = !!data.ficha_tecnica_url || !!fichaTecnicaFile
+    const hasSds = !!data.ficha_seguridad_url || !!fichaSeguridadFile
+    
+    if (!hasTds) {
+      missing.push("Ficha Técnica (TDS) PDF")
+    }
+    if (!hasSds) {
+      missing.push("Ficha de Seguridad (SDS) PDF")
+    }
+    
+    return missing
+  }
+
+  const validationIssues = useMemo(() => validarCamposProducto(formData), [formData, fichaTecnicaFile, fichaSeguridadFile])
+  const isValidToPublish = validationIssues.length === 0
+
+  async function handleSave(estadoDestino: 'borrador' | 'completo') {
+    if (!formData.nombre?.trim()) {
+      showMsg('❌ El nombre comercial del producto es obligatorio', 'error')
+      return
+    }
+
+    if (estadoDestino === 'borrador' && !formData.motivo_incompleto?.trim()) {
+      showMsg('❌ Para guardar como borrador debes describir el motivo pendiente', 'error')
+      return
+    }
+
     setSaving(true)
     try {
       let finalFichaTecnica = formData.ficha_tecnica_url
       let finalFichaSeguridad = formData.ficha_seguridad_url
 
+      const payload: any = {
+        nombre: formData.nombre,
+        cantRef: formData.cantRef !== '' ? Number(formData.cantRef) : null,
+        unidad: formData.unidad,
+        moneda: formData.moneda,
+        precio: formData.precio !== '' ? Number(formData.precio) : null,
+        tieneRendimiento: !!formData.tieneRendimiento,
+        nota: formData.nota || '',
+        rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : null,
+        espesorRecomendado: formData.espesorRecomendado || null,
+        manosRecomendadas: formData.manosRecomendadas || null,
+        pros: formData.pros || null,
+        cons: formData.cons || null,
+        cuidadoCon: formData.cuidadoCon || null,
+        kitInfo: esKitProduct ? (() => {
+          const validPresentaciones = kitPresentaciones
+            .filter(pres => pres && pres.nombre && pres.precio !== '')
+            .map(pres => ({
+              nombre: pres.nombre,
+              precio: parseFloat(pres.precio) || 0,
+              moneda: pres.moneda || 'MXN',
+              partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
+            }))
+          return validPresentaciones.length > 0
+            ? JSON.stringify({ numPartes: numPartesKit, presentaciones: validPresentaciones })
+            : null
+        })() : null,
+        proporcionesMezcla: formData.proporcionesMezcla || null,
+        densidadRecomendada: formData.densidadRecomendada || null,
+        bitacora: formData.bitacora || null,
+        estado: estadoDestino,
+        motivo_incompleto: estadoDestino === 'borrador' ? formData.motivo_incompleto : null
+      }
+
       if (editingId) {
-        // Upload files if selected
         if (fichaTecnicaFile) {
           finalFichaTecnica = await uploadPdfProducto(editingId, 'ficha_tecnica', fichaTecnicaFile)
         }
@@ -657,81 +737,34 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           finalFichaSeguridad = await uploadPdfProducto(editingId, 'ficha_seguridad', fichaSeguridadFile)
         }
 
-        const payload: Omit<Producto, 'id'> = {
-          nombre: formData.nombre,
-          cantRef: Number(formData.cantRef),
-          unidad: formData.unidad,
-          moneda: formData.moneda,
-          precio: Number(formData.precio),
-          tieneRendimiento: !!formData.tieneRendimiento,
-          nota: formData.nota || '',
-          rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : undefined,
-          espesorRecomendado: formData.espesorRecomendado || undefined,
-          manosRecomendadas: formData.manosRecomendadas || undefined,
-          pros: formData.pros || undefined,
-          cons: formData.cons || undefined,
-          cuidadoCon: formData.cuidadoCon || undefined,
-          kitInfo: esKitProduct ? (() => {
-            const validPresentaciones = kitPresentaciones
-              .filter(pres => pres && pres.nombre && pres.precio !== '')
-              .map(pres => ({
-                nombre: pres.nombre,
-                precio: parseFloat(pres.precio) || 0,
-                moneda: pres.moneda || 'MXN',
-                partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
-              }))
-            return validPresentaciones.length > 0
-              ? JSON.stringify({ numPartes: numPartesKit, presentations: validPresentaciones })
-              : undefined
-          })() : undefined,
-          proporcionesMezcla: formData.proporcionesMezcla || undefined,
-          densidadRecomendada: formData.densidadRecomendada || undefined,
-          bitacora: formData.bitacora || undefined,
-          ficha_tecnica_url: finalFichaTecnica || undefined,
-          ficha_seguridad_url: finalFichaSeguridad || undefined
+        payload.ficha_tecnica_url = finalFichaTecnica || null
+        payload.ficha_seguridad_url = finalFichaSeguridad || null
+
+        try {
+          await updateProductoSupabase(editingId, payload, lastUpdatedAt)
+        } catch (err: any) {
+          if (err.message === 'CONCURRENCY_ERROR') {
+            alert("❌ Conflicto de Concurrencia:\n\nEste producto fue modificado por otro usuario mientras lo editabas. Para evitar perder los cambios de otros, tus ediciones no se guardaron.\n\nPor favor, copia tu información, cierra este formulario, recarga la lista de productos y vuelve a intentarlo.")
+            setSaving(false)
+            return
+          }
+          throw err
         }
 
-        await updateProductoSupabase(editingId, payload)
+        await registrarLogActividad(user?.email || 'admin_anonimo', 'EDITAR', editingId, {
+          nombre: payload.nombre,
+          estado: estadoDestino
+        })
+
         showMsg('✅ Producto actualizado con éxito', 'ok')
       } else {
-        const payload: Omit<Producto, 'id'> = {
-          nombre: formData.nombre,
-          cantRef: Number(formData.cantRef),
-          unidad: formData.unidad,
-          moneda: formData.moneda,
-          precio: Number(formData.precio),
-          tieneRendimiento: !!formData.tieneRendimiento,
-          nota: formData.nota || '',
-          rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : undefined,
-          espesorRecomendado: formData.espesorRecomendado || undefined,
-          manosRecomendadas: formData.manosRecomendadas || undefined,
-          pros: formData.pros || undefined,
-          cons: formData.cons || undefined,
-          cuidadoCon: formData.cuidadoCon || undefined,
-          kitInfo: esKitProduct ? (() => {
-            const validPresentaciones = kitPresentaciones
-              .filter(pres => pres && pres.nombre && pres.precio !== '')
-              .map(pres => ({
-                nombre: pres.nombre,
-                precio: parseFloat(pres.precio) || 0,
-                moneda: pres.moneda || 'MXN',
-                partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
-              }))
-            return validPresentaciones.length > 0
-              ? JSON.stringify({ numPartes: numPartesKit, presentaciones: validPresentaciones })
-              : undefined
-          })() : undefined,
-          proporcionesMezcla: formData.proporcionesMezcla || undefined,
-          densidadRecomendada: formData.densidadRecomendada || undefined,
-          bitacora: formData.bitacora || undefined,
-          ficha_tecnica_url: undefined, // uploaded after
-          ficha_seguridad_url: undefined
-        }
+        payload.ficha_tecnica_url = null
+        payload.ficha_seguridad_url = null
 
         const newId = await saveProductoSupabase(payload)
         
         let updateNeeded = false
-        const updatePayload: Partial<Producto> = {}
+        const updatePayload: any = {}
 
         if (fichaTecnicaFile) {
           finalFichaTecnica = await uploadPdfProducto(newId, 'ficha_tecnica', fichaTecnicaFile)
@@ -748,11 +781,17 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           await updateProductoSupabase(newId, updatePayload)
         }
 
+        await registrarLogActividad(user?.email || 'admin_anonimo', 'CREAR', newId, {
+          nombre: payload.nombre,
+          estado: estadoDestino
+        })
+
         showMsg('✅ Producto guardado en la base de datos', 'ok')
       }
 
       setShowForm(false)
       setEditingId(null)
+      setLastUpdatedAt(undefined)
       setFormData(DEFAULT_PRODUCTO)
       setEsKitProduct(false)
       setKitPresentaciones([])
@@ -777,6 +816,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   function handleCancel() {
     setShowForm(false)
     setEditingId(null)
+    setLastUpdatedAt(undefined)
     setFormData(DEFAULT_PRODUCTO)
     setEsKitProduct(false)
     setKitPresentaciones([])
@@ -791,7 +831,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setActivePdfPreview(null)
   }
 
-  function handleEdit(p: Producto & {id: string}) {
+  function handleEdit(p: Producto & {id: string, updated_at?: string, estado?: string, motivo_incompleto?: string}) {
     setFormData({
       nombre: p.nombre,
       cantRef: p.cantRef ?? '',
@@ -811,7 +851,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       densidadRecomendada: p.densidadRecomendada || '',
       bitacora: p.bitacora || '',
       ficha_tecnica_url: p.ficha_tecnica_url || '',
-      ficha_seguridad_url: p.ficha_seguridad_url || ''
+      ficha_seguridad_url: p.ficha_seguridad_url || '',
+      estado: p.estado || 'borrador',
+      motivo_incompleto: p.motivo_incompleto || ''
     })
 
     const parsed = parseKitInfo(p.kitInfo)
@@ -834,6 +876,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       setActivePdfPreview(null)
     }
 
+    setLastUpdatedAt(p.updated_at)
     setEditingId(p.id)
     setShowForm(true)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -842,6 +885,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   async function handleDelete(id: string, nombre: string) {
     if (confirm(`¿Seguro que deseas eliminar "${nombre}"?`)) {
       await deleteProductoSupabase(id)
+      await registrarLogActividad(user?.email || 'admin_anonimo', 'ELIMINAR', id, { nombre })
       showMsg('🗑️ Producto eliminado', 'ok')
       loadProductos()
     }
@@ -1110,7 +1154,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </select>
               </div>
 
-              <form onSubmit={handleSubmit} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', alignItems:'start'}}>
+              <form onSubmit={e => e.preventDefault()} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', alignItems:'start'}}>
 
                 <div>
                   <label style={labelStyle}>Nombre del Producto *</label>
@@ -1500,9 +1544,81 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   </div>
                 </div>
 
-                <div style={{gridColumn:'1 / -1', display:'flex', justifyContent:'flex-end', paddingTop:'8px'}}>
-                  <button type="submit" disabled={saving} style={{padding:'10px 28px', background: saving ? '#94a3b8' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'15px', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer'}}>
-                    {saving ? 'Guardando...' : (editingId ? '💾 Guardar Cambios' : '💾 Guardar Producto')}
+                {/* Borrador Motivo Area (solo si no es válido para publicar) */}
+                {!isValidToPublish && (
+                  <div style={{gridColumn:'1 / -1', display:'flex', flexDirection:'column', gap:'4px', marginTop:'8px'}}>
+                    <label style={{fontSize:'12px', fontWeight:700, color:'#b45309'}}>
+                      Motivo de Borrador / Datos Pendientes *
+                    </label>
+                    <textarea
+                      placeholder="Indica qué información hace falta para publicar el producto más adelante (ej: esperando hoja de seguridad del proveedor)..."
+                      value={formData.motivo_incompleto || ''}
+                      onChange={e => setFormData({...formData, motivo_incompleto: e.target.value})}
+                      style={{...inputStyle, height:'60px', padding:'8px', fontSize:'13px', borderColor:'#f59e0b', background:'#fffbeb', resize:'vertical', fontFamily:'inherit'}}
+                    />
+                  </div>
+                )}
+
+                {/* Diagnostics Banner */}
+                {validationIssues.length > 0 && (
+                  <div style={{gridColumn:'1 / -1', background:'#fffbeb', border:'1px solid #fef3c7', padding:'12px', borderRadius:'8px', marginTop:'8px'}}>
+                    <span style={{fontSize:'13px', fontWeight:700, color:'#b45309', display:'block', marginBottom:'4px'}}>
+                      ⚠️ Requisitos pendientes para publicar producto en el cotizador:
+                    </span>
+                    <ul style={{margin:0, paddingLeft:'20px', fontSize:'12px', color:'#78350f'}}>
+                      {validationIssues.map((issue, idx) => (
+                        <li key={idx}>{issue}</li>
+                      ))}
+                    </ul>
+                    <p style={{margin:'6px 0 0', fontSize:'11px', color:'#92400e'}}>
+                      Puedes guardarlo como Borrador temporal mientras consigues esta información.
+                    </p>
+                  </div>
+                )}
+
+                <div style={{gridColumn:'1 / -1', display:'flex', gap:'12px', justifyContent:'flex-end', paddingTop:'12px', borderTop:'1px solid #f1f5f9', marginTop:'8px'}}>
+                  <button
+                    type="button"
+                    onClick={handleCancel}
+                    style={{padding:'10px 20px', background:'#e2e8f0', color:'#475569', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:600, cursor:'pointer'}}
+                  >
+                    Cancelar
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() => handleSave('borrador')}
+                    style={{
+                      padding:'10px 20px', 
+                      background: saving ? '#cbd5e1' : '#f59e0b', 
+                      color:'white', 
+                      border:'none', 
+                      borderRadius:'8px', 
+                      fontSize:'14px', 
+                      fontWeight:600, 
+                      cursor: saving ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {saving ? 'Guardando...' : '💾 Guardar como Borrador'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={saving || !isValidToPublish}
+                    onClick={() => handleSave('completo')}
+                    style={{
+                      padding:'10px 20px', 
+                      background: (saving || !isValidToPublish) ? '#cbd5e1' : '#0284c7', 
+                      color: (saving || !isValidToPublish) ? '#64748b' : 'white', 
+                      border:'none', 
+                      borderRadius:'8px', 
+                      fontSize:'14px', 
+                      fontWeight:700, 
+                      cursor: (saving || !isValidToPublish) ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    {saving ? 'Guardando...' : (editingId ? '🚀 Publicar Cambios' : '🚀 Publicar Producto')}
                   </button>
                 </div>
               </form>

@@ -116,7 +116,7 @@ export default function Cotizador() {
 
   useEffect(() => {
     async function loadDatabase() {
-      const dbProducts = await fetchProductosSupabase()
+      const dbProducts = await fetchProductosSupabase(false)
       if (dbProducts && dbProducts.length > 0) {
         setProductosDisponibles(dbProducts)
         const first = dbProducts[0]
