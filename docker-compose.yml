@@ -1,0 +1,16 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      # Sincroniza el código fuente local con el contenedor para permitir Hot Module Replacement (HMR)
+      - .:/app
+      # Evita que el node_modules local del host sobrescriba el del contenedor (aislamiento de dependencias)
+      - /app/node_modules
+    environment:
+      # Habilita el polling para detectar cambios en archivos dentro de sistemas como Windows/WSL
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true

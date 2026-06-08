@@ -1,0 +1,26 @@
+{
+  "name": "Calculadora Cotización Sandbox",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "web",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker"
+      ]
+    }
+  },
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Aplicación Web (Vite)",
+      "onAutoForward": "openPreview"
+    }
+  },
+  "shutdownAction": "stopCompose"
+}

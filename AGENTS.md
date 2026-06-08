@@ -10,6 +10,10 @@ Cotizador comercial interno para BUCA Recubrimientos (Monterrey, N.L., México).
 |------|-----------|
 | Framework | TanStack Start |
 | Frontend | React 19, TanStack Router v1 |
+| Base de Datos | Supabase (PostgreSQL) |
+| Almacenamiento | Supabase Storage (bucket `product-docs`) |
+| IA | API de Google Gemini (`gemini-2.5-flash`) con rotación multiclave |
+| Sandbox | Docker y Dev Containers (Codespaces) |
 | Build | Vite 7 |
 | Estilos | Tailwind CSS v4 + clases custom `buca-*` |
 | Lenguaje | TypeScript 5 (strict) |
@@ -20,22 +24,29 @@ Cotizador comercial interno para BUCA Recubrimientos (Monterrey, N.L., México).
 ```
 src/
 ├── data/
-│   └── productos.ts        # Catálogo de productos con precios, rendimientos y metadatos
+│   └── productos.ts        # Catálogo local de respaldo y tipos
 ├── components/
-│   └── Cotizador.tsx       # Componente principal — toda la lógica de UI y cálculo
+│   └── Cotizador.tsx       # Lógica de UI del cotizador público y descarga de fichas
 ├── routes/
 │   ├── __root.tsx          # Shell HTML, metadatos globales (lang="es")
-│   └── index.tsx           # Ruta raíz — renderiza <Cotizador />
+│   ├── index.tsx           # Ruta raíz — renderiza <Cotizador />
+│   └── admin.tsx           # Panel de administración, visor PDF side-by-side e IA
+├── supabase.ts             # Cliente e integración de CRUD y Storage con Supabase
 └── styles.css              # Tailwind + clases custom prefijadas con buca-*
+docker-compose.yml          # Orquestador del sandbox local con recarga HMR
+Dockerfile                  # Definición del entorno Node 20 en contenedor
+.dockerignore               # Optimización de contexto de Docker
+.devcontainer/
+└── devcontainer.json       # Integración con GitHub Codespaces y VS Code Containers
 ```
 
 ## Decisiones de diseño
 
-- **Sin backend propio:** toda la lógica vive en el cliente. Los productos están en `productos.ts` — estructura lista para conectar a Netlify Database sin reescribir la lógica.
-- **Lógica de cantidad:** si `tieneRendimiento: true` y `rendimiento` está definido → `cantidad = metros / rendimiento`. Si no → el usuario ingresa manualmente (default = `cantRef`).
-- **Conversión de moneda:** productos en USD se convierten al calcular usando el tipo de cambio editable. El precio mostrado siempre es MXN.
-- **Descuento mayorista:** multiplicador `0.8` (−20%) aplicado al precio unitario.
-- **Print CSS:** la sección de configuración y controles se oculta en impresión con `print:hidden`. La tabla de cotización y el footer con metadatos sí se imprimen.
+- **Integración con Supabase:** Gestión de base de datos relacional PostgreSQL para productos y almacenamiento cloud público de PDFs (fichas técnicas y de seguridad).
+- **Asistente IA Ofuscado y Tolerante a Fallos:** Extracción inteligente de información técnica en formato JSON a partir del PDF activo. La API key se almacena de forma encriptada mediante cifrado XOR en el cliente, y el sistema rota automáticamente entre múltiples claves configuradas si detecta errores de límite de cuota (HTTP 429), sin pérdida de progreso en el análisis.
+- **Cálculo de Consumo Sugerido:** Cálculo automático de consumo en base al rendimiento o espesor y densidad extraídos de las fichas del producto.
+- **Entorno Estandarizado (Sandbox):** Uso de contenedores Docker para garantizar que cualquier miembro del equipo o desarrollador pueda ejecutar y modificar la aplicación de forma idéntica, independientemente de sus dependencias locales.
+- **Print CSS:** La sección de configuración y controles se oculta en impresión con `print:hidden`. La tabla de cotización y el footer con metadatos sí se imprimen.
 - **Paleta institucional:** `--buca-blue: #1B3F6E` definido como variable CSS.
 
 ## Convenciones
@@ -47,7 +58,6 @@ src/
 
 ## Escalabilidad futura
 
-- **Precios dinámicos:** crear tabla en Netlify Database + API route que reemplace la importación de `productos.ts`.
-- **PDFs con branding:** Netlify Function con `@react-pdf/renderer`.
-- **Historial de cotizaciones:** Netlify Identity + tabla de cotizaciones en DB.
-- **Multi-asesor:** auth con roles para distinguir permisos entre asesores.
+- **Historial de cotizaciones:** Guardar las cotizaciones creadas en Supabase asociando un identificador de cliente.
+- **Autenticación completa:** Netlify Identity o Supabase Auth para restringir la sección `/admin` a administradores validados.
+- **PDFs de cotización personalizados:** Implementación de generación de PDF con branding de la empresa usando librerías del servidor o cliente.
