@@ -542,6 +542,32 @@ export default function Cotizador() {
                   {productoSeleccionado.nota && (
                     <p className="text-xs text-gray-400 mt-1">{productoSeleccionado.nota}</p>
                   )}
+                  {(productoSeleccionado.ficha_tecnica_url || productoSeleccionado.ficha_seguridad_url) && (
+                    <div className="mt-1.5 flex gap-2">
+                      {productoSeleccionado.ficha_tecnica_url && (
+                        <a
+                          href={productoSeleccionado.ficha_tecnica_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
+                          title="Ficha Técnica"
+                        >
+                          📄 TDS (Ficha Técnica)
+                        </a>
+                      )}
+                      {productoSeleccionado.ficha_seguridad_url && (
+                        <a
+                          href={productoSeleccionado.ficha_seguridad_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors"
+                          title="Hoja de Seguridad"
+                        >
+                          🛡️ SDS (Ficha de Seguridad)
+                        </a>
+                      )}
+                    </div>
+                  )}
 
                   {mostrarLista && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">

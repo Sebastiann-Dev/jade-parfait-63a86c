@@ -202,3 +202,30 @@ export async function deleteSistemaSupabase(id: string): Promise<void> {
   }
 }
 
+export async function uploadPdfProducto(
+  productoId: string,
+  tipo: 'ficha_tecnica' | 'ficha_seguridad',
+  file: File
+): Promise<string> {
+  const ext = file.name.split('.').pop() || 'pdf'
+  const path = `${productoId}/${tipo}.${ext}`
+
+  await supabase.storage.from('product-docs').remove([path])
+
+  const { error: uploadError } = await supabase.storage
+    .from('product-docs')
+    .upload(path, file, { upsert: true, contentType: 'application/pdf' })
+
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage.from('product-docs').getPublicUrl(path)
+  return data.publicUrl
+}
+
+export async function deletePdfProducto(
+  productoId: string,
+  tipo: 'ficha_tecnica' | 'ficha_seguridad'
+): Promise<void> {
+  const paths = [`${productoId}/${tipo}.pdf`, `${productoId}/${tipo}.PDF`]
+  await supabase.storage.from('product-docs').remove(paths)
+}

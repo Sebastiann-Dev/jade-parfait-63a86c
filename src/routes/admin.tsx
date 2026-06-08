@@ -11,6 +11,8 @@ import {
   saveSistemaSupabase,
   updateSistemaSupabase,
   deleteSistemaSupabase,
+  uploadPdfProducto,
+  deletePdfProducto,
   type Sistema,
   type SistemaProducto
 } from '../supabase'
@@ -92,6 +94,159 @@ function AdminPage() {
   const [numPartesKit, setNumPartesKit] = useState<number>(2)
   const [partesLtrs, setPartesLtrs] = useState<string[]>(['', '', '', ''])
   const [numPresentacionesKit, setNumPresentacionesKit] = useState<number>(1)
+
+  // File upload state for PDFs
+  const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null)
+  const [fichaSeguridadFile, setFichaSeguridadFile] = useState<File | null>(null)
+  const [activePdfPreview, setActivePdfPreview] = useState<'ficha_tecnica' | 'ficha_seguridad' | null>(null)
+  const [geminiApiKey, setGeminiApiKey] = useState<string>(() => localStorage.getItem('gemini_api_key') || '')
+  const [isExtracting, setIsExtracting] = useState(false)
+
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1]
+        resolve(base64String)
+      }
+      reader.onerror = error => reject(error)
+    })
+  }
+
+  async function urlToBase64(url: string): Promise<string> {
+    const response = await fetch(url)
+    const blob = await response.blob()
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(blob)
+      reader.onload = () => {
+        const base64String = (reader.result as string).split(',')[1]
+        resolve(base64String)
+      }
+      reader.onerror = error => reject(error)
+    })
+  }
+
+  async function extraerConGemini() {
+    if (!geminiApiKey) {
+      alert("Por favor, configura tu Gemini API Key en la parte superior del panel de referencia.")
+      return
+    }
+
+    let activeFile: File | null = null
+    let activeUrl: string | null = null
+
+    if (activePdfPreview === 'ficha_tecnica') {
+      activeFile = fichaTecnicaFile
+      activeUrl = formData.ficha_tecnica_url
+    } else if (activePdfPreview === 'ficha_seguridad') {
+      activeFile = fichaSeguridadFile
+      activeUrl = formData.ficha_seguridad_url
+    }
+
+    if (!activeFile && !activeUrl) {
+      alert("No hay ningún PDF seleccionado o cargado para analizar.")
+      return
+    }
+
+    setIsExtracting(true)
+    try {
+      let base64Data = ''
+      if (activeFile) {
+        base64Data = await fileToBase64(activeFile)
+      } else if (activeUrl) {
+        base64Data = await urlToBase64(activeUrl)
+      }
+
+      const prompt = `Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. Devuelve un objeto JSON con las siguientes claves (y los tipos de datos correspondientes):
+- nombre: string (nombre comercial corto del producto, ej. BucaTrafic, sin marcas como ®, TM)
+- nota: string (breve descripción de una línea de para qué sirve o qué es, ej. Pintura epóxica de altos sólidos para tráfico vehicular)
+- tieneRendimiento: boolean (true si se menciona rendimiento por m² o consumo por m²)
+- rendimiento: number o null (si tieneRendimiento es true, extrae el rendimiento promedio en m² por litro o por kilogramo. Por ejemplo, si dice "rendimiento de 4 a 6 m²/L", extrae 5. Si no aplica, null)
+- espesorRecomendado: string o null (espesor de película recomendado en milésimas de pulgada (mils) o micras, ej: "4 a 6 mils" o "100-150 micras")
+- manosRecomendadas: string o null (número de capas o manos recomendadas, ej: "1 a 2 manos")
+- densidadRecomendada: string o null (densidad o peso específico, ej: "1.25 g/cm³")
+- pros: string o null (las 2 o 3 ventajas clave resumidas en 1 o 2 palabras cada una separadas por coma, ej: "Rápido secado, alta resistencia")
+- cons: string o null (las 2 o 3 limitantes principales resumidas, ej: "No exponer a rayos UV directos")
+- cuidadoCon: string o null (precauciones principales de seguridad o aplicación, ej: "Requiere equipo autónomo, inflamable")
+- proporcionesMezcla: string o null (proporción de mezcla si es kit, o de volumen A:B, ej: "4 partes A : 1 parte B")
+
+Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No incluyas bloques de código Markdown (como \`\`\`json), comentarios, ni texto introductorio.`
+
+      const response = await fetch(\`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=\${geminiApiKey}\`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  inlineData: {
+                    data: base64Data,
+                    mimeType: 'application/pdf'
+                  }
+                },
+                {
+                  text: prompt
+                }
+              ]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: "application/json"
+          }
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error?.message || 'Error en la API de Gemini')
+      }
+
+      const resJson = await response.json()
+      const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text
+      
+      if (!textResponse) {
+        throw new Error('La respuesta de Gemini no contiene texto.')
+      }
+
+      let extractedData: any
+      try {
+        extractedData = JSON.parse(textResponse.trim())
+      } catch (e) {
+        let cleanText = textResponse.trim()
+        if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```json\\s*/, '').replace(/```$/, '').trim()
+        }
+        extractedData = JSON.parse(cleanText)
+      }
+
+      setFormData((prev: any) => ({
+        ...prev,
+        nombre: extractedData.nombre || prev.nombre,
+        nota: extractedData.nota || prev.nota,
+        tieneRendimiento: extractedData.tieneRendimiento !== undefined ? extractedData.tieneRendimiento : prev.tieneRendimiento,
+        rendimiento: extractedData.rendimiento !== null && extractedData.rendimiento !== undefined ? String(extractedData.rendimiento) : prev.rendimiento,
+        espesorRecomendado: extractedData.espesorRecomendado || prev.espesorRecomendado,
+        manosRecomendadas: extractedData.manosRecomendadas || prev.manosRecomendadas,
+        densidadRecomendada: extractedData.densidadRecomendada || prev.densidadRecomendada,
+        pros: extractedData.pros || prev.pros,
+        cons: extractedData.cons || prev.cons,
+        cuidadoCon: extractedData.cuidadoCon || prev.cuidadoCon,
+        proporcionesMezcla: extractedData.proporcionesMezcla || prev.proporcionesMezcla,
+      }))
+
+      alert("🎉 Información extraída con éxito de la ficha técnica/seguridad. Los campos han sido rellenados en el formulario de la izquierda. Por favor, revísalos y guarda el producto.")
+    } catch (error: any) {
+      console.error(error)
+      alert(\`❌ Error al extraer información con Gemini: \${error.message || 'Verifica tu API Key y que el PDF sea válido.'}\`)
+    } finally {
+      setIsExtracting(false)
+    }
+  }
 
   // Automatically adjust and size kit presentations array based on selections
   useEffect(() => {
@@ -405,46 +560,112 @@ function AdminPage() {
     e.preventDefault()
     setSaving(true)
     try {
-      const payload: Omit<Producto, 'id'> = {
-        nombre: formData.nombre,
-        cantRef: Number(formData.cantRef),
-        unidad: formData.unidad,
-        moneda: formData.moneda,
-        precio: Number(formData.precio),
-        tieneRendimiento: !!formData.tieneRendimiento,
-        nota: formData.nota || '',
-        rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : undefined,
-        espesorRecomendado: formData.espesorRecomendado || undefined,
-        manosRecomendadas: formData.manosRecomendadas || undefined,
-        pros: formData.pros || undefined,
-        cons: formData.cons || undefined,
-        cuidadoCon: formData.cuidadoCon || undefined,
-        kitInfo: esKitProduct ? (() => {
-          const validPresentaciones = kitPresentaciones
-            .filter(pres => pres && pres.nombre && pres.precio !== '')
-            .map(pres => ({
-              nombre: pres.nombre,
-              precio: parseFloat(pres.precio) || 0,
-              moneda: pres.moneda || 'MXN',
-              partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
-            }))
-          return validPresentaciones.length > 0
-            ? JSON.stringify({ numPartes: numPartesKit, presentaciones: validPresentaciones })
-            : undefined
-        })() : undefined,
-        proporcionesMezcla: formData.proporcionesMezcla || undefined,
-        densidadRecomendada: formData.densidadRecomendada || undefined,
-        bitacora: formData.bitacora || undefined,
-        ficha_tecnica_url: formData.ficha_tecnica_url || undefined,
-        ficha_seguridad_url: formData.ficha_seguridad_url || undefined
-      }
+      let finalFichaTecnica = formData.ficha_tecnica_url
+      let finalFichaSeguridad = formData.ficha_seguridad_url
+
       if (editingId) {
+        // Upload files if selected
+        if (fichaTecnicaFile) {
+          finalFichaTecnica = await uploadPdfProducto(editingId, 'ficha_tecnica', fichaTecnicaFile)
+        }
+        if (fichaSeguridadFile) {
+          finalFichaSeguridad = await uploadPdfProducto(editingId, 'ficha_seguridad', fichaSeguridadFile)
+        }
+
+        const payload: Omit<Producto, 'id'> = {
+          nombre: formData.nombre,
+          cantRef: Number(formData.cantRef),
+          unidad: formData.unidad,
+          moneda: formData.moneda,
+          precio: Number(formData.precio),
+          tieneRendimiento: !!formData.tieneRendimiento,
+          nota: formData.nota || '',
+          rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : undefined,
+          espesorRecomendado: formData.espesorRecomendado || undefined,
+          manosRecomendadas: formData.manosRecomendadas || undefined,
+          pros: formData.pros || undefined,
+          cons: formData.cons || undefined,
+          cuidadoCon: formData.cuidadoCon || undefined,
+          kitInfo: esKitProduct ? (() => {
+            const validPresentaciones = kitPresentaciones
+              .filter(pres => pres && pres.nombre && pres.precio !== '')
+              .map(pres => ({
+                nombre: pres.nombre,
+                precio: parseFloat(pres.precio) || 0,
+                moneda: pres.moneda || 'MXN',
+                partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
+              }))
+            return validPresentaciones.length > 0
+              ? JSON.stringify({ numPartes: numPartesKit, presentations: validPresentaciones })
+              : undefined
+          })() : undefined,
+          proporcionesMezcla: formData.proporcionesMezcla || undefined,
+          densidadRecomendada: formData.densidadRecomendada || undefined,
+          bitacora: formData.bitacora || undefined,
+          ficha_tecnica_url: finalFichaTecnica || undefined,
+          ficha_seguridad_url: finalFichaSeguridad || undefined
+        }
+
         await updateProductoSupabase(editingId, payload)
         showMsg('✅ Producto actualizado con éxito', 'ok')
       } else {
-        await saveProductoSupabase(payload)
+        const payload: Omit<Producto, 'id'> = {
+          nombre: formData.nombre,
+          cantRef: Number(formData.cantRef),
+          unidad: formData.unidad,
+          moneda: formData.moneda,
+          precio: Number(formData.precio),
+          tieneRendimiento: !!formData.tieneRendimiento,
+          nota: formData.nota || '',
+          rendimiento: (formData.tieneRendimiento && formData.rendimiento !== '') ? Number(formData.rendimiento) : undefined,
+          espesorRecomendado: formData.espesorRecomendado || undefined,
+          manosRecomendadas: formData.manosRecomendadas || undefined,
+          pros: formData.pros || undefined,
+          cons: formData.cons || undefined,
+          cuidadoCon: formData.cuidadoCon || undefined,
+          kitInfo: esKitProduct ? (() => {
+            const validPresentaciones = kitPresentaciones
+              .filter(pres => pres && pres.nombre && pres.precio !== '')
+              .map(pres => ({
+                nombre: pres.nombre,
+                precio: parseFloat(pres.precio) || 0,
+                moneda: pres.moneda || 'MXN',
+                partes: (pres.partes || []).map((val: any) => parseFloat(val) || 0)
+              }))
+            return validPresentaciones.length > 0
+              ? JSON.stringify({ numPartes: numPartesKit, presentaciones: validPresentaciones })
+              : undefined
+          })() : undefined,
+          proporcionesMezcla: formData.proporcionesMezcla || undefined,
+          densidadRecomendada: formData.densidadRecomendada || undefined,
+          bitacora: formData.bitacora || undefined,
+          ficha_tecnica_url: undefined, // uploaded after
+          ficha_seguridad_url: undefined
+        }
+
+        const newId = await saveProductoSupabase(payload)
+        
+        let updateNeeded = false
+        const updatePayload: Partial<Producto> = {}
+
+        if (fichaTecnicaFile) {
+          finalFichaTecnica = await uploadPdfProducto(newId, 'ficha_tecnica', fichaTecnicaFile)
+          updatePayload.ficha_tecnica_url = finalFichaTecnica
+          updateNeeded = true
+        }
+        if (fichaSeguridadFile) {
+          finalFichaSeguridad = await uploadPdfProducto(newId, 'ficha_seguridad', fichaSeguridadFile)
+          updatePayload.ficha_seguridad_url = finalFichaSeguridad
+          updateNeeded = true
+        }
+
+        if (updateNeeded) {
+          await updateProductoSupabase(newId, updatePayload)
+        }
+
         showMsg('✅ Producto guardado en la base de datos', 'ok')
       }
+
       setShowForm(false)
       setEditingId(null)
       setFormData(DEFAULT_PRODUCTO)
@@ -456,8 +677,12 @@ function AdminPage() {
       setNumPartesKit(2)
       setPartesLtrs(['', '', '', ''])
       setNumPresentacionesKit(1)
+      setFichaTecnicaFile(null)
+      setFichaSeguridadFile(null)
+      setActivePdfPreview(null)
       loadProductos()
     } catch (error) {
+      console.error(error)
       showMsg('❌ Error al guardar. Verifica tu conexión con Supabase.', 'error')
     } finally {
       setSaving(false)
@@ -476,6 +701,9 @@ function AdminPage() {
     setNumPartesKit(2)
     setPartesLtrs(['', '', '', ''])
     setNumPresentacionesKit(1)
+    setFichaTecnicaFile(null)
+    setFichaSeguridadFile(null)
+    setActivePdfPreview(null)
   }
 
   function handleEdit(p: Producto & {id: string}) {
@@ -510,6 +738,16 @@ function AdminPage() {
     setNewKitPrecio('')
     setNewKitMoneda('MXN')
     setPartesLtrs(['', '', '', ''])
+    setFichaTecnicaFile(null)
+    setFichaSeguridadFile(null)
+
+    if (p.ficha_tecnica_url) {
+      setActivePdfPreview('ficha_tecnica')
+    } else if (p.ficha_seguridad_url) {
+      setActivePdfPreview('ficha_seguridad')
+    } else {
+      setActivePdfPreview(null)
+    }
 
     setEditingId(p.id)
     setShowForm(true)
@@ -735,360 +973,640 @@ function AdminPage() {
         {/* Formulario */}
         {currentTab === 'productos' && showForm && (
           <div style={{
-            background: 'white',
-            padding: '24px',
-            borderRadius: '12px',
-            boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.15), 0 10px 10px -5px rgba(37, 99, 235, 0.1)',
-            border: '2px solid #3b82f6',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))',
+            gap: '24px',
+            alignItems: 'start',
             transition: 'all 0.3s ease'
           }}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px'}}>
-              <h2 style={{margin:0, fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
-                {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
-              </h2>
-              <button
-                type="button"
-                onClick={handleCancel}
-                style={{padding:'6px 12px', background:'#ef4444', color:'white', border:'none', borderRadius:'6px', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
-              >
-                ✕ Cancelar
-              </button>
-            </div>
-
-            {/* Selector de producto existente */}
-            <div style={{background:'#eff6ff', padding:'16px', borderRadius:'8px', marginBottom:'20px', border:'1px solid #bfdbfe'}}>
-              <label style={{display:'block', fontSize:'13px', fontWeight:700, color:'#1d4ed8', marginBottom:'8px'}}>
-                ¿Quieres editar un producto existente? Selecciónalo aquí:
-              </label>
-              <select
-                style={{width:'100%', padding:'8px', border:'1px solid #93c5fd', borderRadius:'6px', fontSize:'13px', background:'white'}}
-                value={editingId || ''}
-                onChange={(e) => {
-                  const p = productos.find(prod => prod.id === e.target.value)
-                  if (p) {
-                    handleEdit(p)
-                  } else {
-                    setEditingId(null)
-                    setFormData(DEFAULT_PRODUCTO)
-                  }
-                }}
-              >
-                <option value="">-- Seleccionar producto para editar --</option>
-                {productos.map(p => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
-                ))}
-              </select>
-            </div>
-
-            <form onSubmit={handleSubmit} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', alignItems:'start'}}>
-
-              <div>
-                <label style={labelStyle}>Nombre del Producto *</label>
-                <input required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} style={inputStyle} placeholder="Ej. BucaTrafic" />
+            {/* Left Column: Form */}
+            <div style={{
+              background: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.15), 0 10px 10px -5px rgba(37, 99, 235, 0.1)',
+              border: '2px solid #3b82f6',
+            }}>
+              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px'}}>
+                <h2 style={{margin:0, fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
+                  {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  style={{padding:'6px 12px', background:'#ef4444', color:'white', border:'none', borderRadius:'6px', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
+                >
+                  ✕ Cancelar
+                </button>
               </div>
 
-              <div>
-                <label style={labelStyle}>Unidad</label>
-                <select value={formData.unidad} onChange={e => setFormData({...formData, unidad: e.target.value})} style={inputStyle}>
-                  <option value="L">L (Litros)</option>
-                  <option value="Gal">Gal (Galones)</option>
-                  <option value="Kg">Kg (Kilogramos)</option>
-                  <option value="Cubeta">Cubeta</option>
-                  <option value="Saco">Saco</option>
-                  <option value="Kit">Kit</option>
-                  <option value="Pieza">Pieza</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Moneda</label>
-                <select value={formData.moneda} onChange={e => setFormData({...formData, moneda: e.target.value as 'MXN'|'USD'})} style={inputStyle}>
-                  <option value="MXN">MXN</option>
-                  <option value="USD">USD</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={labelStyle}>Precio Unitario *</label>
-                <input type="number" step="0.01" required value={formData.precio} onChange={e => setFormData({...formData, precio: e.target.value})} style={inputStyle} placeholder="0.00" />
-              </div>
-
-              <div>
-                <label style={labelStyle}>Cantidad de Referencia (tamaño del envase)</label>
-                <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({...formData, cantRef: e.target.value})} style={inputStyle} placeholder="Ej. 19 (litros)" />
-              </div>
-
-              <div style={{gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px'}}>
-                <div>
-                  <label style={labelStyle}>Descripción</label>
-                  <input value={formData.nota} onChange={e => setFormData({...formData, nota: e.target.value})} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Bitácora</label>
-                  <textarea
-                    rows={3}
-                    value={formData.bitacora || ''}
-                    onChange={e => setFormData({...formData, bitacora: e.target.value})}
-                    style={{
-                      ...inputStyle,
-                      height: 'auto',
-                      minHeight: '80px',
-                      resize: 'vertical',
-                      fontFamily: 'inherit'
-                    }}
-                    placeholder="Notas internas, registro de cambios, etc."
-                  />
-                </div>
-              </div>
-
-              {/* Rendimiento */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-                <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontSize:'14px', fontWeight:500}}>
-                  <input type="checkbox" checked={formData.tieneRendimiento} onChange={e => setFormData({...formData, tieneRendimiento: e.target.checked})} />
-                  ¿Este producto se calcula por metros cuadrados (rendimiento)?
+              {/* Selector de producto existente */}
+              <div style={{background:'#eff6ff', padding:'16px', borderRadius:'8px', marginBottom:'20px', border:'1px solid #bfdbfe'}}>
+                <label style={{display:'block', fontSize:'13px', fontWeight:700, color:'#1d4ed8', marginBottom:'8px'}}>
+                  ¿Quieres editar un producto existente? Selecciónalo aquí:
                 </label>
+                <select
+                  style={{width:'100%', padding:'8px', border:'1px solid #93c5fd', borderRadius:'6px', fontSize:'13px', background:'white'}}
+                  value={editingId || ''}
+                  onChange={(e) => {
+                    const p = productos.find(prod => prod.id === e.target.value)
+                    if (p) {
+                      handleEdit(p)
+                    } else {
+                      setEditingId(null)
+                      setFormData(DEFAULT_PRODUCTO)
+                    }
+                  }}
+                >
+                  <option value="">-- Seleccionar producto para editar --</option>
+                  {productos.map(p => (
+                    <option key={p.id} value={p.id}>{p.nombre}</option>
+                  ))}
+                </select>
               </div>
 
-              {formData.tieneRendimiento && (
-                <div>
-                  <label style={{...labelStyle, color:'#1d4ed8'}}>Rendimiento (m² por {formData.unidad})</label>
-                  <input type="number" step="0.1" value={formData.rendimiento} onChange={e => setFormData({...formData, rendimiento: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} placeholder="Ej. 5" />
-                </div>
-              )}
+              <form onSubmit={handleSubmit} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', alignItems:'start'}}>
 
-              {/* Especificaciones técnicas */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
                 <div>
-                  <label style={{...labelStyle, color:'#1d4ed8'}}>Espesor Recomendado</label>
-                  <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({...formData, espesorRecomendado: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                  <label style={labelStyle}>Nombre del Producto *</label>
+                  <input required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} style={inputStyle} placeholder="Ej. BucaTrafic" />
                 </div>
-                <div>
-                  <label style={{...labelStyle, color:'#1d4ed8'}}>Manos / Pasadas Recomendadas</label>
-                  <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({...formData, manosRecomendadas: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
-                </div>
-                <div>
-                  <label style={{...labelStyle, color:'#1d4ed8'}}>Densidad Recomendada</label>
-                  <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({...formData, densidadRecomendada: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
-                </div>
-              </div>
 
-              {/* Documentación técnica */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-                <h3 style={{fontSize:'14px', fontWeight:700, color:'#0369a1', marginBottom:'12px'}}>📄 Documentación Técnica (PDFs)</h3>
-                <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                <div>
+                  <label style={labelStyle}>Unidad</label>
+                  <select value={formData.unidad} onChange={e => setFormData({...formData, unidad: e.target.value})} style={inputStyle}>
+                    <option value="L">L (Litros)</option>
+                    <option value="Gal">Gal (Galones)</option>
+                    <option value="Kg">Kg (Kilogramos)</option>
+                    <option value="Cubeta">Cubeta</option>
+                    <option value="Saco">Saco</option>
+                    <option value="Kit">Kit</option>
+                    <option value="Pieza">Pieza</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Moneda</label>
+                  <select value={formData.moneda} onChange={e => setFormData({...formData, moneda: e.target.value as 'MXN'|'USD'})} style={inputStyle}>
+                    <option value="MXN">MXN</option>
+                    <option value="USD">USD</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Precio Unitario *</label>
+                  <input type="number" step="0.01" required value={formData.precio} onChange={e => setFormData({...formData, precio: e.target.value})} style={inputStyle} placeholder="0.00" />
+                </div>
+
+                <div>
+                  <label style={labelStyle}>Cantidad de Referencia (tamaño del envase)</label>
+                  <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({...formData, cantRef: e.target.value})} style={inputStyle} placeholder="Ej. 19 (litros)" />
+                </div>
+
+                <div style={{gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px'}}>
                   <div>
-                    <label style={{...labelStyle, color:'#0369a1'}}>Ficha Técnica (TDS) — URL</label>
-                    <input
-                      type="url"
-                      placeholder="https://...supabase.co/.../BucaTrafic-TDS.pdf"
-                      value={formData.ficha_tecnica_url || ''}
-                      onChange={e => setFormData({...formData, ficha_tecnica_url: e.target.value})}
-                      style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                    <label style={labelStyle}>Descripción</label>
+                    <input value={formData.nota} onChange={e => setFormData({...formData, nota: e.target.value})} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Bitácora</label>
+                    <textarea
+                      rows={3}
+                      value={formData.bitacora || ''}
+                      onChange={e => setFormData({...formData, bitacora: e.target.value})}
+                      style={{
+                        ...inputStyle,
+                        height: 'auto',
+                        minHeight: '80px',
+                        resize: 'vertical',
+                        fontFamily: 'inherit'
+                      }}
+                      placeholder="Notas internas, registro de cambios, etc."
                     />
-                    {formData.ficha_tecnica_url && (
-                      <a href={formData.ficha_tecnica_url} target="_blank" rel="noreferrer"
-                        style={{fontSize:'11px', color:'#0369a1', display:'inline-block', marginTop:'4px'}}>
-                        📄 Verificar enlace →
-                      </a>
-                    )}
-                  </div>
-                  <div>
-                    <label style={{...labelStyle, color:'#0369a1'}}>Hoja de Seguridad (SDS) — URL</label>
-                    <input
-                      type="url"
-                      placeholder="https://...supabase.co/.../BucaTrafic-SDS.pdf"
-                      value={formData.ficha_seguridad_url || ''}
-                      onChange={e => setFormData({...formData, ficha_seguridad_url: e.target.value})}
-                      style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
-                    />
-                    {formData.ficha_seguridad_url && (
-                      <a href={formData.ficha_seguridad_url} target="_blank" rel="noreferrer"
-                        style={{fontSize:'11px', color:'#0369a1', display:'inline-block', marginTop:'4px'}}>
-                        🛡️ Verificar enlace →
-                      </a>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Kit y Mezcla */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-                <h3 style={{fontSize:'14px', fontWeight:700, color:'#7c3aed', marginBottom: '12px'}}>📦 Configuración de Kit y Mezcla</h3>
-                
-                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', marginBottom: '12px', alignItems:'start'}}>
-                  <div>
-                    <label style={{...labelStyle, color:'#0369a1'}}>🧪 Proporciones de Mezcla</label>
-                    <input
-                      placeholder="Ej: 2:1 (Parte A : Parte B) · 3:1:0.5 si es tricomponente"
-                      value={formData.proporcionesMezcla || ''}
-                      onChange={e => setFormData({...formData, proporcionesMezcla: e.target.value})}
-                      style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
-                    />
-                    <span style={{fontSize:'11px', color:'#0369a1', marginTop:'3px', display:'block'}}>Para bicomponentes y tricomponentes</span>
-                  </div>
-                  
-                  <div>
-                    <label style={{...labelStyle, color:'#7c3aed'}}>¿Este producto se vende en diferentes presentaciones (Kit)?</label>
-                    <div style={{display:'flex', gap:'12px', alignItems:'center', height:'38px'}}>
-                      <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px'}}>
-                        <input
-                          type="checkbox"
-                          checked={esKitProduct}
-                          onChange={(e) => setEsKitProduct(e.target.checked)}
-                        />
-                        Sí, configurar presentaciones de kit
-                      </label>
-                    </div>
                   </div>
                 </div>
 
-                {esKitProduct && (
-                  <div style={{background:'#f5f3ff', border:'1px solid #c4b5fd', borderRadius:'8px', padding:'16px', marginBottom:'16px'}}>
-                    <h4 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#6d28d9'}}>Presentaciones del Kit</h4>
-                    
-                    {/* Choose how many parts and presentations */}
-                    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'16px', background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
-                      <div>
-                        <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
-                          ¿Cuántas partes tiene el kit?
-                        </label>
-                        <select
-                          value={numPartesKit}
-                          onChange={e => {
-                            const val = parseInt(e.target.value) || 2
-                            setNumPartesKit(val)
-                          }}
-                          style={{...inputStyle, height:'34px', padding:'4px 8px'}}
-                        >
-                          <option value="1">1 Parte (Monocomponente)</option>
-                          <option value="2">2 Partes (Bicomponente)</option>
-                          <option value="3">3 Partes (Tricomponente)</option>
-                          <option value="4">4 Partes (Tetracomponente)</option>
-                        </select>
-                      </div>
+                {/* Rendimiento */}
+                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontSize:'14px', fontWeight:500}}>
+                    <input type="checkbox" checked={formData.tieneRendimiento} onChange={e => setFormData({...formData, tieneRendimiento: e.target.checked})} />
+                    ¿Este producto se calcula por metros cuadrados (rendimiento)?
+                  </label>
+                </div>
+
+                {formData.tieneRendimiento && (
+                  <div>
+                    <label style={{...labelStyle, color:'#1d4ed8'}}>Rendimiento (m² por {formData.unidad})</label>
+                    <input type="number" step="0.1" value={formData.rendimiento} onChange={e => setFormData({...formData, rendimiento: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} placeholder="Ej. 5" />
+                  </div>
+                )}
+
+                {/* Especificaciones técnicas */}
+                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
+                  <div>
+                    <label style={{...labelStyle, color:'#1d4ed8'}}>Espesor Recomendado</label>
+                    <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({...formData, espesorRecomendado: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                  </div>
+                  <div>
+                    <label style={{...labelStyle, color:'#1d4ed8'}}>Manos / Pasadas Recomendadas</label>
+                    <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({...formData, manosRecomendadas: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                  </div>
+                  <div>
+                    <label style={{...labelStyle, color:'#1d4ed8'}}>Densidad Recomendada</label>
+                    <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({...formData, densidadRecomendada: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                  </div>
+                </div>
+
+                {/* Documentación técnica */}
+                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+                  <h3 style={{fontSize:'14px', fontWeight:700, color:'#0369a1', marginBottom:'12px'}}>📄 Documentación Técnica (PDFs)</h3>
+                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                    <div>
+                      <label style={{...labelStyle, color:'#0369a1'}}>Ficha Técnica (TDS)</label>
                       
-                      <div>
-                        <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
-                          ¿Cuántas presentaciones de kit hay?
-                        </label>
-                        <select
-                          value={numPresentacionesKit}
+                      {formData.ficha_tecnica_url && (
+                        <div style={{display:'flex', alignItems:'center', gap:'8px', background:'#f0f9ff', padding:'6px 10px', borderRadius:'6px', border:'1px solid #7dd3fc', marginBottom:'8px'}}>
+                          <span style={{fontSize:'12px', color:'#0369a1', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>
+                            📄 Ya cargado en base de datos
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if(confirm("¿Seguro que deseas eliminar el archivo de ficha técnica?")) {
+                                setFormData({...formData, ficha_tecnica_url: ''})
+                                setFichaTecnicaFile(null)
+                              }
+                            }}
+                            style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'12px', fontWeight:600}}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={e => {
+                          const file = e.target.files?.[0] || null
+                          setFichaTecnicaFile(file)
+                          if (file) {
+                            setActivePdfPreview('ficha_tecnica')
+                          }
+                        }}
+                        style={inputStyle}
+                      />
+                      
+                      {fichaTecnicaFile && (
+                        <div style={{fontSize:'11px', color:'#16a34a', marginTop:'4px', display:'flex', justifyContent:'space-between'}}>
+                          <span>📎 Nuevo archivo: {fichaTecnicaFile.name}</span>
+                          <button type="button" onClick={() => setFichaTecnicaFile(null)} style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', padding:0}}>Quitar</button>
+                        </div>
+                      )}
+
+                      <div style={{marginTop:'8px'}}>
+                        <label style={{fontSize:'11px', color:'#64748b', display:'block', marginBottom:'2px'}}>O introduce URL manual:</label>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={formData.ficha_tecnica_url || ''}
                           onChange={e => {
-                            const val = parseInt(e.target.value) || 1
-                            setNumPresentacionesKit(val)
+                            setFormData({...formData, ficha_tecnica_url: e.target.value})
+                            if (e.target.value) {
+                              setActivePdfPreview('ficha_tecnica')
+                            }
                           }}
-                          style={{...inputStyle, height:'34px', padding:'4px 8px'}}
-                        >
-                          {[1, 2, 3, 4, 5, 6].map(n => (
-                            <option key={n} value={n}>{n} {n === 1 ? 'Presentación' : 'Presentaciones'}</option>
-                          ))}
-                        </select>
+                          style={{...inputStyle, height:'30px', fontSize:'12px', borderColor:'#bae6fd'}}
+                        />
                       </div>
                     </div>
 
-                    {/* Dynamic list of presentations fields */}
-                    <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
-                      {Array.from({ length: numPresentacionesKit }).map((_, idx) => (
-                        <div key={idx} style={{background:'white', padding:'16px', borderRadius:'8px', border:'1px solid #e2e8f0', boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
-                          <h5 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#475569'}}>
-                            Presentación #{idx + 1}
-                          </h5>
-                          
-                          <div style={{display:'flex', gap:'12px', flexWrap:'wrap', alignItems:'flex-end'}}>
-                            <div style={{flex:'2 1 200px'}}>
-                              <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
-                                Nombre / Tamaño (ej. Kit 3L)
-                              </label>
-                              <input
-                                type="text"
-                                value={kitPresentaciones[idx]?.nombre || ''}
-                                onChange={e => updatePresentacion(idx, 'nombre', e.target.value)}
-                                placeholder="Ej. Kit 3L"
-                                style={inputStyle}
-                              />
-                            </div>
-                            
-                            <div style={{flex:'1 1 120px'}}>
-                              <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
-                                Precio
-                              </label>
-                              <input
-                                type="number"
-                                step="0.01"
-                                value={kitPresentaciones[idx]?.precio ?? ''}
-                                onChange={e => updatePresentacion(idx, 'precio', e.target.value)}
-                                placeholder="0.00"
-                                style={inputStyle}
-                              />
-                            </div>
-                            
-                            <div style={{width:'100px'}}>
-                              <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
-                                Moneda
-                              </label>
-                              <select
-                                value={kitPresentaciones[idx]?.moneda || 'MXN'}
-                                onChange={e => updatePresentacion(idx, 'moneda', e.target.value)}
-                                style={inputStyle}
-                              >
-                                <option value="MXN">MXN</option>
-                                <option value="USD">USD</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          {/* Volumes per part */}
-                          <div style={{marginTop:'12px', borderTop:'1px dashed #f1f5f9', paddingTop:'12px'}}>
-                            <label style={{fontSize:'11px', fontWeight:700, color:'#0369a1', display:'block', marginBottom:'6px'}}>
-                              Volumen por cada Parte (Litros):
-                            </label>
-                            <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
-                              {Array.from({ length: numPartesKit }).map((_, partIdx) => (
-                                <div key={partIdx} style={{flex:'1 1 80px'}}>
-                                  <label style={{fontSize:'10px', fontWeight:600, color:'#0284c7', display:'block', marginBottom:'2px'}}>
-                                    Parte {String.fromCharCode(65 + partIdx)} (L)
-                                  </label>
-                                  <input
-                                    type="number"
-                                    step="0.01"
-                                    value={kitPresentaciones[idx]?.partes?.[partIdx] ?? ''}
-                                    onChange={e => updateParte(idx, partIdx, e.target.value)}
-                                    placeholder="0.00"
-                                    style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                    <div>
+                      <label style={{...labelStyle, color:'#0369a1'}}>Hoja de Seguridad (SDS)</label>
+                      
+                      {formData.ficha_seguridad_url && (
+                        <div style={{display:'flex', alignItems:'center', gap:'8px', background:'#fbf7f0', padding:'6px 10px', borderRadius:'6px', border:'1px solid #fed7aa', marginBottom:'8px'}}>
+                          <span style={{fontSize:'12px', color:'#c2410c', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>
+                            🛡️ Ya cargado en base de datos
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if(confirm("¿Seguro que deseas eliminar el archivo de hoja de seguridad?")) {
+                                setFormData({...formData, ficha_seguridad_url: ''})
+                                setFichaSeguridadFile(null)
+                              }
+                            }}
+                            style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'12px', fontWeight:600}}
+                          >
+                            Eliminar
+                          </button>
                         </div>
-                      ))}
+                      )}
+
+                      <input
+                        type="file"
+                        accept=".pdf"
+                        onChange={e => {
+                          const file = e.target.files?.[0] || null
+                          setFichaSeguridadFile(file)
+                          if (file) {
+                            setActivePdfPreview('ficha_seguridad')
+                          }
+                        }}
+                        style={inputStyle}
+                      />
+
+                      {fichaSeguridadFile && (
+                        <div style={{fontSize:'11px', color:'#16a34a', marginTop:'4px', display:'flex', justifyContent:'space-between'}}>
+                          <span>📎 Nuevo archivo: {fichaSeguridadFile.name}</span>
+                          <button type="button" onClick={() => setFichaSeguridadFile(null)} style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', padding:0}}>Quitar</button>
+                        </div>
+                      )}
+
+                      <div style={{marginTop:'8px'}}>
+                        <label style={{fontSize:'11px', color:'#64748b', display:'block', marginBottom:'2px'}}>O introduce URL manual:</label>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={formData.ficha_seguridad_url || ''}
+                          onChange={e => {
+                            setFormData({...formData, ficha_seguridad_url: e.target.value})
+                            if (e.target.value) {
+                              setActivePdfPreview('ficha_seguridad')
+                            }
+                          }}
+                          style={{...inputStyle, height:'30px', fontSize:'12px', borderColor:'#bae6fd'}}
+                        />
+                      </div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Kit y Mezcla */}
+                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+                  <h3 style={{fontSize:'14px', fontWeight:700, color:'#7c3aed', marginBottom: '12px'}}>📦 Configuración de Kit y Mezcla</h3>
+                  
+                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', marginBottom: '12px', alignItems:'start'}}>
+                    <div>
+                      <label style={{...labelStyle, color:'#0369a1'}}>🧪 Proporciones de Mezcla</label>
+                      <input
+                        placeholder="Ej: 2:1 (Parte A : Parte B) · 3:1:0.5 si es tricomponente"
+                        value={formData.proporcionesMezcla || ''}
+                        onChange={e => setFormData({...formData, proporcionesMezcla: e.target.value})}
+                        style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                      />
+                      <span style={{fontSize:'11px', color:'#0369a1', marginTop:'3px', display:'block'}}>Para bicomponentes y tricomponentes</span>
+                    </div>
+                    
+                    <div>
+                      <label style={{...labelStyle, color:'#7c3aed'}}>¿Este producto se vende en diferentes presentaciones (Kit)?</label>
+                      <div style={{display:'flex', gap:'12px', alignItems:'center', height:'38px'}}>
+                        <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px'}}>
+                          <input
+                            type="checkbox"
+                            checked={esKitProduct}
+                            onChange={(e) => setEsKitProduct(e.target.checked)}
+                          />
+                          Sí, configurar presentaciones de kit
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {esKitProduct && (
+                    <div style={{background:'#f5f3ff', border:'1px solid #c4b5fd', borderRadius:'8px', padding:'16px', marginBottom:'16px'}}>
+                      <h4 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#6d28d9'}}>Presentaciones del Kit</h4>
+                      
+                      {/* Choose how many parts and presentations */}
+                      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'16px', background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                        <div>
+                          <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                            ¿Cuántas partes tiene el kit?
+                          </label>
+                          <select
+                            value={numPartesKit}
+                            onChange={e => {
+                              const val = parseInt(e.target.value) || 2
+                              setNumPartesKit(val)
+                            }}
+                            style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                          >
+                            <option value="1">1 Parte (Monocomponente)</option>
+                            <option value="2">2 Partes (Bicomponente)</option>
+                            <option value="3">3 Partes (Tricomponente)</option>
+                            <option value="4">4 Partes (Tetracomponente)</option>
+                          </select>
+                        </div>
+                        
+                        <div>
+                          <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                            ¿Cuántas presentaciones de kit hay?
+                          </label>
+                          <select
+                            value={numPresentacionesKit}
+                            onChange={e => {
+                              const val = parseInt(e.target.value) || 1
+                              setNumPresentacionesKit(val)
+                            }}
+                            style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                          >
+                            {[1, 2, 3, 4, 5, 6].map(n => (
+                              <option key={n} value={n}>{n} {n === 1 ? 'Presentación' : 'Presentaciones'}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Dynamic list of presentations fields */}
+                      <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                        {Array.from({ length: numPresentacionesKit }).map((_, idx) => (
+                          <div key={idx} style={{background:'white', padding:'16px', borderRadius:'8px', border:'1px solid #e2e8f0', boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
+                            <h5 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#475569'}}>
+                              Presentación #{idx + 1}
+                            </h5>
+                            
+                            <div style={{display:'flex', gap:'12px', flexWrap:'wrap', alignItems:'flex-end'}}>
+                              <div style={{flex:'2 1 200px'}}>
+                                <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+                                  Nombre / Tamaño (ej. Kit 3L)
+                                </label>
+                                <input
+                                  type="text"
+                                  value={kitPresentaciones[idx]?.nombre || ''}
+                                  onChange={e => updatePresentacion(idx, 'nombre', e.target.value)}
+                                  placeholder="Ej. Kit 3L"
+                                  style={inputStyle}
+                                />
+                              </div>
+                              
+                              <div style={{flex:'1 1 120px'}}>
+                                <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+                                  Precio
+                                </label>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={kitPresentaciones[idx]?.precio ?? ''}
+                                  onChange={e => updatePresentacion(idx, 'precio', e.target.value)}
+                                  placeholder="0.00"
+                                  style={inputStyle}
+                                />
+                              </div>
+                              
+                              <div style={{width:'100px'}}>
+                                <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+                                  Moneda
+                                </label>
+                                <select
+                                  value={kitPresentaciones[idx]?.moneda || 'MXN'}
+                                  onChange={e => updatePresentacion(idx, 'moneda', e.target.value)}
+                                  style={inputStyle}
+                                >
+                                  <option value="MXN">MXN</option>
+                                  <option value="USD">USD</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Volumes per part */}
+                            <div style={{marginTop:'12px', borderTop:'1px dashed #f1f5f9', paddingTop:'12px'}}>
+                              <label style={{fontSize:'11px', fontWeight:700, color:'#0369a1', display:'block', marginBottom:'6px'}}>
+                                Volumen por cada Parte (Litros):
+                              </label>
+                              <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
+                                {Array.from({ length: numPartesKit }).map((_, partIdx) => (
+                                  <div key={partIdx} style={{flex:'1 1 80px'}}>
+                                    <label style={{fontSize:'10px', fontWeight:600, color:'#0284c7', display:'block', marginBottom:'2px'}}>
+                                      Parte {String.fromCharCode(65 + partIdx)} (L)
+                                    </label>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      value={kitPresentaciones[idx]?.partes?.[partIdx] ?? ''}
+                                      onChange={e => updateParte(idx, partIdx, e.target.value)}
+                                      placeholder="0.00"
+                                      style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pros / Cons */}
+                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
+                  <div>
+                    <label style={{...labelStyle, color:'#166534'}}>✅ Pros (Ventajas)</label>
+                    <input placeholder="Ej. Secado rápido" value={formData.pros || ''} onChange={e => setFormData({...formData, pros: e.target.value})} style={{...inputStyle, borderColor:'#86efac', background:'#f0fdf4'}} />
+                  </div>
+                  <div>
+                    <label style={{...labelStyle, color:'#9a3412'}}>⚠️ Cons (Limitantes)</label>
+                    <input placeholder="Ej. Sensible a humedad" value={formData.cons || ''} onChange={e => setFormData({...formData, cons: e.target.value})} style={{...inputStyle, borderColor:'#fdba74', background:'#fff7ed'}} />
+                  </div>
+                  <div>
+                    <label style={{...labelStyle, color:'#991b1b'}}>🚫 Cuidado con</label>
+                    <input placeholder="Ej. No usar en asfalto" value={formData.cuidadoCon || ''} onChange={e => setFormData({...formData, cuidadoCon: e.target.value})} style={{...inputStyle, borderColor:'#fca5a5', background:'#fef2f2'}} />
+                  </div>
+                </div>
+
+                <div style={{gridColumn:'1 / -1', display:'flex', justifyContent:'flex-end', paddingTop:'8px'}}>
+                  <button type="submit" disabled={saving} style={{padding:'10px 28px', background: saving ? '#94a3b8' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'15px', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer'}}>
+                    {saving ? 'Guardando...' : (editingId ? '💾 Guardar Cambios' : '💾 Guardar Producto')}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Right Column: PDF Viewer and AI extractor */}
+            <div style={{
+              background: 'white',
+              padding: '24px',
+              borderRadius: '12px',
+              boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.15), 0 10px 10px -5px rgba(37, 99, 235, 0.1)',
+              border: '2px solid #0284c7',
+              position: 'sticky',
+              top: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              minHeight: '600px'
+            }}>
+              <div style={{borderBottom:'1px solid #e2e8f0', paddingBottom:'12px'}}>
+                <h3 style={{margin:0, fontSize:'16px', fontWeight:700, color:'#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
+                  🛡️ Referencia de PDF y Asistente IA
+                </h3>
+                <p style={{margin:'4px 0 0', fontSize:'12px', color:'#64748b'}}>
+                  Visualiza las fichas técnicas y de seguridad del producto y utiliza Gemini para autocompletar la información.
+                </p>
+              </div>
+
+              {/* Gemini API Key Configuration */}
+              <div style={{background:'#f0f9ff', padding:'12px', borderRadius:'8px', border:'1px solid #bae6fd'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
+                  <span style={{fontSize:'12px', fontWeight:700, color:'#0369a1', display:'flex', alignItems:'center', gap:'4px'}}>
+                    🔑 API Key de Google Gemini
+                  </span>
+                  {geminiApiKey && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem('gemini_api_key')
+                        setGeminiApiKey('')
+                      }}
+                      style={{background:'none', border:'none', color:'#ef4444', fontSize:'11px', fontWeight:600, cursor:'pointer', padding:0}}
+                    >
+                      Quitar Key
+                    </button>
+                  )}
+                </div>
+                {!geminiApiKey ? (
+                  <div style={{display:'flex', gap:'8px'}}>
+                    <input
+                      type="password"
+                      placeholder="AIzaSy..."
+                      id="gemini_key_input"
+                      style={{flex:1, height:'30px', padding:'4px 8px', fontSize:'12px', border:'1px solid #bae6fd', borderRadius:'6px'}}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const val = (document.getElementById('gemini_key_input') as HTMLInputElement)?.value || ''
+                        if (val.trim()) {
+                          localStorage.setItem('gemini_api_key', val.trim())
+                          setGeminiApiKey(val.trim())
+                        }
+                      }}
+                      style={{padding:'4px 12px', background:'#0284c7', color:'white', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
+                    >
+                      Guardar
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{fontSize:'12px', color:'#047857', fontWeight:600}}>
+                    ✅ API Key guardada localmente
                   </div>
                 )}
               </div>
 
-              {/* Pros / Cons */}
-              <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
-                <div>
-                  <label style={{...labelStyle, color:'#166534'}}>✅ Pros (Ventajas)</label>
-                  <input placeholder="Ej. Secado rápido" value={formData.pros || ''} onChange={e => setFormData({...formData, pros: e.target.value})} style={{...inputStyle, borderColor:'#86efac', background:'#f0fdf4'}} />
-                </div>
-                <div>
-                  <label style={{...labelStyle, color:'#9a3412'}}>⚠️ Cons (Limitantes)</label>
-                  <input placeholder="Ej. Sensible a humedad" value={formData.cons || ''} onChange={e => setFormData({...formData, cons: e.target.value})} style={{...inputStyle, borderColor:'#fdba74', background:'#fff7ed'}} />
-                </div>
-                <div>
-                  <label style={{...labelStyle, color:'#991b1b'}}>🚫 Cuidado con</label>
-                  <input placeholder="Ej. No usar en asfalto" value={formData.cuidadoCon || ''} onChange={e => setFormData({...formData, cuidadoCon: e.target.value})} style={{...inputStyle, borderColor:'#fca5a5', background:'#fef2f2'}} />
-                </div>
-              </div>
-
-              <div style={{gridColumn:'1 / -1', display:'flex', justifyContent:'flex-end', paddingTop:'8px'}}>
-                <button type="submit" disabled={saving} style={{padding:'10px 28px', background: saving ? '#94a3b8' : '#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'15px', fontWeight:700, cursor: saving ? 'not-allowed' : 'pointer'}}>
-                  {saving ? 'Guardando...' : (editingId ? '💾 Guardar Cambios' : '💾 Guardar Producto')}
+              {/* Tab Selector */}
+              <div style={{display:'flex', gap:'8px', borderBottom:'2px solid #f1f5f9', paddingBottom:'8px'}}>
+                <button
+                  type="button"
+                  onClick={() => setActivePdfPreview('ficha_tecnica')}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: activePdfPreview === 'ficha_tecnica' ? '#0284c7' : '#f1f5f9',
+                    color: activePdfPreview === 'ficha_tecnica' ? 'white' : '#475569',
+                    border: 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  📄 Ficha Técnica (TDS) { (fichaTecnicaFile || formData.ficha_tecnica_url) ? '•' : '' }
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActivePdfPreview('ficha_seguridad')}
+                  style={{
+                    flex: 1,
+                    padding: '8px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: activePdfPreview === 'ficha_seguridad' ? '#0284c7' : '#f1f5f9',
+                    color: activePdfPreview === 'ficha_seguridad' ? 'white' : '#475569',
+                    border: 'none',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  🛡️ Hoja de Seguridad (SDS) { (fichaSeguridadFile || formData.ficha_seguridad_url) ? '•' : '' }
                 </button>
               </div>
-            </form>
+
+              {/* AI Extraction Button */}
+              {((activePdfPreview === 'ficha_tecnica' && (fichaTecnicaFile || formData.ficha_tecnica_url)) ||
+                (activePdfPreview === 'ficha_seguridad' && (fichaSeguridadFile || formData.ficha_seguridad_url))) ? (
+                <button
+                  type="button"
+                  disabled={isExtracting}
+                  onClick={extraerConGemini}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: isExtracting ? '#94a3b8' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: isExtracting ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.2)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  {isExtracting ? (
+                    <>⏳ Analizando PDF y extrayendo campos...</>
+                  ) : (
+                    <>🤖 Rellenar campos automáticamente con Gemini IA</>
+                  )}
+                </button>
+              ) : null}
+
+              {/* PDF Viewer Display */}
+              <div style={{flex:1, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:'8px', overflow:'hidden', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}>
+                {(() => {
+                  const hasLocal = activePdfPreview === 'ficha_tecnica' ? !!fichaTecnicaFile : !!fichaSeguridadFile
+                  const hasRemote = activePdfPreview === 'ficha_tecnica' ? !!formData.ficha_tecnica_url : !!formData.ficha_seguridad_url
+                  
+                  if (!activePdfPreview) {
+                    return (
+                      <div style={{padding:'24px', textAlign:'center', color:'#64748b'}}>
+                        <div style={{fontSize:'36px', marginBottom:'8px'}}>📄</div>
+                        <p style={{fontSize:'13px', fontWeight:600}}>Selecciona Ficha Técnica o Hoja de Seguridad arriba para ver el visor.</p>
+                      </div>
+                    )
+                  }
+
+                  if (!hasLocal && !hasRemote) {
+                    return (
+                      <div style={{padding:'24px', textAlign:'center', color:'#64748b'}}>
+                        <div style={{fontSize:'36px', marginBottom:'8px'}}>📤</div>
+                        <p style={{fontSize:'13px', fontWeight:600}}>No hay ningún archivo cargado.</p>
+                        <p style={{fontSize:'12px', color:'#94a3b8', marginTop:'4px'}}>
+                          Sube un archivo PDF en la sección de Documentación Técnica a la izquierda para poder previsualizarlo y extraer sus datos.
+                        </p>
+                      </div>
+                    )
+                  }
+
+                  const previewUrl = activePdfPreview === 'ficha_tecnica'
+                    ? (fichaTecnicaFile ? URL.createObjectURL(fichaTecnicaFile) : formData.ficha_tecnica_url)
+                    : (fichaSeguridadFile ? URL.createObjectURL(fichaSeguridadFile) : formData.ficha_seguridad_url)
+
+                  return (
+                    <iframe
+                      src={previewUrl}
+                      title="PDF Preview"
+                      style={{width:'100%', height:'100%', border:'none', minHeight:'450px'}}
+                    />
+                  )
+                })()}
+              </div>
+            </div>
           </div>
         )}
 
