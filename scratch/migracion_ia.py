@@ -196,7 +196,7 @@ def encontrar_producto_por_archivo(filename, productos):
 def determinar_tipo_documento(filename):
     """Determina si un PDF corresponde a TDS (ficha técnica) o SDS (hoja de seguridad)."""
     fname = filename.lower()
-    if any(word in fname for word in ["sds", "seguridad", "msds", "safety"]):
+    if any(word in fname for word in ["msds", "sds", "seguridad", "safety"]):
         return "ficha_seguridad"
     return "ficha_tecnica"
 
@@ -237,7 +237,10 @@ def main():
     items_a_procesar = []
     
     if local_pdfs:
-        print(f"Detectados {len(local_pdfs)} archivos PDF locales en la carpeta '{LOCAL_PDF_DIR}'.")
+        repetidos = []
+        nuevos = []
+        
+        print(f"Escaneando {len(local_pdfs)} archivos PDF locales en la carpeta '{LOCAL_PDF_DIR}'...")
         for pdf_path in local_pdfs:
             fname = os.path.basename(pdf_path)
             
@@ -249,22 +252,25 @@ def main():
             tipo_doc = determinar_tipo_documento(fname)
             
             if match_p:
-                # Verificar si el producto ya tiene cargado este tipo de archivo PDF en Supabase
                 url_existente = match_p.get('ficha_tecnica_url') if tipo_doc == 'ficha_tecnica' else match_p.get('ficha_seguridad_url')
                 if url_existente:
-                    print(f"  -> Archivo '{fname}' omitido: ya existe un PDF de este tipo en base de datos para '{match_p['nombre']}'.")
-                    continue
-                
-                print(f"  -> Archivo '{fname}' asociado tentativamente al producto existente: '{match_p['nombre']}' ({tipo_doc})")
-                items_a_procesar.append({
-                    "origen": "local",
-                    "file_path": pdf_path,
-                    "nombre_archivo": fname,
-                    "producto": match_p,
-                    "tipo_documento": tipo_doc
-                })
+                    repetidos.append({
+                        "file_path": pdf_path,
+                        "nombre_archivo": fname,
+                        "producto": match_p,
+                        "tipo_documento": tipo_doc,
+                        "url_existente": url_existente
+                    })
+                else:
+                    nuevos.append({
+                        "origen": "local",
+                        "file_path": pdf_path,
+                        "nombre_archivo": fname,
+                        "producto": match_p,
+                        "tipo_documento": tipo_doc,
+                        "es_nuevo": False
+                    })
             else:
-                print(f"  -> Archivo '{fname}' no se asoció a ningún producto existente. Se creará como NUEVO_PRODUCTO.")
                 # Crear un pseudo-producto para el formulario
                 pseudo_p = {
                     "id": f"nuevo_{int(time.time() * 1000)}",
@@ -274,7 +280,7 @@ def main():
                     "precio": 0,
                     "cantRef": 19
                 }
-                items_a_procesar.append({
+                nuevos.append({
                     "origen": "local",
                     "file_path": pdf_path,
                     "nombre_archivo": fname,
@@ -282,6 +288,42 @@ def main():
                     "tipo_documento": tipo_doc,
                     "es_nuevo": True
                 })
+
+        # Mostrar reporte de archivos
+        print("\n=== REPORTE DE ARCHIVOS PDF DETECTADOS ===")
+        if repetidos:
+            print(f"\n⚠️ ARCHIVOS REPETIDOS DETECTADOS ({len(repetidos)}):")
+            for rep in repetidos:
+                print(f"  - '{rep['nombre_archivo']}' -> Ya existe en BD para el producto '{rep['producto']['nombre']}' ({rep['tipo_documento']}).")
+        else:
+            print("\n✅ No se encontraron archivos repetidos.")
+
+        if nuevos:
+            print(f"\n✨ ARCHIVOS NUEVOS LISTOS PARA PROCESAR ({len(nuevos)}):")
+            for n in nuevos:
+                asoc_txt = f"Asociado a '{n['producto']['nombre']}'" if not n.get("es_nuevo") else "Crear como NUEVO producto"
+                print(f"  - '{n['nombre_archivo']}' ({n['tipo_documento']}) -> {asoc_txt}")
+        else:
+            print("\nNo hay archivos nuevos para procesar.")
+
+        # Si hay repetidos o nuevos, pedir confirmación del usuario
+        if repetidos or nuevos:
+            confirmacion = input("\n🚦 ¿Deseas dar LUZ VERDE para eliminar los repetidos y procesar los nuevos? (S/N): ").strip().upper()
+            if confirmacion not in ["S", "SI"]:
+                print("Operación cancelada por el usuario. Saliendo...")
+                return
+            
+            # Eliminar físicamente los archivos repetidos
+            if repetidos:
+                print("\nEliminando archivos repetidos físicamente...")
+                for rep in repetidos:
+                    try:
+                        os.remove(rep["file_path"])
+                        print(f"  🗑️ Eliminado del disco: {rep['nombre_archivo']}")
+                    except Exception as e:
+                        print(f"  ❌ Error eliminando {rep['nombre_archivo']}: {e}")
+            
+            items_a_procesar = nuevos
     else:
         print(f"No hay archivos PDF en la carpeta local '{LOCAL_PDF_DIR}'.")
         print("Buscando productos en Supabase que tengan PDFs ya vinculados...")
@@ -382,6 +424,21 @@ def main():
             if not exito or not datos_extraidos:
                 print(f"❌ No se pudo extraer información para '{nombre_prod}'. Saltando...")
                 continue
+
+            # Asociación inteligente post-extracción
+            nombre_extraido = datos_extraidos.get("nombre", "").strip().lower()
+            match_real = None
+            if nombre_extraido:
+                for prod in productos:
+                    if prod.get("nombre", "").strip().lower() == nombre_extraido:
+                        match_real = prod
+                        break
+            
+            if match_real:
+                print(f"🔍 Asociación inteligente: El material extraído '{datos_extraidos.get('nombre')}' coincide con el producto existente '{match_real['nombre']}' (ID: {match_real['id']}).")
+                p = match_real
+                nombre_prod = match_real["nombre"]
+                item["es_nuevo"] = False
 
             # Subir PDF a Supabase Storage si es local
             pdf_final_url = item.get("pdf_url")

@@ -53,7 +53,7 @@ interface FilaMigracion {
   file: File;
   productoAsociado: any | null;
   tipoDoc: 'ficha_tecnica' | 'ficha_seguridad';
-  estado: 'cola' | 'subiendo' | 'analizando' | 'completado' | 'guardado' | 'error';
+  estado: 'pre_analisis' | 'cola' | 'subiendo' | 'analizando' | 'completado' | 'guardado' | 'error';
   errorMsg?: string;
   pdfUrl?: string;
   propuesta?: any;
@@ -462,7 +462,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   function determinarTipoDocArchivo(filename: string): 'ficha_tecnica' | 'ficha_seguridad' {
     const fname = filename.toLowerCase();
-    if (fname.includes("sds") || fname.includes("seguridad") || fname.includes("msds") || fname.includes("safety")) {
+    if (fname.includes("msds") || fname.includes("sds") || fname.includes("seguridad") || fname.includes("safety")) {
       return 'ficha_seguridad';
     }
     return 'ficha_tecnica';
@@ -632,10 +632,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         
         const extraidos = await extraerDatosPdfGemini(siguiente.file);
         
+        // Asociación inteligente post-extracción
+        const nombreExtraido = extraidos?.nombre?.trim().toLowerCase();
+        let prodAsociadoFinal = siguiente.productoAsociado;
+        if (nombreExtraido) {
+          const matchExistente = productos.find(p => p.nombre.toLowerCase().trim() === nombreExtraido);
+          if (matchExistente) {
+            prodAsociadoFinal = matchExistente;
+          }
+        }
+        
         setColaMigracion(prev => prev.map(item => item.id === id ? { 
           ...item, 
           estado: 'completado', 
           pdfUrl: publicUrl,
+          productoAsociado: prodAsociadoFinal,
           propuesta: extraidos 
         } : item));
         
@@ -652,7 +663,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         }, 3000);
       }
     })();
-  }, [colaMigracion, procesandoCola]);
+  }, [colaMigracion, procesandoCola, productos]);
 
   async function handleSistemaSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -2629,7 +2640,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     file: file,
                     productoAsociado: pMatch,
                     tipoDoc: tipo,
-                    estado: (yaExisteEnBd ? 'error' : 'cola') as const,
+                    estado: 'pre_analisis' as const,
                     errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
                     yaExisteEnBd
                   };
@@ -2676,7 +2687,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                       file: file,
                       productoAsociado: pMatch,
                       tipoDoc: tipo,
-                      estado: (yaExisteEnBd ? 'error' : 'cola') as const,
+                      estado: 'pre_analisis' as const,
                       errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
                       yaExisteEnBd
                     };
@@ -2723,25 +2734,126 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   </button>
                 </div>
 
+                {/* Panel de control de Lote (Luz Verde / Descartar) */}
+                {colaMigracion.some(x => x.estado === 'pre_analisis') && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02)'
+                  }}>
+                    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                      <span style={{fontSize:'24px'}}>🚦</span>
+                      <div>
+                        <h4 style={{margin:0, fontSize:'14px', fontWeight:700, color:'#14532d'}}>
+                          Revisión Preliminar de Lote (Luz Verde requerida)
+                        </h4>
+                        <p style={{margin:'2px 0 0', fontSize:'12px', color:'#166534'}}>
+                          Detectamos <strong>{colaMigracion.filter(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd).length}</strong> nuevos y <strong>{colaMigracion.filter(x => x.estado === 'pre_analisis' && x.yaExisteEnBd).length}</strong> repetidos en la base de datos.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
+                      {colaMigracion.some(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setColaMigracion(prev => prev.map(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd ? { ...x, estado: 'cola' } : x));
+                          }}
+                          style={{
+                            background: '#16a34a',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(22, 163, 74, 0.2)'
+                          }}
+                        >
+                          🟢 Dar Luz Verde (Procesar Nuevos)
+                        </button>
+                      )}
+                      
+                      {colaMigracion.some(x => x.estado === 'pre_analisis' && x.yaExisteEnBd) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setColaMigracion(prev => prev.filter(x => !(x.estado === 'pre_analisis' && x.yaExisteEnBd)));
+                          }}
+                          style={{
+                            background: '#ef4444',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)'
+                          }}
+                        >
+                          🗑️ Descartar Repetidos
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
                   {colaMigracion.map((item) => {
                     const esTds = item.tipoDoc === 'ficha_tecnica';
+                    
+                    // Definir colores según estado
+                    let borderColor = '#e2e8f0';
+                    let bgColor = 'white';
+                    if (item.estado === 'error') {
+                      borderColor = '#fca5a5';
+                      bgColor = '#fff5f5';
+                    } else if (item.estado === 'guardado') {
+                      borderColor = '#bbf7d0';
+                      bgColor = '#f0fdf4';
+                    } else if (item.estado === 'pre_analisis') {
+                      if (item.yaExisteEnBd) {
+                        borderColor = '#fde68a';
+                        bgColor = '#fffbeb';
+                      } else {
+                        borderColor = '#bae6fd';
+                        bgColor = '#f0f9ff';
+                      }
+                    }
+
                     return (
                       <div
                         key={item.id}
                         style={{
-                          background: 'white',
+                          background: bgColor,
                           borderRadius: '10px',
-                          border: `1px solid ${item.estado === 'error' ? '#fca5a5' : item.estado === 'guardado' ? '#bbf7d0' : '#e2e8f0'}`,
+                          border: `1px solid ${borderColor}`,
                           padding: '16px',
                           boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                           display: 'flex',
                           flexDirection: 'column',
-                          gap: '12px'
+                          gap: '12px',
+                          transition: 'all 0.2s'
                         }}
                       >
                         {/* Fila superior: info archivo */}
-                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', flexWrap:'wrap'}}>
+                        <div style={{display:'flex', alignItems:'center', justifyBetween:'space-between', gap:'12px', flexWrap:'wrap', justifyContent:'space-between'}}>
                           <div style={{display:'flex', alignItems:'center', gap:'8px', minWidth:0, flex:1}}>
                             <span style={{fontSize:'18px', flexShrink:0}}>{esTds ? '📄' : '🛡️'}</span>
                             <div style={{minWidth:0}}>
@@ -2749,7 +2861,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 {item.fileName}
                               </h4>
                               <span style={{fontSize:'11px', color: esTds ? '#0284c7' : '#ea580c', fontWeight:600}}>
-                                {esTds ? 'Ficha Técnica (TDS)' : 'Hoja de Seguridad (SDS)'}
+                                {esTds ? 'Ficha Técnica (TDS)' : 'Hoja de Seguridad (MSDS)'}
                               </span>
                             </div>
                           </div>
@@ -2767,6 +2879,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             )}
 
                             {/* Indicador de Estado */}
+                            {item.estado === 'pre_analisis' && (
+                              <span style={{fontSize:'11px', color: item.yaExisteEnBd ? '#b45309' : '#0369a1', fontWeight:600}}>
+                                {item.yaExisteEnBd ? '⚠️ Repetido en BD' : '⏳ Pendiente Luz Verde'}
+                              </span>
+                            )}
                             {item.estado === 'cola' && (
                               <span style={{fontSize:'11px', color:'#64748b', fontWeight:600}}>⏳ En espera...</span>
                             )}
