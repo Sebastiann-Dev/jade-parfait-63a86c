@@ -47,6 +47,18 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   motivo_incompleto: ''
 }
 
+interface FilaMigracion {
+  id: string;
+  fileName: string;
+  file: File;
+  productoAsociado: any | null;
+  tipoDoc: 'ficha_tecnica' | 'ficha_seguridad';
+  estado: 'cola' | 'subiendo' | 'analizando' | 'completado' | 'guardado' | 'error';
+  errorMsg?: string;
+  pdfUrl?: string;
+  propuesta?: any;
+}
+
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
   if (!kitInfoStr) return { numPartes: 2, presentaciones: [] }
   try {
@@ -393,8 +405,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setLoading(false)
   }
 
-  // Systems state variables
-  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas'>('productos')
+  // Systems state variables and migration
+  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion'>('productos')
+  const [colaMigracion, setColaMigracion] = useState<FilaMigracion[]>([])
+  const [procesandoCola, setProcesandoCola] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
   const [sistemas, setSistemas] = useState<Sistema[]>([])
   const [loadingSistemas, setLoadingSistemas] = useState(false)
   const [showSistemaForm, setShowSistemaForm] = useState(false)
@@ -416,6 +431,227 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setSistemas(data)
     setLoadingSistemas(false)
   }
+
+  function encontrarProductoPorNombreArchivo(filename: string) {
+    let nameClean = filename.toLowerCase().replace(/_/g, " ").replace(/-/g, " ");
+    const stopWords = [".pdf", "tds", "sds", "ficha", "tecnica", "seguridad", "hoja", "msds"];
+    stopWords.forEach(word => {
+      nameClean = nameClean.replace(word, "");
+    });
+    nameClean = nameClean.trim();
+
+    if (!nameClean) return null;
+
+    let mejorMatch: any = null;
+    let mejorScore = 0;
+
+    productos.forEach(p => {
+      const prodName = p.nombre.toLowerCase();
+      if (nameClean.includes(prodName) || prodName.includes(nameClean)) {
+        const score = nameClean.includes(prodName) ? prodName.length : nameClean.length;
+        if (score > mejorScore) {
+          mejorScore = score;
+          mejorMatch = p;
+        }
+      }
+    });
+
+    return mejorMatch;
+  }
+
+  function determinarTipoDocArchivo(filename: string): 'ficha_tecnica' | 'ficha_seguridad' {
+    const fname = filename.toLowerCase();
+    if (fname.includes("sds") || fname.includes("seguridad") || fname.includes("msds") || fname.includes("safety")) {
+      return 'ficha_seguridad';
+    }
+    return 'ficha_tecnica';
+  }
+
+  async function extraerDatosPdfGemini(file: File): Promise<any> {
+    const base64Data = await fileToBase64(file);
+    const prompt = `Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. Devuelve un objeto JSON con las siguientes claves (y los tipos de datos correspondientes):
+- nombre: string (nombre comercial corto del producto, ej. BucaTrafic, sin marcas como ®, TM)
+- nota: string (breve descripción de una línea de para qué sirve o qué es, ej. Pintura epóxica de altos sólidos para tráfico vehicular)
+- tieneRendimiento: boolean (true si se menciona rendimiento por m² o consumo por m²)
+- rendimiento: number o null (si tieneRendimiento es true, extrae el rendimiento promedio en m² por litro o por kilogramo. Por ejemplo, si dice "rendimiento de 4 a 6 m²/L", extrae 5. Si no aplica, null)
+- espesorRecomendado: string o null (espesor de película recomendado en milésimas de pulgada (mils) o micras, ej: "4 a 6 mils" o "100-150 micras")
+- manosRecomendadas: string o null (número de capas o manos recomendadas, ej: "1 a 2 manos")
+- densidadRecomendada: string o null (densidad o peso específico, ej: "1.25 g/cm³")
+- pros: string o null (las 2 o 3 ventajas clave resumidas en 1 o 2 palabras cada una separadas por coma, ej: "Rápido secado, alta resistencia")
+- cons: string o null (las 2 o 3 limitantes principales resumidas, ej: "No exponer a rayos UV directos")
+- cuidadoCon: string o null (precauciones principales de seguridad o aplicación, ej: "Requiere equipo autónomo, inflamable")
+- proporcionesMezcla: string o null (proporción de mezcla si es kit, o de volumen A:B, ej: "4 partes A : 1 parte B")
+
+Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No incluyas bloques de código Markdown (como \`\`\`json), comentarios, ni texto introductorio.`;
+    
+    let success = false;
+    let lastErrorMsg = '';
+    let extractedData: any = null;
+
+    let currentKeyIndex = activeKeyIndex;
+    for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
+      const targetIndex = (currentKeyIndex + i) % PRECONFIGURED_KEYS.length;
+      const currentKey = PRECONFIGURED_KEYS[targetIndex];
+
+      try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    inlineData: {
+                      data: base64Data,
+                      mimeType: 'application/pdf'
+                    }
+                  },
+                  {
+                    text: prompt
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+        }
+
+        const resJson = await response.json();
+        const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!textResponse) {
+          throw new Error('La respuesta de Gemini no contiene texto.');
+        }
+
+        try {
+          extractedData = JSON.parse(textResponse.trim());
+        } catch (e) {
+          let cleanText = textResponse.trim();
+          if (cleanText.startsWith('```')) {
+            cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+          }
+          extractedData = JSON.parse(cleanText);
+        }
+
+        setActiveKeyIndex(targetIndex);
+        success = true;
+        break;
+      } catch (err: any) {
+        lastErrorMsg = err.message || 'Error desconocido';
+      }
+    }
+
+    if (!success) {
+      throw new Error(lastErrorMsg || 'Error desconocido al consultar Gemini.');
+    }
+
+    return extractedData;
+  }
+
+  async function aplicarPropuestaWeb(item: FilaMigracion) {
+    if (!item.propuesta) return;
+
+    try {
+      const payload: any = {
+        ...item.propuesta,
+        estado: 'completo',
+        motivo_incompleto: null
+      };
+
+      if (item.tipoDoc === 'ficha_tecnica') {
+        payload.ficha_tecnica_url = item.pdfUrl || '';
+      } else {
+        payload.ficha_seguridad_url = item.pdfUrl || '';
+      }
+
+      if (item.productoAsociado) {
+        await updateProductoSupabase(item.productoAsociado.id, payload, item.productoAsociado.updated_at);
+        showMsg(`✅ Producto '${item.productoAsociado.nombre}' actualizado con éxito`, 'ok');
+      } else {
+        const nuevoPayload = {
+          ...DEFAULT_PRODUCTO,
+          ...payload,
+          precio: payload.precio || 0,
+          cantRef: payload.cantRef || 19,
+          unidad: payload.unidad || 'L',
+          moneda: payload.moneda || 'MXN',
+          tieneRendimiento: !!payload.tieneRendimiento,
+          estado: 'completo'
+        };
+        const nuevoId = await saveProductoSupabase(nuevoPayload);
+        
+        if (item.pdfUrl) {
+          const finalUrl = await uploadPdfProducto(nuevoId, item.tipoDoc, item.file);
+          const updatePayload: any = {};
+          if (item.tipoDoc === 'ficha_tecnica') {
+            updatePayload.ficha_tecnica_url = finalUrl;
+          } else {
+            updatePayload.ficha_seguridad_url = finalUrl;
+          }
+          await updateProductoSupabase(nuevoId, updatePayload);
+        }
+        showMsg(`✅ Nuevo producto '${payload.nombre}' creado e importado`, 'ok');
+      }
+
+      setColaMigracion(prev => prev.map(x => x.id === item.id ? { ...x, estado: 'guardado' } : x));
+      loadProductos();
+    } catch (err: any) {
+      console.error(err);
+      alert(`❌ Error al aplicar cambios en base de datos: ${err.message || 'Verifica tu conexión.'}`);
+    }
+  }
+
+  // Cola de procesamiento automático en background
+  useEffect(() => {
+    if (procesandoCola) return;
+    
+    const siguiente = colaMigracion.find(item => item.estado === 'cola');
+    if (!siguiente) return;
+
+    setProcesandoCola(true);
+
+    (async () => {
+      const id = siguiente.id;
+      setColaMigracion(prev => prev.map(item => item.id === id ? { ...item, estado: 'subiendo' } : item));
+      
+      try {
+        const prodId = siguiente.productoAsociado?.id || `nuevo_${Date.now()}`;
+        const publicUrl = await uploadPdfProducto(prodId, siguiente.tipoDoc, siguiente.file);
+        
+        setColaMigracion(prev => prev.map(item => item.id === id ? { ...item, estado: 'analizando', pdfUrl: publicUrl } : item));
+        
+        const extraidos = await extraerDatosPdfGemini(siguiente.file);
+        
+        setColaMigracion(prev => prev.map(item => item.id === id ? { 
+          ...item, 
+          estado: 'completado', 
+          pdfUrl: publicUrl,
+          propuesta: extraidos 
+        } : item));
+        
+      } catch (err: any) {
+        console.error("Error en procesamiento de cola:", err);
+        setColaMigracion(prev => prev.map(item => item.id === id ? { 
+          ...item, 
+          estado: 'error', 
+          errorMsg: err.message || 'Error al procesar PDF' 
+        } : item));
+      } finally {
+        setTimeout(() => {
+          setProcesandoCola(false);
+        }, 3000);
+      }
+    })();
+  }, [colaMigracion, procesandoCola]);
 
   async function handleSistemaSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -1091,6 +1327,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             }}
           >
             🧪 Sistemas Multicapa ({sistemas.length})
+          </button>
+          <button
+            onClick={() => setCurrentTab('migracion')}
+            style={{
+              padding: '8px 16px',
+              background: currentTab === 'migracion' ? '#0ea5e9' : 'transparent',
+              color: currentTab === 'migracion' ? 'white' : '#475569',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            📥 Importación Masiva (Drag & Drop)
           </button>
         </div>
 
@@ -2327,6 +2578,297 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         )}
 
         {/* Footer legend */}
+        {/* Pestaña de Importación Masiva por Drag & Drop */}
+        {currentTab === 'migracion' && (
+          <div style={{display:'flex', flexDirection:'column', gap:'24px', animation:'fadeIn 0.3s ease'}}>
+            
+            {/* Cabecera */}
+            <div style={{background:'white', padding:'24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', border:'1px solid #bae6fd'}}>
+              <h2 style={{margin:0, fontSize:'18px', fontWeight:700, color:'#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
+                📥 Importación de PDFs por Lotes (Arrastrar y Soltar)
+              </h2>
+              <p style={{margin:'6px 0 0', fontSize:'13px', color:'#475569', lineHeight:'1.5'}}>
+                Sube múltiples fichas técnicas (TDS) o de seguridad (SDS) en formato PDF al mismo tiempo. El sistema las asociará a tus productos actuales de BUCA por coincidencia de nombre o propondrá la creación de nuevos productos, extrayendo la información técnica con Gemini IA.
+              </p>
+            </div>
+
+            {/* Dropzone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                const files = Array.from(e.dataTransfer.files).filter(f => f.type === 'application/pdf');
+                if (files.length === 0) {
+                  alert("Por favor, arrastra únicamente archivos PDF.");
+                  return;
+                }
+
+                const nuevasFilas = files.map(file => {
+                  const pMatch = encontrarProductoPorNombreArchivo(file.name);
+                  const tipo = determinarTipoDocArchivo(file.name);
+                  return {
+                    id: `fila_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                    fileName: file.name,
+                    file: file,
+                    productoAsociado: pMatch,
+                    tipoDoc: tipo,
+                    estado: 'cola' as const
+                  };
+                });
+
+                setColaMigracion(prev => [...prev, ...nuevasFilas]);
+              }}
+              style={{
+                background: isDragging ? '#e0f2fe' : 'white',
+                border: `3px dashed ${isDragging ? '#0284c7' : '#bae6fd'}`,
+                borderRadius: '12px',
+                padding: '40px 24px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                boxShadow: isDragging ? '0 10px 15px -3px rgba(2, 132, 199, 0.1)' : '0 1px 3px rgba(0,0,0,0.05)'
+              }}
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.pdf';
+                input.multiple = true;
+                input.onchange = (e: any) => {
+                  const files = Array.from(e.target.files || []).filter((f: any) => f.type === 'application/pdf');
+                  if (files.length === 0) return;
+                  
+                  const nuevasFilas = files.map((file: any) => {
+                    const pMatch = encontrarProductoPorNombreArchivo(file.name);
+                    const tipo = determinarTipoDocArchivo(file.name);
+                    return {
+                      id: `fila_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+                      fileName: file.name,
+                      file: file,
+                      productoAsociado: pMatch,
+                      tipoDoc: tipo,
+                      estado: 'cola' as const
+                    };
+                  });
+                  setColaMigracion(prev => [...prev, ...nuevasFilas]);
+                };
+                input.click();
+              }}
+            >
+              <div style={{fontSize:'48px', marginBottom:'12px'}}>📥</div>
+              <h3 style={{margin:0, fontSize:'16px', fontWeight:700, color: isDragging ? '#0284c7' : '#0369a1'}}>
+                {isDragging ? '¡Suelta los archivos aquí!' : 'Arrastra aquí tus archivos PDF (TDS / SDS)'}
+              </h3>
+              <p style={{margin:'6px 0 0', fontSize:'13px', color:'#64748b'}}>
+                O haz clic para seleccionar archivos desde tu computadora
+              </p>
+              <div style={{marginTop:'12px', display:'flex', gap:'8px', justifyContent:'center'}}>
+                <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'3px 8px', borderRadius:'12px', border:'1px solid #bae6fd'}}>
+                  📁 Autodetecta TDS / SDS
+                </span>
+                <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'3px 8px', borderRadius:'12px', border:'1px solid #bae6fd'}}>
+                  🤖 Extracción Gemini
+                </span>
+              </div>
+            </div>
+
+            {/* List of elements in queue */}
+            {colaMigracion.length > 0 && (
+              <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #e2e8f0', paddingBottom:'8px'}}>
+                  <h3 style={{margin:0, fontSize:'14px', fontWeight:700, color:'#1e293b'}}>
+                    Archivos en Proceso ({colaMigracion.filter(x => x.estado === 'guardado' || x.estado === 'completado').length}/{colaMigracion.length})
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm("¿Deseas limpiar toda la lista de migración?")) {
+                        setColaMigracion([]);
+                      }
+                    }}
+                    style={{background:'none', border:'none', color:'#ef4444', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
+                  >
+                    Limpiar lista
+                  </button>
+                </div>
+
+                <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                  {colaMigracion.map((item) => {
+                    const esTds = item.tipoDoc === 'ficha_tecnica';
+                    return (
+                      <div
+                        key={item.id}
+                        style={{
+                          background: 'white',
+                          borderRadius: '10px',
+                          border: `1px solid ${item.estado === 'error' ? '#fca5a5' : item.estado === 'guardado' ? '#bbf7d0' : '#e2e8f0'}`,
+                          padding: '16px',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}
+                      >
+                        {/* Fila superior: info archivo */}
+                        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'12px', flexWrap:'wrap'}}>
+                          <div style={{display:'flex', alignItems:'center', gap:'8px', minWidth:0, flex:1}}>
+                            <span style={{fontSize:'18px', flexShrink:0}}>{esTds ? '📄' : '🛡️'}</span>
+                            <div style={{minWidth:0}}>
+                              <h4 style={{margin:0, fontSize:'13px', fontWeight:700, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={item.fileName}>
+                                {item.fileName}
+                              </h4>
+                              <span style={{fontSize:'11px', color: esTds ? '#0284c7' : '#ea580c', fontWeight:600}}>
+                                {esTds ? 'Ficha Técnica (TDS)' : 'Hoja de Seguridad (SDS)'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                            {/* Producto Asociado */}
+                            {item.productoAsociado ? (
+                              <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'4px 8px', borderRadius:'6px', border:'1px solid #7dd3fc'}}>
+                                🔗 Asociado a: {item.productoAsociado.nombre}
+                              </span>
+                            ) : (
+                              <span style={{background:'#fef3c7', color:'#92400e', fontSize:'11px', fontWeight:600, padding:'4px 8px', borderRadius:'6px', border:'1px solid #fde68a'}}>
+                                ✨ Crear como NUEVO
+                              </span>
+                            )}
+
+                            {/* Indicador de Estado */}
+                            {item.estado === 'cola' && (
+                              <span style={{fontSize:'11px', color:'#64748b', fontWeight:600}}>⏳ En espera...</span>
+                            )}
+                            {item.estado === 'subiendo' && (
+                              <span style={{fontSize:'11px', color:'#2563eb', fontWeight:600, display:'flex', alignItems:'center', gap:'4px'}}>
+                                <div style={{width:'8px', height:'8px', border:'2px solid #2563eb', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.6s linear infinite'}} />
+                                Subiendo PDF...
+                              </span>
+                            )}
+                            {item.estado === 'analizando' && (
+                              <span style={{fontSize:'11px', color:'#7c3aed', fontWeight:600, display:'flex', alignItems:'center', gap:'4px'}}>
+                                <div style={{width:'8px', height:'8px', border:'2px solid #7c3aed', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.6s linear infinite'}} />
+                                Gemini analizando...
+                              </span>
+                            )}
+                            {item.estado === 'error' && (
+                              <span style={{fontSize:'11px', color:'#ef4444', fontWeight:600}} title={item.errorMsg}>
+                                ❌ Error: {item.errorMsg}
+                              </span>
+                            )}
+                            {item.estado === 'guardado' && (
+                              <span style={{fontSize:'11px', color:'#16a34a', fontWeight:700}}>✅ Guardado exitosamente</span>
+                            )}
+                            {item.estado === 'completado' && (
+                              <span style={{fontSize:'11px', color:'#047857', fontWeight:700}}>🤖 Análisis listo</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Fila inferior: datos sugeridos para revisión */}
+                        {item.estado === 'completado' && item.propuesta && (
+                          <div style={{background:'#f8fafc', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'12px'}}>
+                            
+                            <div style={{gridColumn:'1 / -1', borderBottom:'1px solid #e2e8f0', paddingBottom:'6px', marginBottom:'4px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                              <span style={{fontSize:'12px', fontWeight:700, color:'#334155'}}>🔍 Comparación e Información Sugerida por la IA:</span>
+                              <div style={{display:'flex', gap:'8px'}}>
+                                <button
+                                  type="button"
+                                  onClick={() => aplicarPropuestaWeb(item)}
+                                  style={{padding:'4px 10px', background:'#16a34a', color:'white', border:'none', borderRadius:'4px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}
+                                >
+                                  💾 Confirmar y Guardar en Supabase
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setColaMigracion(prev => prev.filter(x => x.id !== item.id))}
+                                  style={{padding:'4px 10px', background:'#e2e8f0', color:'#475569', border:'none', borderRadius:'4px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                                >
+                                  Descartar
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{fontSize:'12px'}}>
+                              <strong style={{color:'#475569'}}>Nombre extraído:</strong>
+                              <div style={{fontSize:'13px', fontWeight:600, color:'#1e293b'}}>{item.propuesta.nombre}</div>
+                            </div>
+                            <div style={{fontSize:'12px'}}>
+                              <strong style={{color:'#475569'}}>Rendimiento:</strong>
+                              <div style={{fontSize:'13px'}}>{item.propuesta.tieneRendimiento ? `${item.propuesta.rendimiento} m²/L` : 'No aplica'}</div>
+                            </div>
+                            <div style={{fontSize:'12px'}}>
+                              <strong style={{color:'#475569'}}>Espesor sugerido:</strong>
+                              <div style={{fontSize:'13px'}}>{item.propuesta.espesorRecomendado || '—'}</div>
+                            </div>
+                            <div style={{fontSize:'12px'}}>
+                              <strong style={{color:'#475569'}}>Manos/Capas:</strong>
+                              <div style={{fontSize:'13px'}}>{item.propuesta.manosRecomendadas || '—'}</div>
+                            </div>
+                            <div style={{fontSize:'12px'}}>
+                              <strong style={{color:'#475569'}}>Densidad:</strong>
+                              <div style={{fontSize:'13px'}}>{item.propuesta.densidadRecomendada || '—'}</div>
+                            </div>
+                            <div style={{fontSize:'12px'}}>
+                              <strong style={{color:'#475569'}}>Mezcla:</strong>
+                              <div style={{fontSize:'13px'}}>{item.propuesta.proporcionesMezcla || '—'}</div>
+                            </div>
+                            <div style={{fontSize:'12px', gridColumn:'1 / -1'}}>
+                              <strong style={{color:'#475569'}}>Descripción / Nota:</strong>
+                              <div style={{fontSize:'12px', color:'#334155'}}>{item.propuesta.nota || '—'}</div>
+                            </div>
+                            <div style={{fontSize:'12px', gridColumn:'1 / -1', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', background:'white', padding:'8px', borderRadius:'6px', border:'1px solid #f1f5f9'}}>
+                              <div>
+                                <strong style={{color:'#166534', fontSize:'11px'}}>✅ Pros:</strong>
+                                <div style={{fontSize:'11px', color:'#14532d'}}>{item.propuesta.pros || '—'}</div>
+                              </div>
+                              <div>
+                                <strong style={{color:'#9a3412', fontSize:'11px'}}>⚠️ Contras:</strong>
+                                <div style={{fontSize:'11px', color:'#7c2d12'}}>{item.propuesta.cons || '—'}</div>
+                              </div>
+                              <div>
+                                <strong style={{color:'#991b1b', fontSize:'11px'}}>🚫 Cuidado con:</strong>
+                                <div style={{fontSize:'11px', color:'#7f1d1d'}}>{item.propuesta.cuidadoCon || '—'}</div>
+                              </div>
+                            </div>
+
+                          </div>
+                        )}
+                        
+                        {/* Enlace de previsualización de PDF subido */}
+                        {item.pdfUrl && (
+                          <div style={{fontSize:'11px', display:'flex', gap:'8px'}}>
+                            <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer" style={{color:'#0284c7', textDecoration:'none', fontWeight:600}}>
+                              📄 Ver PDF cargado en Supabase Storage →
+                            </a>
+                          </div>
+                        )}
+
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+          </div>
+        )}
+
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}} />
+
         <footer style={{marginTop:'32px', padding:'24px 0 12px', borderTop:'1px solid #e2e8f0', textAlign:'center', fontSize:'12px', color:'#64748b', lineHeight:'1.6'}}>
           <p style={{margin:0, fontWeight:700, color:'#475569'}}>⚠️ Nota Importante sobre el Tipo de Cambio:</p>
           <p style={{margin:'4px 0 0'}}>El valor del dólar es el aproximado y el único oficial es el del Diario Oficial de la Federación (DOF).</p>
