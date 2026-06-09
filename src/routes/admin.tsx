@@ -2866,7 +2866,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             </div>
                           </div>
 
-                          <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                          <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
                             {/* Producto Asociado */}
                             {item.productoAsociado ? (
                               <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'4px 8px', borderRadius:'6px', border:'1px solid #7dd3fc'}}>
@@ -2932,6 +2932,32 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             {item.estado === 'completado' && (
                               <span style={{fontSize:'11px', color:'#047857', fontWeight:700}}>🤖 Análisis listo</span>
                             )}
+
+                            {/* Botón de descarte individual */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setColaMigracion(prev => prev.filter(x => x.id !== item.id));
+                              }}
+                              style={{
+                                background: '#fee2e2',
+                                border: 'none',
+                                color: '#dc2626',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                transition: 'all 0.2s',
+                                marginLeft: '6px'
+                              }}
+                              title="Descartar de la lista"
+                            >
+                              🗑️ Descartar
+                            </button>
                           </div>
                         </div>
 
