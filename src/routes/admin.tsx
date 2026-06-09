@@ -2961,6 +2961,105 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           </div>
                         </div>
 
+                        {/* Selector de relación manual y tipo de documento */}
+                        {(item.estado === 'pre_analisis' || item.estado === 'error') && (
+                          <div style={{
+                            display: 'flex',
+                            gap: '12px',
+                            background: '#f8fafc',
+                            padding: '10px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid #e2e8f0',
+                            flexWrap: 'wrap',
+                            alignItems: 'center',
+                            marginTop: '4px'
+                          }}>
+                            <div style={{display:'flex', flexDirection:'column', gap:'4px', flex:1, minWidth:'200px'}}>
+                              <label style={{fontSize:'11px', fontWeight:700, color:'#475569'}}>Asociar a Producto:</label>
+                              <select
+                                value={item.productoAsociado?.id || 'nuevo'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  let pMatch = null;
+                                  if (val !== 'nuevo') {
+                                    pMatch = productos.find(x => x.id === val) || null;
+                                  }
+                                  
+                                  // Calcular de nuevo si ya existe en BD para este nuevo producto
+                                  let yaExisteEnBd = false;
+                                  if (pMatch) {
+                                    const urlExistente = item.tipoDoc === 'ficha_tecnica' ? pMatch.ficha_tecnica_url : pMatch.ficha_seguridad_url;
+                                    yaExisteEnBd = !!urlExistente;
+                                  }
+                                  
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? { 
+                                    ...x, 
+                                    productoAsociado: pMatch, 
+                                    yaExisteEnBd,
+                                    errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
+                                    estado: 'pre_analisis' // Resetear a pre-analisis
+                                  } : x));
+                                }}
+                                style={{
+                                  padding: '6px 10px',
+                                  fontSize: '12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  background: 'white',
+                                  color: '#1e293b',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  outline: 'none'
+                                }}
+                              >
+                                <option value="nuevo">✨ Crear como NUEVO producto</option>
+                                {productos.map(p => (
+                                  <option key={p.id} value={p.id}>🔗 {p.nombre}</option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div style={{display:'flex', flexDirection:'column', gap:'4px', width:'200px'}}>
+                              <label style={{fontSize:'11px', fontWeight:700, color:'#475569'}}>Tipo de Documento:</label>
+                              <select
+                                value={item.tipoDoc}
+                                onChange={(e) => {
+                                  const val = e.target.value as 'ficha_tecnica' | 'ficha_seguridad';
+                                  
+                                  // Re-calcular si ya existe en BD
+                                  let yaExisteEnBd = false;
+                                  if (item.productoAsociado) {
+                                    const urlExistente = val === 'ficha_tecnica' ? item.productoAsociado.ficha_tecnica_url : item.productoAsociado.ficha_seguridad_url;
+                                    yaExisteEnBd = !!urlExistente;
+                                  }
+
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? { 
+                                    ...x, 
+                                    tipoDoc: val,
+                                    yaExisteEnBd,
+                                    errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
+                                    estado: 'pre_analisis' // Resetear a pre-analisis
+                                  } : x));
+                                }}
+                                style={{
+                                  padding: '6px 10px',
+                                  fontSize: '12px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #cbd5e1',
+                                  background: 'white',
+                                  color: '#1e293b',
+                                  fontWeight: 500,
+                                  cursor: 'pointer',
+                                  outline: 'none'
+                                }}
+                              >
+                                <option value="ficha_tecnica">📄 Ficha Técnica (TDS)</option>
+                                <option value="ficha_seguridad">🛡️ Hoja de Seguridad (MSDS)</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Banner explicativo de error o duplicado */}
                         {item.estado === 'error' && item.errorMsg && (
                           <div style={{
