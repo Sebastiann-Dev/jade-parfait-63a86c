@@ -249,6 +249,12 @@ def main():
             tipo_doc = determinar_tipo_documento(fname)
             
             if match_p:
+                # Verificar si el producto ya tiene cargado este tipo de archivo PDF en Supabase
+                url_existente = match_p.get('ficha_tecnica_url') if tipo_doc == 'ficha_tecnica' else match_p.get('ficha_seguridad_url')
+                if url_existente:
+                    print(f"  -> Archivo '{fname}' omitido: ya existe un PDF de este tipo en base de datos para '{match_p['nombre']}'.")
+                    continue
+                
                 print(f"  -> Archivo '{fname}' asociado tentativamente al producto existente: '{match_p['nombre']}' ({tipo_doc})")
                 items_a_procesar.append({
                     "origen": "local",

@@ -57,6 +57,7 @@ interface FilaMigracion {
   errorMsg?: string;
   pdfUrl?: string;
   propuesta?: any;
+  yaExisteEnBd?: boolean;
 }
 
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
@@ -2609,17 +2610,30 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 }
 
                 const nuevasFilas = files.map(file => {
+                  const yaEnCola = colaMigracion.some(x => x.fileName === file.name && x.file.size === file.size);
+                  if (yaEnCola) return null;
+
                   const pMatch = encontrarProductoPorNombreArchivo(file.name);
                   const tipo = determinarTipoDocArchivo(file.name);
+
+                  // Verificar si ya existe en Supabase
+                  let yaExisteEnBd = false;
+                  if (pMatch) {
+                    const urlExistente = tipo === 'ficha_tecnica' ? pMatch.ficha_tecnica_url : pMatch.ficha_seguridad_url;
+                    yaExisteEnBd = !!urlExistente;
+                  }
+
                   return {
                     id: `fila_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                     fileName: file.name,
                     file: file,
                     productoAsociado: pMatch,
                     tipoDoc: tipo,
-                    estado: 'cola' as const
+                    estado: (yaExisteEnBd ? 'error' : 'cola') as const,
+                    errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
+                    yaExisteEnBd
                   };
-                });
+                }).filter(Boolean) as FilaMigracion[];
 
                 setColaMigracion(prev => [...prev, ...nuevasFilas]);
               }}
@@ -2643,17 +2657,30 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   if (files.length === 0) return;
                   
                   const nuevasFilas = files.map((file: any) => {
+                    const yaEnCola = colaMigracion.some(x => x.fileName === file.name && x.file.size === file.size);
+                    if (yaEnCola) return null;
+
                     const pMatch = encontrarProductoPorNombreArchivo(file.name);
                     const tipo = determinarTipoDocArchivo(file.name);
+
+                    // Verificar si ya existe en Supabase
+                    let yaExisteEnBd = false;
+                    if (pMatch) {
+                      const urlExistente = tipo === 'ficha_tecnica' ? pMatch.ficha_tecnica_url : pMatch.ficha_seguridad_url;
+                      yaExisteEnBd = !!urlExistente;
+                    }
+
                     return {
                       id: `fila_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
                       fileName: file.name,
                       file: file,
                       productoAsociado: pMatch,
                       tipoDoc: tipo,
-                      estado: 'cola' as const
+                      estado: (yaExisteEnBd ? 'error' : 'cola') as const,
+                      errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
+                      yaExisteEnBd
                     };
-                  });
+                  }).filter(Boolean) as FilaMigracion[];
                   setColaMigracion(prev => [...prev, ...nuevasFilas]);
                 };
                 input.click();
@@ -2756,9 +2783,31 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               </span>
                             )}
                             {item.estado === 'error' && (
-                              <span style={{fontSize:'11px', color:'#ef4444', fontWeight:600}} title={item.errorMsg}>
-                                ❌ Error: {item.errorMsg}
-                              </span>
+                              <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                                <span style={{fontSize:'11px', color: item.yaExisteEnBd ? '#d97706' : '#ef4444', fontWeight:600}} title={item.errorMsg}>
+                                  {item.yaExisteEnBd ? '⚠️ Ya existe en BD' : '❌ Error'}
+                                </span>
+                                {item.yaExisteEnBd && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setColaMigracion(prev => prev.map(x => x.id === item.id ? { ...x, estado: 'cola', errorMsg: undefined } : x));
+                                    }}
+                                    style={{
+                                      padding: '2px 8px',
+                                      background: '#fef3c7',
+                                      color: '#d97706',
+                                      border: '1px solid #fde68a',
+                                      borderRadius: '4px',
+                                      fontSize: '10px',
+                                      fontWeight: 700,
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    Forzar re-procesamiento
+                                  </button>
+                                )}
+                              </div>
                             )}
                             {item.estado === 'guardado' && (
                               <span style={{fontSize:'11px', color:'#16a34a', fontWeight:700}}>✅ Guardado exitosamente</span>
@@ -2768,6 +2817,22 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             )}
                           </div>
                         </div>
+
+                        {/* Banner explicativo de error o duplicado */}
+                        {item.estado === 'error' && item.errorMsg && (
+                          <div style={{
+                            background: item.yaExisteEnBd ? '#fffbeb' : '#fef2f2',
+                            border: `1px solid ${item.yaExisteEnBd ? '#fde68a' : '#fca5a5'}`,
+                            padding: '10px 14px',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            color: item.yaExisteEnBd ? '#78350f' : '#991b1b',
+                            marginTop: '-4px'
+                          }}>
+                            <strong>{item.yaExisteEnBd ? 'Aviso: ' : 'Error de procesamiento: '}</strong>
+                            {item.errorMsg}
+                          </div>
+                        )}
 
                         {/* Fila inferior: datos sugeridos para revisión */}
                         {item.estado === 'completado' && item.propuesta && (
