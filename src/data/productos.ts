@@ -19,6 +19,8 @@ export interface Producto {
   proporcionesMezcla?: string
   // Densidad recomendada (morteros)
   densidadRecomendada?: string
+  // Densidad numérica para conversión (kg/L)
+  densidad_conversion?: number
   // Bitácora / Notas internas
   bitacora?: string
   // Documentación técnica

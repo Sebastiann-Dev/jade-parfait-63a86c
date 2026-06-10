@@ -54,10 +54,17 @@ function calcularLinea(
   estadoPiso: 'liso' | 'estandar' | 'rugoso' | 'ninguno' = 'ninguno'
 ): { cantidad: number; precioUnitario: number; totalMXN: number } {
   const descuento = esMinorista ? 1 : (1 - descuentoPorcentaje / 100)
+  const dens = producto.densidad_conversion || 1.0
 
   let cantidad: number
   if (producto.tieneRendimiento && producto.rendimiento) {
-    cantidad = metros / producto.rendimiento
+    if (producto.unidad.toLowerCase() === 'kg') {
+      // Rendimiento en m²/L convertido a m²/kg usando la densidad
+      const rendimientoKg = producto.rendimiento / dens
+      cantidad = metros / rendimientoKg
+    } else {
+      cantidad = metros / producto.rendimiento
+    }
   } else {
     cantidad = cantidadManual
   }
@@ -306,7 +313,7 @@ Reglas de comportamiento:
 
   const productoSeleccionadoConRendimientoDinamico = useMemo(() => {
     if (!productoSeleccionado) return null
-    const densidadNum = parseFloat(productoSeleccionado.densidadRecomendada || '0')
+    const densidadNum = productoSeleccionado.densidad_conversion || parseFloat(productoSeleccionado.densidadRecomendada || '0')
     const espesorNum = parseFloat(espesorMm || '0')
 
     let p = { ...productoSeleccionado }
@@ -476,7 +483,7 @@ Reglas de comportamiento:
     seleccionarProducto(linea.producto)
     if (linea.producto.tieneRendimiento) {
       setMetros(String(linea.metros))
-      const dens = parseFloat(linea.producto.densidadRecomendada || '0')
+      const dens = linea.producto.densidad_conversion || parseFloat(linea.producto.densidadRecomendada || '0')
       if (linea.producto.rendimiento && dens > 0) {
         const calcEspesor = linea.producto.cantRef / (linea.producto.rendimiento * dens)
         setEspesorMm(String(Math.round(calcEspesor * 10) / 10))
@@ -1170,13 +1177,19 @@ Reglas de comportamiento:
                         <div className="text-xs text-gray-400">{l.producto.nota}</div>
                         {l.producto.tieneRendimiento && l.metros > 0 && (
                           <div className="text-xs text-blue-400 mt-0.5">
-                            {formatNum(l.metros)} m² (Rendimiento: {l.producto.rendimiento} m²/{l.producto.unidad}
-                            {l.producto.densidadRecomendada ? ` · Densidad recomendada: ${l.producto.densidadRecomendada}` : ''})
+                            {formatNum(l.metros)} m² (Rendimiento: {(() => {
+                              const dens = l.producto.densidad_conversion || 1.0;
+                              if (l.producto.unidad.toLowerCase() === 'kg' && dens !== 1.0) {
+                                return `${l.producto.rendimiento} m²/L (${formatNum(l.producto.rendimiento / dens)} m²/kg)`;
+                              }
+                              return `${l.producto.rendimiento} m²/${l.producto.unidad}`;
+                            })()}
+                            {l.producto.densidadRecomendada ? ` · Densidad: ${l.producto.densidadRecomendada}` : ''})
                           </div>
                         )}
                         {!l.producto.tieneRendimiento && l.producto.densidadRecomendada && (
                           <div className="text-xs text-blue-400 mt-0.5">
-                            Densidad recomendada: {l.producto.densidadRecomendada}
+                            Densidad: {l.producto.densidadRecomendada}
                           </div>
                         )}
                         {(l.producto.pros || l.producto.cons || l.producto.cuidadoCon) && (
@@ -1214,10 +1227,23 @@ Reglas de comportamiento:
                         )}
                       </td>
                       <td className="py-3 px-2 text-right text-gray-500 font-medium">
-                        {l.producto.densidadRecomendada || <span className="text-gray-300">—</span>}
+                        {l.producto.densidadRecomendada 
+                          ? `${l.producto.densidadRecomendada} (${l.producto.densidad_conversion || 1.0} kg/L)`
+                          : `${l.producto.densidad_conversion || 1.0} kg/L`}
                       </td>
                       <td className="py-3 px-2 text-right text-gray-700 font-medium tabular-nums">
-                        {formatNum(l.cantidad)} {l.producto.unidad}
+                        {(() => {
+                          const dens = l.producto.densidad_conversion || 1.0;
+                          const uni = l.producto.unidad.toLowerCase();
+                          if (dens > 0 && dens !== 1.0) {
+                            if (uni === 'kg') {
+                              return `${formatNum(l.cantidad)} kg (${formatNum(l.cantidad / dens)} L)`;
+                            } else if (uni === 'l' || uni === 'litro' || uni === 'litros') {
+                              return `${formatNum(l.cantidad)} L (${formatNum(l.cantidad * dens)} kg)`;
+                            }
+                          }
+                          return `${formatNum(l.cantidad)} ${l.producto.unidad}`;
+                        })()}
                       </td>
                       <td className="py-3 px-2 text-right tabular-nums">
                         <div className="font-semibold text-gray-800">{formatMXN(l.precioUnitario)}</div>

@@ -1,10 +1,10 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { 
-  fetchProductosSupabase, 
-  saveProductoSupabase, 
-  deleteProductoSupabase, 
-  updateProductoSupabase, 
+import {
+  fetchProductosSupabase,
+  saveProductoSupabase,
+  deleteProductoSupabase,
+  updateProductoSupabase,
   supabase,
   fetchSistemasSupabase,
   fetchSistemaProductosSupabase,
@@ -118,13 +118,13 @@ function getMaskedKey(key: string): string {
 function AdminPage() {
   const fileInputTdsRef = useRef<HTMLInputElement>(null)
   const fileInputSdsRef = useRef<HTMLInputElement>(null)
-  const [productos, setProductos] = useState<(Producto & {id: string})[]>([])
+  const [productos, setProductos] = useState<(Producto & { id: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [formData, setFormData] = useState<any>(DEFAULT_PRODUCTO)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
-  const [mensaje, setMensaje] = useState<{texto: string, tipo: 'ok'|'error'} | null>(null)
+  const [mensaje, setMensaje] = useState<{ texto: string, tipo: 'ok' | 'error' } | null>(null)
   const [tipoCambio, setTipoCambio] = useState<number>(17.5)
 
   // Auth state variables
@@ -141,7 +141,7 @@ function AdminPage() {
   const [kitPresentaciones, setKitPresentaciones] = useState<any[]>([])
   const [newKitNombre, setNewKitNombre] = useState('')
   const [newKitPrecio, setNewKitPrecio] = useState('')
-  const [newKitMoneda, setNewKitMoneda] = useState<'MXN'|'USD'>('MXN')
+  const [newKitMoneda, setNewKitMoneda] = useState<'MXN' | 'USD'>('MXN')
   const [numPartesKit, setNumPartesKit] = useState<number>(2)
   const [partesLtrs, setPartesLtrs] = useState<string[]>(['', '', '', ''])
   const [numPresentacionesKit, setNumPresentacionesKit] = useState<number>(1)
@@ -237,6 +237,7 @@ function AdminPage() {
 - espesorRecomendado: string o null (espesor de película recomendado en milésimas de pulgada (mils) o micras, ej: "4 a 6 mils" o "100-150 micras")
 - manosRecomendadas: string o null (número de capas o manos recomendadas, ej: "1 a 2 manos")
 - densidadRecomendada: string o null (densidad o peso específico, ej: "1.25 g/cm³")
+- densidad_conversion: number (extrae únicamente el valor numérico decimal de la densidad en g/cm³ o kg/L, ej: 1.25. Si no se menciona o no se puede determinar, usa 1.0)
 - pros: string o null (las 2 o 3 ventajas clave resumidas en 1 o 2 palabras cada una separadas por coma, ej: "Rápido secado, alta resistencia")
 - cons: null (debes establecer su valor siempre en null de forma incondicional. Queda estrictamente prohibido extraer o inventar información para este campo)
 - cuidadoCon: null (debes establecer su valor siempre en null de forma incondicional. Queda estrictamente prohibido extraer o inventar información para este campo)
@@ -287,7 +288,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             const errorData = await response.json().catch(() => ({}))
             const errorMsg = errorData.error?.message || `HTTP ${response.status}`
             console.warn(`Error con gemini-2.5-flash: ${errorMsg}. Intentando fallback a gemini-1.5-flash...`)
-            
+
             response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`, {
               method: 'POST',
               headers: {
@@ -323,7 +324,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
           const resJson = await response.json()
           const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text
-          
+
           if (!textResponse) {
             throw new Error('La respuesta de Gemini no contiene texto.')
           }
@@ -350,6 +351,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             espesorRecomendado: extractedData.espesorRecomendado || prev.espesorRecomendado,
             manosRecomendadas: extractedData.manosRecomendadas || prev.manosRecomendadas,
             densidadRecomendada: extractedData.densidadRecomendada || prev.densidadRecomendada,
+            densidad_conversion: typeof extractedData.densidad_conversion === 'number' ? extractedData.densidad_conversion : parseFloat(extractedData.densidad_conversion) || prev.densidad_conversion || 1.0,
             pros: extractedData.pros || prev.pros,
             cons: extractedData.cons || prev.cons,
             cuidadoCon: extractedData.cuidadoCon || prev.cuidadoCon,
@@ -454,7 +456,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   const [editingSistemaId, setEditingSistemaId] = useState<string | null>(null)
   const [dragIdx, setDragIdx] = useState<number | null>(null)
   const [dropIdx, setDropIdx] = useState<number | null>(null)
-  
+
   const DEFAULT_SISTEMA = {
     nombre: '',
     descripcion: '',
@@ -515,6 +517,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 - espesorRecomendado: string o null (espesor de película recomendado en milésimas de pulgada (mils) o micras, ej: "4 a 6 mils" o "100-150 micras")
 - manosRecomendadas: string o null (número de capas o manos recomendadas, ej: "1 a 2 manos")
 - densidadRecomendada: string o null (densidad o peso específico, ej: "1.25 g/cm³")
+- densidad_conversion: number (extrae únicamente el valor numérico decimal de la densidad en g/cm³ o kg/L, ej: 1.25. Si no se menciona o no se puede determinar, usa 1.0)
 - pros: string o null (las 2 o 3 ventajas clave resumidas en 1 o 2 palabras cada una separadas por coma, ej: "Rápido secado, alta resistencia")
 - cons: null (debes establecer su valor siempre en null de forma incondicional. Queda estrictamente prohibido extraer o inventar información para este campo)
 - cuidadoCon: null (debes establecer su valor siempre en null de forma incondicional. Queda estrictamente prohibido extraer o inventar información para este campo)
@@ -523,7 +526,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 REGLA DE GUARDRAIL CRÍTICA: Queda estrictamente prohibido alucinar, inventar, deducir o asumir información genérica o de sentido común. Si un dato no está explícitamente mencionado en el texto de la ficha técnica/seguridad, debes establecer su valor exactamente en null. Para los campos "cons" y "cuidadoCon", debes retornar siempre el valor null de forma incondicional.
 
 Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No incluyas bloques de código Markdown (como \`\`\`json), comentarios, ni texto introductorio.`;
-    
+
     let success = false;
     let lastErrorMsg = '';
     let extractedData: any = null;
@@ -643,6 +646,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         motivo_incompleto: null
       };
 
+      payload.densidad_conversion = typeof payload.densidad_conversion === 'number' ? payload.densidad_conversion : parseFloat(payload.densidad_conversion) || 1.0;
+
       // Safe conversions for edited values
       payload.tieneRendimiento = !!payload.tieneRendimiento;
       if (payload.tieneRendimiento && payload.rendimiento !== '' && payload.rendimiento !== null && payload.rendimiento !== undefined) {
@@ -672,7 +677,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           estado: 'completo'
         };
         const nuevoId = await saveProductoSupabase(nuevoPayload);
-        
+
         if (item.pdfUrl) {
           const finalUrl = await uploadPdfProducto(nuevoId, item.tipoDoc, item.file);
           const updatePayload: any = {};
@@ -697,7 +702,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   // Cola de procesamiento automático en background
   useEffect(() => {
     if (procesandoCola) return;
-    
+
     const siguiente = colaMigracion.find(item => item.estado === 'cola');
     if (!siguiente) return;
 
@@ -706,15 +711,15 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     (async () => {
       const id = siguiente.id;
       setColaMigracion(prev => prev.map(item => item.id === id ? { ...item, estado: 'subiendo' } : item));
-      
+
       try {
         const prodId = siguiente.productoAsociado?.id || `nuevo_${Date.now()}`;
         const publicUrl = await uploadPdfProducto(prodId, siguiente.tipoDoc, siguiente.file);
-        
+
         setColaMigracion(prev => prev.map(item => item.id === id ? { ...item, estado: 'analizando', pdfUrl: publicUrl } : item));
-        
+
         const extraidos = await extraerDatosPdfGemini(siguiente.file);
-        
+
         // Asociación inteligente post-extracción
         const nombreExtraido = extraidos?.nombre?.trim().toLowerCase();
         let prodAsociadoFinal = siguiente.productoAsociado;
@@ -724,21 +729,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             prodAsociadoFinal = matchExistente;
           }
         }
-        
-        setColaMigracion(prev => prev.map(item => item.id === id ? { 
-          ...item, 
-          estado: 'completado', 
+
+        setColaMigracion(prev => prev.map(item => item.id === id ? {
+          ...item,
+          estado: 'completado',
           pdfUrl: publicUrl,
           productoAsociado: prodAsociadoFinal,
-          propuesta: extraidos 
+          propuesta: extraidos
         } : item));
-        
+
       } catch (err: any) {
         console.error("Error en procesamiento de cola:", err);
-        setColaMigracion(prev => prev.map(item => item.id === id ? { 
-          ...item, 
-          estado: 'error', 
-          errorMsg: err.message || 'Error al procesar PDF' 
+        setColaMigracion(prev => prev.map(item => item.id === id ? {
+          ...item,
+          estado: 'error',
+          errorMsg: err.message || 'Error al procesar PDF'
         } : item));
       } finally {
         setTimeout(() => {
@@ -915,7 +920,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           password: authPassword,
         })
         if (error) throw error
-        
+
         if (data?.session) {
           showMsg('✅ Registro e inicio de sesión exitoso.', 'ok')
         } else {
@@ -973,14 +978,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     fetchExchangeRate()
   }, [])
 
-  function showMsg(texto: string, tipo: 'ok'|'error') {
-    setMensaje({texto, tipo})
+  function showMsg(texto: string, tipo: 'ok' | 'error') {
+    setMensaje({ texto, tipo })
     setTimeout(() => setMensaje(null), 4000)
   }
 
   function validarCamposProducto(data: any): string[] {
     const missing: string[] = []
-    
+
     if (!data.nombre?.trim()) {
       missing.push("Nombre comercial")
     }
@@ -995,17 +1000,17 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         missing.push("Rendimiento por m²")
       }
     }
-    
+
     const hasTds = !!data.ficha_tecnica_url || !!fichaTecnicaFile
     const hasSds = !!data.ficha_seguridad_url || !!fichaSeguridadFile
-    
+
     if (!hasTds) {
       missing.push("Ficha Técnica (TDS) PDF")
     }
     if (!hasSds) {
       missing.push("Ficha de Seguridad (SDS) PDF")
     }
-    
+
     return missing
   }
 
@@ -1057,6 +1062,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         })() : null,
         proporcionesMezcla: formData.proporcionesMezcla || null,
         densidadRecomendada: formData.densidadRecomendada || null,
+        densidad_conversion: formData.densidad_conversion !== '' && formData.densidad_conversion !== null && formData.densidad_conversion !== undefined ? Number(formData.densidad_conversion) : 1.0,
         bitacora: formData.bitacora || null,
         estado: estadoDestino,
         motivo_incompleto: estadoDestino === 'borrador' ? formData.motivo_incompleto : null
@@ -1095,7 +1101,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         payload.ficha_seguridad_url = null
 
         const newId = await saveProductoSupabase(payload)
-        
+
         let updateNeeded = false
         const updatePayload: any = {}
 
@@ -1164,7 +1170,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setActivePdfPreview(null)
   }
 
-  function handleEdit(p: Producto & {id: string, updated_at?: string, estado?: string, motivo_incompleto?: string}) {
+  function handleEdit(p: Producto & { id: string, updated_at?: string, estado?: string, motivo_incompleto?: string }) {
     setFormData({
       nombre: p.nombre,
       cantRef: p.cantRef ?? '',
@@ -1182,6 +1188,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       kitInfo: p.kitInfo || '',
       proporcionesMezcla: p.proporcionesMezcla || '',
       densidadRecomendada: p.densidadRecomendada || '',
+      densidad_conversion: p.densidad_conversion ?? 1.0,
       bitacora: p.bitacora || '',
       ficha_tecnica_url: p.ficha_tecnica_url || '',
       ficha_seguridad_url: p.ficha_seguridad_url || '',
@@ -1226,10 +1233,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   if (authChecking) {
     return (
-      <div style={{minHeight:'100vh', background:'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display:'flex', alignItems:'center', justifyContent:'center'}}>
-        <div style={{textAlign:'center', color:'#2563eb', fontFamily:'sans-serif'}}>
-          <div style={{fontSize:'32px', marginBottom:'12px'}}>🔐</div>
-          <p style={{fontWeight:600, color:'#1e293b'}}>Verificando sesión...</p>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center', color: '#2563eb', fontFamily: 'sans-serif' }}>
+          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔐</div>
+          <p style={{ fontWeight: 600, color: '#1e293b' }}>Verificando sesión...</p>
         </div>
       </div>
     )
@@ -1237,74 +1244,74 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   if (!user) {
     return (
-      <div style={{minHeight:'100vh', background:'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display:'flex', alignItems:'center', justifyContent:'center', padding:'24px', fontFamily:'sans-serif'}}>
-        <div style={{maxWidth:'400px', width:'100%', background:'white', padding:'32px', borderRadius:'16px', boxShadow:'0 10px 25px -5px rgba(37, 99, 235, 0.1), 0 8px 10px -6px rgba(37, 99, 235, 0.1)', border:'1px solid #bfdbfe', margin:'auto'}}>
-          <div style={{textAlign:'center', marginBottom:'24px'}}>
-            <div style={{width:'48px', height:'48px', background:'#2563eb', color:'white', display:'flex', alignItems:'center', justifyContent:'center', borderRadius:'12px', fontSize:'20px', fontWeight:800, margin:'0 auto 12px'}}>🔐</div>
-            <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración</h1>
-            <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>Acceso exclusivo para personal autorizado</p>
+      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'sans-serif' }}>
+        <div style={{ maxWidth: '400px', width: '100%', background: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(37, 99, 235, 0.1), 0 8px 10px -6px rgba(37, 99, 235, 0.1)', border: '1px solid #bfdbfe', margin: 'auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div style={{ width: '48px', height: '48px', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontSize: '20px', fontWeight: 800, margin: '0 auto 12px' }}>🔐</div>
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>Panel de Administración</h1>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Acceso exclusivo para personal autorizado</p>
           </div>
 
           {authError && (
-            <div style={{background:'#fee2e2', color:'#991b1b', padding:'10px 14px', borderRadius:'8px', fontSize:'12px', fontWeight:600, marginBottom:'16px'}}>
+            <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
               ⚠️ {authError}
             </div>
           )}
 
           {mensaje && (
-            <div style={{background:'#dcfce7', color:'#166534', padding:'10px 14px', borderRadius:'8px', fontSize:'12px', fontWeight:600, marginBottom:'16px'}}>
+            <div style={{ background: '#dcfce7', color: '#166534', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
               {mensaje.texto}
             </div>
           )}
 
-          <form onSubmit={handleAuth} style={{display:'flex', flexDirection:'column', gap:'16px'}}>
+          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div>
-              <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#374151', marginBottom:'6px'}}>Correo Electrónico *</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Correo Electrónico *</label>
               <input
                 type="email"
                 required
                 value={authEmail}
                 onChange={e => setAuthEmail(e.target.value)}
                 placeholder=""
-                style={{width:'100%', height:'38px', padding:'8px 12px', border:'1px solid #d1d5db', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box'}}
+                style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
               />
             </div>
 
             <div>
-              <label style={{display:'block', fontSize:'12px', fontWeight:600, color:'#374151', marginBottom:'6px'}}>Contraseña *</label>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Contraseña *</label>
               <input
                 type="password"
                 required
                 value={authPassword}
                 onChange={e => setAuthPassword(e.target.value)}
                 placeholder="••••••••"
-                style={{width:'100%', height:'38px', padding:'8px 12px', border:'1px solid #d1d5db', borderRadius:'6px', fontSize:'13px', boxSizing:'border-box'}}
+                style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
               />
             </div>
 
             <button
               type="submit"
               disabled={authLoading}
-              style={{width:'100%', height:'40px', background:'#2563eb', color:'white', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:700, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', transition:'background 0.2s'}}
+              style={{ width: '100%', height: '40px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
             >
               {authLoading ? 'Procesando...' : (authIsSignUp ? 'Registrarse' : 'Iniciar Sesión')}
             </button>
           </form>
 
-          <div style={{marginTop:'20px', textAlign:'center', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
+          <div style={{ marginTop: '20px', textAlign: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
             <button
               onClick={() => {
                 setAuthIsSignUp(!authIsSignUp)
                 setAuthError('')
               }}
-              style={{background:'none', border:'none', color:'#2563eb', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
+              style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
             >
               {authIsSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
             </button>
           </div>
 
-          <div style={{marginTop:'16px', textAlign:'center'}}>
-            <Link to="/" style={{fontSize:'12px', color:'#64748b', textDecoration:'none'}}>
+          <div style={{ marginTop: '16px', textAlign: 'center' }}>
+            <Link to="/" style={{ fontSize: '12px', color: '#64748b', textDecoration: 'none' }}>
               ← Volver al Cotizador
             </Link>
           </div>
@@ -1315,19 +1322,19 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   }
 
   return (
-    <div style={{minHeight:'100vh', background:'#f8fafc', padding:'24px', fontFamily:'sans-serif'}}>
-      <div style={{maxWidth:'1100px', margin:'0 auto'}}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '24px', fontFamily: 'sans-serif' }}>
+      <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
         {/* Header */}
-        <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'white', padding:'16px 24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)'}}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '16px 24px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
           <div>
-            <h1 style={{margin:0, fontSize:'20px', fontWeight:700, color:'#1e293b'}}>Panel de Administración — BUCA</h1>
-            <p style={{margin:'4px 0 0', fontSize:'13px', color:'#64748b'}}>
-              {currentTab === 'productos' 
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>Panel de Administración — BUCA</h1>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
+              {currentTab === 'productos'
                 ? (loading ? 'Cargando productos...' : `${productos.length} productos en la base de datos`)
                 : (loadingSistemas ? 'Cargando sistemas...' : `${sistemas.length} sistemas en la base de datos`)}
             </p>
           </div>
-          <div style={{display:'flex', gap:'12px', alignItems:'center'}}>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
             {currentTab === 'productos' ? (
               <button
                 disabled={showForm}
@@ -1382,14 +1389,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 + Nuevo Sistema
               </button>
             )}
-            <Link to="/" style={{padding:'8px 16px', border:'1px solid #e2e8f0', borderRadius:'8px', fontSize:'14px', color:'#374151', textDecoration:'none', background:'white'}}>
+            <Link to="/" style={{ padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', color: '#374151', textDecoration: 'none', background: 'white' }}>
               ← Cotizador
             </Link>
           </div>
         </div>
 
         {/* Navigation Tabs */}
-        <div style={{display:'flex', gap:'12px', borderBottom:'1px solid #e2e8f0', paddingBottom:'8px', marginTop:'4px'}}>
+        <div style={{ display: 'flex', gap: '12px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginTop: '4px' }}>
           <button
             onClick={() => setCurrentTab('productos')}
             style={{
@@ -1442,7 +1449,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
         {/* Mensaje de estado */}
         {mensaje && (
-          <div style={{padding:'12px 20px', borderRadius:'8px', background: mensaje.tipo === 'ok' ? '#dcfce7' : '#fee2e2', color: mensaje.tipo === 'ok' ? '#166534' : '#991b1b', fontWeight:600, fontSize:'14px'}}>
+          <div style={{ padding: '12px 20px', borderRadius: '8px', background: mensaje.tipo === 'ok' ? '#dcfce7' : '#fee2e2', color: mensaje.tipo === 'ok' ? '#166534' : '#991b1b', fontWeight: 600, fontSize: '14px' }}>
             {mensaje.texto}
           </div>
         )}
@@ -1464,26 +1471,26 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               boxShadow: '0 20px 25px -5px rgba(37, 99, 235, 0.15), 0 10px 10px -5px rgba(37, 99, 235, 0.1)',
               border: '2px solid #3b82f6',
             }}>
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px'}}>
-                <h2 style={{margin:0, fontSize:'17px', fontWeight:700, color:'#1e40af'}}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 700, color: '#1e40af' }}>
                   {editingId ? '✏️ Editar Producto' : '➕ Agregar Nuevo Producto'}
                 </h2>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  style={{padding:'6px 12px', background:'#ef4444', color:'white', border:'none', borderRadius:'6px', fontSize:'13px', fontWeight:600, cursor:'pointer'}}
+                  style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   ✕ Cancelar
                 </button>
               </div>
 
               {/* Selector de producto existente */}
-              <div style={{background:'#eff6ff', padding:'16px', borderRadius:'8px', marginBottom:'20px', border:'1px solid #bfdbfe'}}>
-                <label style={{display:'block', fontSize:'13px', fontWeight:700, color:'#1d4ed8', marginBottom:'8px'}}>
+              <div style={{ background: '#eff6ff', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #bfdbfe' }}>
+                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#1d4ed8', marginBottom: '8px' }}>
                   ¿Quieres editar un producto existente? Selecciónalo aquí:
                 </label>
                 <select
-                  style={{width:'100%', padding:'8px', border:'1px solid #93c5fd', borderRadius:'6px', fontSize:'13px', background:'white'}}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #93c5fd', borderRadius: '6px', fontSize: '13px', background: 'white' }}
                   value={editingId || ''}
                   onChange={(e) => {
                     const p = productos.find(prod => prod.id === e.target.value)
@@ -1502,16 +1509,16 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </select>
               </div>
 
-              <form onSubmit={e => e.preventDefault()} style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', alignItems:'start'}}>
+              <form onSubmit={e => e.preventDefault()} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px', alignItems: 'start' }}>
 
                 <div>
                   <label style={labelStyle}>Nombre del Producto *</label>
-                  <input required value={formData.nombre} onChange={e => setFormData({...formData, nombre: e.target.value})} style={inputStyle} placeholder="Ej. BucaTrafic" />
+                  <input required value={formData.nombre} onChange={e => setFormData({ ...formData, nombre: e.target.value })} style={inputStyle} placeholder="Ej. BucaTrafic" />
                 </div>
 
                 <div>
                   <label style={labelStyle}>Unidad</label>
-                  <select value={formData.unidad} onChange={e => setFormData({...formData, unidad: e.target.value})} style={inputStyle}>
+                  <select value={formData.unidad} onChange={e => setFormData({ ...formData, unidad: e.target.value })} style={inputStyle}>
                     <option value="L">L (Litros)</option>
                     <option value="Gal">Gal (Galones)</option>
                     <option value="Kg">Kg (Kilogramos)</option>
@@ -1524,7 +1531,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
                 <div>
                   <label style={labelStyle}>Moneda</label>
-                  <select value={formData.moneda} onChange={e => setFormData({...formData, moneda: e.target.value as 'MXN'|'USD'})} style={inputStyle}>
+                  <select value={formData.moneda} onChange={e => setFormData({ ...formData, moneda: e.target.value as 'MXN' | 'USD' })} style={inputStyle}>
                     <option value="MXN">MXN</option>
                     <option value="USD">USD</option>
                   </select>
@@ -1532,25 +1539,25 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
                 <div>
                   <label style={labelStyle}>Precio Unitario *</label>
-                  <input type="number" step="0.01" required value={formData.precio} onChange={e => setFormData({...formData, precio: e.target.value})} style={inputStyle} placeholder="0.00" />
+                  <input type="number" step="0.01" required value={formData.precio} onChange={e => setFormData({ ...formData, precio: e.target.value })} style={inputStyle} placeholder="0.00" />
                 </div>
 
                 <div>
                   <label style={labelStyle}>Cantidad de Referencia (tamaño del envase)</label>
-                  <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({...formData, cantRef: e.target.value})} style={inputStyle} placeholder="Ej. 19 (litros)" />
+                  <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({ ...formData, cantRef: e.target.value })} style={inputStyle} placeholder="Ej. 19 (litros)" />
                 </div>
 
-                <div style={{gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px'}}>
+                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
                   <div>
                     <label style={labelStyle}>Descripción</label>
-                    <input value={formData.nota} onChange={e => setFormData({...formData, nota: e.target.value})} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
+                    <input value={formData.nota} onChange={e => setFormData({ ...formData, nota: e.target.value })} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
                   </div>
                   <div>
                     <label style={labelStyle}>Bitácora</label>
                     <textarea
                       rows={3}
                       value={formData.bitacora || ''}
-                      onChange={e => setFormData({...formData, bitacora: e.target.value})}
+                      onChange={e => setFormData({ ...formData, bitacora: e.target.value })}
                       style={{
                         ...inputStyle,
                         height: 'auto',
@@ -1564,57 +1571,61 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </div>
 
                 {/* Rendimiento */}
-                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-                  <label style={{display:'flex', alignItems:'center', gap:'8px', cursor:'pointer', fontSize:'14px', fontWeight:500}}>
-                    <input type="checkbox" checked={formData.tieneRendimiento} onChange={e => setFormData({...formData, tieneRendimiento: e.target.checked})} />
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 500 }}>
+                    <input type="checkbox" checked={formData.tieneRendimiento} onChange={e => setFormData({ ...formData, tieneRendimiento: e.target.checked })} />
                     ¿Este producto se calcula por metros cuadrados (rendimiento)?
                   </label>
                 </div>
 
                 {formData.tieneRendimiento && (
                   <div>
-                    <label style={{...labelStyle, color:'#1d4ed8'}}>Rendimiento (m² por {formData.unidad})</label>
-                    <input type="number" step="0.1" value={formData.rendimiento} onChange={e => setFormData({...formData, rendimiento: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} placeholder="Ej. 5" />
+                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Rendimiento (m² por {formData.unidad})</label>
+                    <input type="number" step="0.1" value={formData.rendimiento} onChange={e => setFormData({ ...formData, rendimiento: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} placeholder="Ej. 5" />
                   </div>
                 )}
 
                 {/* Especificaciones técnicas */}
-                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
                   <div>
-                    <label style={{...labelStyle, color:'#1d4ed8'}}>Espesor Recomendado</label>
-                    <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({...formData, espesorRecomendado: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Espesor Recomendado</label>
+                    <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({ ...formData, espesorRecomendado: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} />
                   </div>
                   <div>
-                    <label style={{...labelStyle, color:'#1d4ed8'}}>Manos / Pasadas Recomendadas</label>
-                    <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({...formData, manosRecomendadas: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Manos / Pasadas Recomendadas</label>
+                    <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({ ...formData, manosRecomendadas: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} />
                   </div>
                   <div>
-                    <label style={{...labelStyle, color:'#1d4ed8'}}>Densidad Recomendada</label>
-                    <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({...formData, densidadRecomendada: e.target.value})} style={{...inputStyle, borderColor:'#93c5fd', background:'#eff6ff'}} />
+                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Densidad Recomendada</label>
+                    <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({ ...formData, densidadRecomendada: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} />
+                  </div>
+                  <div>
+                    <label style={{ ...labelStyle, color: '#10b981' }}>Densidad Conversión (kg/L) ⚖️</label>
+                    <input type="number" step="0.001" placeholder="Ej. 1.25" value={formData.densidad_conversion !== undefined ? formData.densidad_conversion : ''} onChange={e => setFormData({ ...formData, densidad_conversion: e.target.value })} style={{ ...inputStyle, borderColor: '#a7f3d0', background: '#ecfdf5' }} />
                   </div>
                 </div>
 
                 {/* Documentación técnica */}
-                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-                  <h3 style={{fontSize:'14px', fontWeight:700, color:'#0369a1', marginBottom:'12px'}}>📄 Documentación Técnica (PDFs)</h3>
-                  <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'16px'}}>
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#0369a1', marginBottom: '12px' }}>📄 Documentación Técnica (PDFs)</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                     <div>
-                      <label style={{...labelStyle, color:'#0369a1'}}>Ficha Técnica (TDS)</label>
-                      
+                      <label style={{ ...labelStyle, color: '#0369a1' }}>Ficha Técnica (TDS)</label>
+
                       {formData.ficha_tecnica_url && (
-                        <div style={{display:'flex', alignItems:'center', gap:'8px', background:'#f0f9ff', padding:'6px 10px', borderRadius:'6px', border:'1px solid #7dd3fc', marginBottom:'8px'}}>
-                          <span style={{fontSize:'12px', color:'#0369a1', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f0f9ff', padding: '6px 10px', borderRadius: '6px', border: '1px solid #7dd3fc', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', color: '#0369a1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                             📄 Ya cargado en base de datos
                           </span>
                           <button
                             type="button"
                             onClick={() => {
-                              if(confirm("¿Seguro que deseas eliminar el archivo de ficha técnica?")) {
-                                setFormData({...formData, ficha_tecnica_url: ''})
+                              if (confirm("¿Seguro que deseas eliminar el archivo de ficha técnica?")) {
+                                setFormData({ ...formData, ficha_tecnica_url: '' })
                                 setFichaTecnicaFile(null)
                               }
                             }}
-                            style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'12px', fontWeight:600}}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
                           >
                             Eliminar
                           </button>
@@ -1666,48 +1677,48 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                         }}
                         style={{ display: 'none' }}
                       />
-                      
+
                       {fichaTecnicaFile && (
-                        <div style={{fontSize:'11px', color:'#16a34a', marginTop:'4px', display:'flex', justifyContent:'space-between'}}>
+                        <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
                           <span>📎 Nuevo archivo: {fichaTecnicaFile.name}</span>
-                          <button type="button" onClick={() => setFichaTecnicaFile(null)} style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', padding:0}}>Quitar</button>
+                          <button type="button" onClick={() => setFichaTecnicaFile(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}>Quitar</button>
                         </div>
                       )}
 
-                      <div style={{marginTop:'8px'}}>
-                        <label style={{fontSize:'11px', color:'#64748b', display:'block', marginBottom:'2px'}}>O introduce URL manual:</label>
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '2px' }}>O introduce URL manual:</label>
                         <input
                           type="url"
                           placeholder="https://..."
                           value={formData.ficha_tecnica_url || ''}
                           onChange={e => {
-                            setFormData({...formData, ficha_tecnica_url: e.target.value})
+                            setFormData({ ...formData, ficha_tecnica_url: e.target.value })
                             if (e.target.value) {
                               setActivePdfPreview('ficha_tecnica')
                             }
                           }}
-                          style={{...inputStyle, height:'30px', fontSize:'12px', borderColor:'#bae6fd'}}
+                          style={{ ...inputStyle, height: '30px', fontSize: '12px', borderColor: '#bae6fd' }}
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label style={{...labelStyle, color:'#0369a1'}}>Hoja de Seguridad (SDS)</label>
-                      
+                      <label style={{ ...labelStyle, color: '#0369a1' }}>Hoja de Seguridad (SDS)</label>
+
                       {formData.ficha_seguridad_url && (
-                        <div style={{display:'flex', alignItems:'center', gap:'8px', background:'#fbf7f0', padding:'6px 10px', borderRadius:'6px', border:'1px solid #fed7aa', marginBottom:'8px'}}>
-                          <span style={{fontSize:'12px', color:'#c2410c', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1}}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#fbf7f0', padding: '6px 10px', borderRadius: '6px', border: '1px solid #fed7aa', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', color: '#c2410c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
                             🛡️ Ya cargado en base de datos
                           </span>
                           <button
                             type="button"
                             onClick={() => {
-                              if(confirm("¿Seguro que deseas eliminar el archivo de hoja de seguridad?")) {
-                                setFormData({...formData, ficha_seguridad_url: ''})
+                              if (confirm("¿Seguro que deseas eliminar el archivo de hoja de seguridad?")) {
+                                setFormData({ ...formData, ficha_seguridad_url: '' })
                                 setFichaSeguridadFile(null)
                               }
                             }}
-                            style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', fontSize:'12px', fontWeight:600}}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
                           >
                             Eliminar
                           </button>
@@ -1761,25 +1772,25 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                       />
 
                       {fichaSeguridadFile && (
-                        <div style={{fontSize:'11px', color:'#16a34a', marginTop:'4px', display:'flex', justifyContent:'space-between'}}>
+                        <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px', display: 'flex', justifyContent: 'space-between' }}>
                           <span>📎 Nuevo archivo: {fichaSeguridadFile.name}</span>
-                          <button type="button" onClick={() => setFichaSeguridadFile(null)} style={{background:'none', border:'none', color:'#ef4444', cursor:'pointer', padding:0}}>Quitar</button>
+                          <button type="button" onClick={() => setFichaSeguridadFile(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}>Quitar</button>
                         </div>
                       )}
 
-                      <div style={{marginTop:'8px'}}>
-                        <label style={{fontSize:'11px', color:'#64748b', display:'block', marginBottom:'2px'}}>O introduce URL manual:</label>
+                      <div style={{ marginTop: '8px' }}>
+                        <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '2px' }}>O introduce URL manual:</label>
                         <input
                           type="url"
                           placeholder="https://..."
                           value={formData.ficha_seguridad_url || ''}
                           onChange={e => {
-                            setFormData({...formData, ficha_seguridad_url: e.target.value})
+                            setFormData({ ...formData, ficha_seguridad_url: e.target.value })
                             if (e.target.value) {
                               setActivePdfPreview('ficha_seguridad')
                             }
                           }}
-                          style={{...inputStyle, height:'30px', fontSize:'12px', borderColor:'#bae6fd'}}
+                          style={{ ...inputStyle, height: '30px', fontSize: '12px', borderColor: '#bae6fd' }}
                         />
                       </div>
                     </div>
@@ -1787,25 +1798,25 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </div>
 
                 {/* Kit y Mezcla */}
-                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px'}}>
-                  <h3 style={{fontSize:'14px', fontWeight:700, color:'#7c3aed', marginBottom: '12px'}}>📦 Configuración de Kit y Mezcla</h3>
-                  
-                  <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px, 1fr))', gap:'16px', marginBottom: '12px', alignItems:'start'}}>
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#7c3aed', marginBottom: '12px' }}>📦 Configuración de Kit y Mezcla</h3>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px', marginBottom: '12px', alignItems: 'start' }}>
                     <div>
-                      <label style={{...labelStyle, color:'#0369a1'}}>🧪 Proporciones de Mezcla</label>
+                      <label style={{ ...labelStyle, color: '#0369a1' }}>🧪 Proporciones de Mezcla</label>
                       <input
                         placeholder="Ej: 2:1 (Parte A : Parte B) · 3:1:0.5 si es tricomponente"
                         value={formData.proporcionesMezcla || ''}
-                        onChange={e => setFormData({...formData, proporcionesMezcla: e.target.value})}
-                        style={{...inputStyle, borderColor:'#7dd3fc', background:'#f0f9ff'}}
+                        onChange={e => setFormData({ ...formData, proporcionesMezcla: e.target.value })}
+                        style={{ ...inputStyle, borderColor: '#7dd3fc', background: '#f0f9ff' }}
                       />
-                      <span style={{fontSize:'11px', color:'#0369a1', marginTop:'3px', display:'block'}}>Para bicomponentes y tricomponentes</span>
+                      <span style={{ fontSize: '11px', color: '#0369a1', marginTop: '3px', display: 'block' }}>Para bicomponentes y tricomponentes</span>
                     </div>
-                    
+
                     <div>
-                      <label style={{...labelStyle, color:'#7c3aed'}}>¿Este producto se vende en diferentes presentaciones (Kit)?</label>
-                      <div style={{display:'flex', gap:'12px', alignItems:'center', height:'38px'}}>
-                        <label style={{display:'flex', alignItems:'center', gap:'6px', cursor:'pointer', fontSize:'13px'}}>
+                      <label style={{ ...labelStyle, color: '#7c3aed' }}>¿Este producto se vende en diferentes presentaciones (Kit)?</label>
+                      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', height: '38px' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '13px' }}>
                           <input
                             type="checkbox"
                             checked={esKitProduct}
@@ -1818,13 +1829,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   </div>
 
                   {esKitProduct && (
-                    <div style={{background:'#f5f3ff', border:'1px solid #c4b5fd', borderRadius:'8px', padding:'16px', marginBottom:'16px'}}>
-                      <h4 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#6d28d9'}}>Presentaciones del Kit</h4>
-                      
+                    <div style={{ background: '#f5f3ff', border: '1px solid #c4b5fd', borderRadius: '8px', padding: '16px', marginBottom: '16px' }}>
+                      <h4 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: '#6d28d9' }}>Presentaciones del Kit</h4>
+
                       {/* Choose how many parts and presentations */}
-                      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'12px', marginBottom:'16px', background:'white', padding:'12px', borderRadius:'6px', border:'1px solid #e2e8f0'}}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px', background: 'white', padding: '12px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
                         <div>
-                          <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                          <label style={{ fontSize: '12px', fontWeight: 700, color: '#6d28d9', display: 'block', marginBottom: '6px' }}>
                             ¿Cuántas partes tiene el kit?
                           </label>
                           <select
@@ -1833,7 +1844,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               const val = parseInt(e.target.value) || 2
                               setNumPartesKit(val)
                             }}
-                            style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                            style={{ ...inputStyle, height: '34px', padding: '4px 8px' }}
                           >
                             <option value="1">1 Parte (Monocomponente)</option>
                             <option value="2">2 Partes (Bicomponente)</option>
@@ -1841,9 +1852,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             <option value="4">4 Partes (Tetracomponente)</option>
                           </select>
                         </div>
-                        
+
                         <div>
-                          <label style={{fontSize:'12px', fontWeight:700, color:'#6d28d9', display:'block', marginBottom:'6px'}}>
+                          <label style={{ fontSize: '12px', fontWeight: 700, color: '#6d28d9', display: 'block', marginBottom: '6px' }}>
                             ¿Cuántas presentaciones de kit hay?
                           </label>
                           <select
@@ -1852,7 +1863,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               const val = parseInt(e.target.value) || 1
                               setNumPresentacionesKit(val)
                             }}
-                            style={{...inputStyle, height:'34px', padding:'4px 8px'}}
+                            style={{ ...inputStyle, height: '34px', padding: '4px 8px' }}
                           >
                             {[1, 2, 3, 4, 5, 6].map(n => (
                               <option key={n} value={n}>{n} {n === 1 ? 'Presentación' : 'Presentaciones'}</option>
@@ -1862,16 +1873,16 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                       </div>
 
                       {/* Dynamic list of presentations fields */}
-                      <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {Array.from({ length: numPresentacionesKit }).map((_, idx) => (
-                          <div key={idx} style={{background:'white', padding:'16px', borderRadius:'8px', border:'1px solid #e2e8f0', boxShadow:'0 1px 2px rgba(0,0,0,0.05)'}}>
-                            <h5 style={{margin:'0 0 12px', fontSize:'13px', fontWeight:700, color:'#475569'}}>
+                          <div key={idx} style={{ background: 'white', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                            <h5 style={{ margin: '0 0 12px', fontSize: '13px', fontWeight: 700, color: '#475569' }}>
                               Presentación #{idx + 1}
                             </h5>
-                            
-                            <div style={{display:'flex', gap:'12px', flexWrap:'wrap', alignItems:'flex-end'}}>
-                              <div style={{flex:'2 1 200px'}}>
-                                <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                              <div style={{ flex: '2 1 200px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
                                   Nombre / Tamaño (ej. Kit 3L)
                                 </label>
                                 <input
@@ -1882,9 +1893,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                   style={inputStyle}
                                 />
                               </div>
-                              
-                              <div style={{flex:'1 1 120px'}}>
-                                <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+
+                              <div style={{ flex: '1 1 120px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
                                   Precio
                                 </label>
                                 <input
@@ -1896,9 +1907,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                   style={inputStyle}
                                 />
                               </div>
-                              
-                              <div style={{width:'100px'}}>
-                                <label style={{fontSize:'11px', fontWeight:600, color:'#64748b', display:'block', marginBottom:'4px'}}>
+
+                              <div style={{ width: '100px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', display: 'block', marginBottom: '4px' }}>
                                   Moneda
                                 </label>
                                 <select
@@ -1913,14 +1924,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             </div>
 
                             {/* Volumes per part */}
-                            <div style={{marginTop:'12px', borderTop:'1px dashed #f1f5f9', paddingTop:'12px'}}>
-                              <label style={{fontSize:'11px', fontWeight:700, color:'#0369a1', display:'block', marginBottom:'6px'}}>
+                            <div style={{ marginTop: '12px', borderTop: '1px dashed #f1f5f9', paddingTop: '12px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: '#0369a1', display: 'block', marginBottom: '6px' }}>
                                 Volumen por cada Parte (Litros):
                               </label>
-                              <div style={{display:'flex', gap:'8px', flexWrap:'wrap'}}>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                 {Array.from({ length: numPartesKit }).map((_, partIdx) => (
-                                  <div key={partIdx} style={{flex:'1 1 80px'}}>
-                                    <label style={{fontSize:'10px', fontWeight:600, color:'#0284c7', display:'block', marginBottom:'2px'}}>
+                                  <div key={partIdx} style={{ flex: '1 1 80px' }}>
+                                    <label style={{ fontSize: '10px', fontWeight: 600, color: '#0284c7', display: 'block', marginBottom: '2px' }}>
                                       Parte {String.fromCharCode(65 + partIdx)} (L)
                                     </label>
                                     <input
@@ -1929,7 +1940,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                       value={kitPresentaciones[idx]?.partes?.[partIdx] ?? ''}
                                       onChange={e => updateParte(idx, partIdx, e.target.value)}
                                       placeholder="0.00"
-                                      style={{...inputStyle, height:'32px', padding:'4px 8px', fontSize:'12px'}}
+                                      style={{ ...inputStyle, height: '32px', padding: '4px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                 ))}
@@ -1943,58 +1954,58 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </div>
 
                 {/* Pros / Cons */}
-                <div style={{gridColumn:'1 / -1', borderTop:'1px solid #f1f5f9', paddingTop:'16px', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'16px'}}>
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                   <div>
-                    <label style={{...labelStyle, color:'#166534'}}>✅ Pros (Ventajas)</label>
-                    <input placeholder="Ej. Secado rápido" value={formData.pros || ''} onChange={e => setFormData({...formData, pros: e.target.value})} style={{...inputStyle, borderColor:'#86efac', background:'#f0fdf4'}} />
+                    <label style={{ ...labelStyle, color: '#166534' }}>✅ Pros (Ventajas)</label>
+                    <input placeholder="Ej. Secado rápido" value={formData.pros || ''} onChange={e => setFormData({ ...formData, pros: e.target.value })} style={{ ...inputStyle, borderColor: '#86efac', background: '#f0fdf4' }} />
                   </div>
                   <div>
-                    <label style={{...labelStyle, color:'#9a3412'}}>⚠️ Cons (Limitantes)</label>
-                    <input placeholder="Ej. Sensible a humedad" value={formData.cons || ''} onChange={e => setFormData({...formData, cons: e.target.value})} style={{...inputStyle, borderColor:'#fdba74', background:'#fff7ed'}} />
+                    <label style={{ ...labelStyle, color: '#9a3412' }}>⚠️ Cons (Limitantes)</label>
+                    <input placeholder="Ej. Sensible a humedad" value={formData.cons || ''} onChange={e => setFormData({ ...formData, cons: e.target.value })} style={{ ...inputStyle, borderColor: '#fdba74', background: '#fff7ed' }} />
                   </div>
                   <div>
-                    <label style={{...labelStyle, color:'#991b1b'}}>🚫 Cuidado con</label>
-                    <input placeholder="Ej. No usar en asfalto" value={formData.cuidadoCon || ''} onChange={e => setFormData({...formData, cuidadoCon: e.target.value})} style={{...inputStyle, borderColor:'#fca5a5', background:'#fef2f2'}} />
+                    <label style={{ ...labelStyle, color: '#991b1b' }}>🚫 Cuidado con</label>
+                    <input placeholder="Ej. No usar en asfalto" value={formData.cuidadoCon || ''} onChange={e => setFormData({ ...formData, cuidadoCon: e.target.value })} style={{ ...inputStyle, borderColor: '#fca5a5', background: '#fef2f2' }} />
                   </div>
                 </div>
 
                 {/* Borrador Motivo Area (solo si no es válido para publicar) */}
                 {!isValidToPublish && (
-                  <div style={{gridColumn:'1 / -1', display:'flex', flexDirection:'column', gap:'4px', marginTop:'8px'}}>
-                    <label style={{fontSize:'12px', fontWeight:700, color:'#b45309'}}>
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#b45309' }}>
                       Motivo de Borrador / Datos Pendientes *
                     </label>
                     <textarea
                       placeholder="Indica qué información hace falta para publicar el producto más adelante (ej: esperando hoja de seguridad del proveedor)..."
                       value={formData.motivo_incompleto || ''}
-                      onChange={e => setFormData({...formData, motivo_incompleto: e.target.value})}
-                      style={{...inputStyle, height:'60px', padding:'8px', fontSize:'13px', borderColor:'#f59e0b', background:'#fffbeb', resize:'vertical', fontFamily:'inherit'}}
+                      onChange={e => setFormData({ ...formData, motivo_incompleto: e.target.value })}
+                      style={{ ...inputStyle, height: '60px', padding: '8px', fontSize: '13px', borderColor: '#f59e0b', background: '#fffbeb', resize: 'vertical', fontFamily: 'inherit' }}
                     />
                   </div>
                 )}
 
                 {/* Diagnostics Banner */}
                 {validationIssues.length > 0 && (
-                  <div style={{gridColumn:'1 / -1', background:'#fffbeb', border:'1px solid #fef3c7', padding:'12px', borderRadius:'8px', marginTop:'8px'}}>
-                    <span style={{fontSize:'13px', fontWeight:700, color:'#b45309', display:'block', marginBottom:'4px'}}>
+                  <div style={{ gridColumn: '1 / -1', background: '#fffbeb', border: '1px solid #fef3c7', padding: '12px', borderRadius: '8px', marginTop: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#b45309', display: 'block', marginBottom: '4px' }}>
                       ⚠️ Requisitos pendientes para publicar producto en el cotizador:
                     </span>
-                    <ul style={{margin:0, paddingLeft:'20px', fontSize:'12px', color:'#78350f'}}>
+                    <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '12px', color: '#78350f' }}>
                       {validationIssues.map((issue, idx) => (
                         <li key={idx}>{issue}</li>
                       ))}
                     </ul>
-                    <p style={{margin:'6px 0 0', fontSize:'11px', color:'#92400e'}}>
+                    <p style={{ margin: '6px 0 0', fontSize: '11px', color: '#92400e' }}>
                       Puedes guardarlo como Borrador temporal mientras consigues esta información.
                     </p>
                   </div>
                 )}
 
-                <div style={{gridColumn:'1 / -1', display:'flex', gap:'12px', justifyContent:'flex-end', paddingTop:'12px', borderTop:'1px solid #f1f5f9', marginTop:'8px'}}>
+                <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '12px', justifyContent: 'flex-end', paddingTop: '12px', borderTop: '1px solid #f1f5f9', marginTop: '8px' }}>
                   <button
                     type="button"
                     onClick={handleCancel}
-                    style={{padding:'10px 20px', background:'#e2e8f0', color:'#475569', border:'none', borderRadius:'8px', fontSize:'14px', fontWeight:600, cursor:'pointer'}}
+                    style={{ padding: '10px 20px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
                   >
                     Cancelar
                   </button>
@@ -2004,13 +2015,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     disabled={saving}
                     onClick={() => handleSave('borrador')}
                     style={{
-                      padding:'10px 20px', 
-                      background: saving ? '#cbd5e1' : '#f59e0b', 
-                      color:'white', 
-                      border:'none', 
-                      borderRadius:'8px', 
-                      fontSize:'14px', 
-                      fontWeight:600, 
+                      padding: '10px 20px',
+                      background: saving ? '#cbd5e1' : '#f59e0b',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 600,
                       cursor: saving ? 'not-allowed' : 'pointer'
                     }}
                   >
@@ -2022,13 +2033,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     disabled={saving || !isValidToPublish}
                     onClick={() => handleSave('completo')}
                     style={{
-                      padding:'10px 20px', 
-                      background: (saving || !isValidToPublish) ? '#cbd5e1' : '#0284c7', 
-                      color: (saving || !isValidToPublish) ? '#64748b' : 'white', 
-                      border:'none', 
-                      borderRadius:'8px', 
-                      fontSize:'14px', 
-                      fontWeight:700, 
+                      padding: '10px 20px',
+                      background: (saving || !isValidToPublish) ? '#cbd5e1' : '#0284c7',
+                      color: (saving || !isValidToPublish) ? '#64748b' : 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 700,
                       cursor: (saving || !isValidToPublish) ? 'not-allowed' : 'pointer'
                     }}
                   >
@@ -2052,34 +2063,34 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               gap: '16px',
               minHeight: '600px'
             }}>
-              <div style={{borderBottom:'1px solid #e2e8f0', paddingBottom:'12px'}}>
-                <h3 style={{margin:0, fontSize:'16px', fontWeight:700, color:'#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
+              <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   🛡️ Referencia de PDF y Asistente IA
                 </h3>
-                <p style={{margin:'4px 0 0', fontSize:'12px', color:'#64748b'}}>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>
                   Visualiza las fichas técnicas y de seguridad del producto y utiliza Gemini para autocompletar la información.
                 </p>
               </div>
 
               {/* Gemini API Key Configuration */}
-              <div style={{background:'#f0f9ff', padding:'12px', borderRadius:'8px', border:'1px solid #bae6fd'}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
-                  <span style={{fontSize:'12px', fontWeight:700, color:'#0369a1', display:'flex', alignItems:'center', gap:'4px'}}>
+              <div style={{ background: '#f0f9ff', padding: '12px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '4px' }}>
                     🔑 API Key de Google Gemini
                   </span>
                 </div>
-                <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                  <div style={{fontFamily:'monospace', fontSize:'12px', color:'#334155', background:'#e0f2fe', padding:'6px 10px', borderRadius:'6px', border:'1px solid #bae6fd'}}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#334155', background: '#e0f2fe', padding: '6px 10px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
                     {getMaskedKey(PRECONFIGURED_KEYS[activeKeyIndex] || '')}
                   </div>
-                  <div style={{fontSize:'11px', color:'#047857', fontWeight:600}}>
+                  <div style={{ fontSize: '11px', color: '#047857', fontWeight: 600 }}>
                     ✅ API Key integrada y protegida
                   </div>
                 </div>
               </div>
 
               {/* Tab Selector */}
-              <div style={{display:'flex', gap:'8px', borderBottom:'2px solid #f1f5f9', paddingBottom:'8px'}}>
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #f1f5f9', paddingBottom: '8px' }}>
                 <button
                   type="button"
                   onClick={() => setActivePdfPreview('ficha_tecnica')}
@@ -2096,7 +2107,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     transition: 'all 0.2s'
                   }}
                 >
-                  📄 Ficha Técnica (TDS) { (fichaTecnicaFile || formData.ficha_tecnica_url) ? '•' : '' }
+                  📄 Ficha Técnica (TDS) {(fichaTecnicaFile || formData.ficha_tecnica_url) ? '•' : ''}
                 </button>
                 <button
                   type="button"
@@ -2114,14 +2125,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     transition: 'all 0.2s'
                   }}
                 >
-                  🛡️ Hoja de Seguridad (SDS) { (fichaSeguridadFile || formData.ficha_seguridad_url) ? '•' : '' }
+                  🛡️ Hoja de Seguridad (SDS) {(fichaSeguridadFile || formData.ficha_seguridad_url) ? '•' : ''}
                 </button>
               </div>
 
               {/* AI Extraction Button */}
               {((activePdfPreview === 'ficha_tecnica' && (fichaTecnicaFile || formData.ficha_tecnica_url)) ||
                 (activePdfPreview === 'ficha_seguridad' && (fichaSeguridadFile || formData.ficha_seguridad_url))) ? (
-                <div style={{display:'flex', flexDirection:'column', gap:'8px'}}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <button
                     type="button"
                     disabled={isExtracting}
@@ -2189,16 +2200,16 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               ) : null}
 
               {/* PDF Viewer Display */}
-              <div style={{flex:1, background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:'8px', overflow:'hidden', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center'}}>
+              <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 {(() => {
                   const hasLocal = activePdfPreview === 'ficha_tecnica' ? !!fichaTecnicaFile : !!fichaSeguridadFile
                   const hasRemote = activePdfPreview === 'ficha_tecnica' ? !!formData.ficha_tecnica_url : !!formData.ficha_seguridad_url
-                  
+
                   if (!activePdfPreview) {
                     return (
-                      <div style={{padding:'24px', textAlign:'center', color:'#64748b'}}>
-                        <div style={{fontSize:'36px', marginBottom:'8px'}}>📄</div>
-                        <p style={{fontSize:'13px', fontWeight:600}}>Selecciona Ficha Técnica o Hoja de Seguridad arriba para ver el visor.</p>
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b' }}>
+                        <div style={{ fontSize: '36px', marginBottom: '8px' }}>📄</div>
+                        <p style={{ fontSize: '13px', fontWeight: 600 }}>Selecciona Ficha Técnica o Hoja de Seguridad arriba para ver el visor.</p>
                       </div>
                     )
                   }
@@ -2206,10 +2217,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   if (!hasLocal && !hasRemote) {
                     const isTds = activePdfPreview === 'ficha_tecnica'
                     return (
-                      <div style={{padding:'24px', textAlign:'center', color:'#64748b', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'12px'}}>
-                        <div style={{fontSize:'36px', marginBottom:'4px'}}>📤</div>
-                        <p style={{fontSize:'13px', fontWeight:600, margin:0}}>No hay ningún archivo cargado.</p>
-                        <p style={{fontSize:'12px', color:'#94a3b8', margin:0, maxWidth:'280px'}}>
+                      <div style={{ padding: '24px', textAlign: 'center', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+                        <div style={{ fontSize: '36px', marginBottom: '4px' }}>📤</div>
+                        <p style={{ fontSize: '13px', fontWeight: 600, margin: 0 }}>No hay ningún archivo cargado.</p>
+                        <p style={{ fontSize: '12px', color: '#94a3b8', margin: 0, maxWidth: '280px' }}>
                           Selecciona un archivo PDF local para previsualizarlo y poder rellenar el formulario con IA.
                         </p>
                         <button
@@ -2257,7 +2268,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     <iframe
                       src={previewUrl}
                       title="PDF Preview"
-                      style={{width:'100%', height:'100%', border:'none', minHeight:'450px'}}
+                      style={{ width: '100%', height: '100%', border: 'none', minHeight: '450px' }}
                     />
                   )
                 })()}
@@ -2268,20 +2279,20 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
         {/* Lista de productos */}
         {currentTab === 'productos' && !showForm && (
-          <div style={{background:'white', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', overflow:'hidden'}}>
+          <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             {loading ? (
-              <div style={{padding:'60px', textAlign:'center', color:'#64748b'}}>Conectando con Supabase...</div>
+              <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>Conectando con Supabase...</div>
             ) : productos.length === 0 ? (
-              <div style={{padding:'60px', textAlign:'center'}}>
-                <div style={{fontSize:'48px', marginBottom:'12px'}}>📦</div>
-                <h3 style={{color:'#1e293b', margin:'0 0 8px'}}>No hay productos aún</h3>
-                <p style={{color:'#64748b', fontSize:'14px'}}>La migración debería haber creado los productos automáticamente. Verifica que la integración de Supabase con GitHub esté activa.</p>
+              <div style={{ padding: '60px', textAlign: 'center' }}>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>📦</div>
+                <h3 style={{ color: '#1e293b', margin: '0 0 8px' }}>No hay productos aún</h3>
+                <p style={{ color: '#64748b', fontSize: '14px' }}>La migración debería haber creado los productos automáticamente. Verifica que la integración de Supabase con GitHub esté activa.</p>
               </div>
             ) : (
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <th style={thStyle}>Producto</th>
                       <th style={thStyle}>Precio</th>
                       <th style={thStyle}>Unidad</th>
@@ -2289,18 +2300,18 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                       <th style={thStyle}>Rendimiento</th>
                       <th style={thStyle}>Densidad</th>
                       <th style={thStyle}>Nota</th>
-                      <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {productos.map(p => (
-                      <tr key={p.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
-                        <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>
+                      <tr key={p.id} style={{ borderBottom: '1px solid #f1f5f9' }} onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background = 'white')}>
+                        <td style={{ ...tdStyle, fontWeight: 600, color: '#1e293b' }}>
                           {p.nombre}
                           {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) && (() => {
                             const parsed = parseKitInfo(p.kitInfo)
                             return (
-                              <div style={{fontSize:'11px', fontWeight:400, color:'#7c3aed', marginTop:'4px'}}>
+                              <div style={{ fontSize: '11px', fontWeight: 400, color: '#7c3aed', marginTop: '4px' }}>
                                 📦 Presentaciones: {parsed.presentaciones.map((k: any) => {
                                   const partsStr = k.partes && k.partes.length > 0 ? ` [${k.partes.join('+')}L]` : ''
                                   return `${k.nombre}${partsStr} (${k.moneda === 'USD' ? '≈$' : '$'}${k.precio} ${k.moneda})`
@@ -2309,22 +2320,22 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             )
                           })()}
                           {p.proporcionesMezcla && (
-                            <div style={{fontSize:'11px', fontWeight:400, color:'#0369a1', marginTop:'2px'}}>
+                            <div style={{ fontSize: '11px', fontWeight: 400, color: '#0369a1', marginTop: '2px' }}>
                               🧪 Mezcla: {p.proporcionesMezcla}
                             </div>
                           )}
                         </td>
                         <td style={tdStyle}>
-                          <div style={{display:'flex', flexDirection:'column', gap:'2px'}}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                             <div>
-                              <span style={{fontWeight:700, color:'#166534'}}>
+                              <span style={{ fontWeight: 700, color: '#166534' }}>
                                 MXN ${p.moneda === 'USD'
                                   ? ((Number(p.precio) || 0) * tipoCambio).toFixed(2)
                                   : (Number(p.precio) || 0).toFixed(2)}
                               </span>
                             </div>
                             <div>
-                              <span style={{fontSize:'11px', color:'#0369a1', fontWeight:500}}>
+                              <span style={{ fontSize: '11px', color: '#0369a1', fontWeight: 500 }}>
                                 USD ≈${p.moneda === 'USD'
                                   ? (Number(p.precio) || 0).toFixed(2)
                                   : ((Number(p.precio) || 0) / tipoCambio).toFixed(2)}
@@ -2337,7 +2348,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           {p.kitInfo && (p.kitInfo.startsWith('[') || p.kitInfo.startsWith('{')) ? (() => {
                             const parsed = parseKitInfo(p.kitInfo)
                             return (
-                              <span style={{color: '#7c3aed', fontWeight: 600}}>
+                              <span style={{ color: '#7c3aed', fontWeight: 600 }}>
                                 {parsed.presentaciones.map((k: any) => {
                                   const partsStr = k.partes && k.partes.length > 0 ? ` (${k.partes.join('+')}L)` : ''
                                   return `${k.nombre}${partsStr}`
@@ -2345,33 +2356,33 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               </span>
                             )
                           })() : (
-                            p.kitInfo || <span style={{color:'#cbd5e1'}}>—</span>
+                            p.kitInfo || <span style={{ color: '#cbd5e1' }}>—</span>
                           )}
                         </td>
                         <td style={tdStyle}>
-                          {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{color:'#cbd5e1'}}>—</span>}
+                          {p.tieneRendimiento ? `${p.rendimiento} m²/${p.unidad}` : <span style={{ color: '#cbd5e1' }}>—</span>}
                         </td>
                         <td style={tdStyle}>
-                          {p.densidadRecomendada || <span style={{color:'#cbd5e1'}}>—</span>}
+                          {p.densidadRecomendada || <span style={{ color: '#cbd5e1' }}>—</span>}
                         </td>
-                        <td style={{...tdStyle, color:'#64748b', maxWidth:'200px'}}>
+                        <td style={{ ...tdStyle, color: '#64748b', maxWidth: '200px' }}>
                           <div>{p.nota}</div>
                           {p.bitacora && (
-                            <div style={{fontSize:'11px', color:'#7c3aed', marginTop:'4px', fontWeight:500}}>
+                            <div style={{ fontSize: '11px', color: '#7c3aed', marginTop: '4px', fontWeight: 500 }}>
                               📓 Bitácora: {p.bitacora}
                             </div>
                           )}
                         </td>
-                        <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
+                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button
                             onClick={() => handleEdit(p)}
-                            style={{padding:'4px 12px', background:'#dbeafe', color:'#1d4ed8', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer', marginRight:'8px'}}
+                            style={{ padding: '4px 12px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginRight: '8px' }}
                           >
                             ✏️ Editar
                           </button>
                           <button
                             onClick={() => handleDelete(p.id, p.nombre)}
-                            style={{padding:'4px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}
+                            style={{ padding: '4px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
                           >
                             🗑️ Eliminar
                           </button>
@@ -2395,20 +2406,20 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             border: '2px solid #a78bfa',
             marginBottom: '20px'
           }}>
-            <h2 style={{marginTop: 0, fontSize: '18px', fontWeight: 700, color: '#6d28d9', borderBottom: '1px solid #f3e8ff', paddingBottom: '12px', marginBottom: '16px'}}>
+            <h2 style={{ marginTop: 0, fontSize: '18px', fontWeight: 700, color: '#6d28d9', borderBottom: '1px solid #f3e8ff', paddingBottom: '12px', marginBottom: '16px' }}>
               {editingSistemaId ? '📝 Editar Sistema Multicapa' : '🧪 Crear Nuevo Sistema Multicapa'}
             </h2>
-            
-            <form onSubmit={handleSistemaSubmit} style={{display:'grid', gridTemplateColumns:'1fr', gap:'16px'}}>
-              <div style={{display:'grid', gridTemplateColumns:'1fr 2fr 260px', gap:'16px'}}>
+
+            <form onSubmit={handleSistemaSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 260px', gap: '16px' }}>
                 <div>
                   <label style={labelStyle}>Nombre del Sistema *</label>
                   <input
                     required
                     placeholder="Ej. Sistema Autonivelante 3mm"
                     value={sistemaFormData.nombre}
-                    onChange={e => setSistemaFormData({...sistemaFormData, nombre: e.target.value})}
-                    style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                    onChange={e => setSistemaFormData({ ...sistemaFormData, nombre: e.target.value })}
+                    style={{ ...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff' }}
                   />
                 </div>
                 <div>
@@ -2416,13 +2427,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   <input
                     placeholder="Ej. Recommended para tráfico pesado..."
                     value={sistemaFormData.descripcion}
-                    onChange={e => setSistemaFormData({...sistemaFormData, descripcion: e.target.value})}
-                    style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                    onChange={e => setSistemaFormData({ ...sistemaFormData, descripcion: e.target.value })}
+                    style={{ ...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff' }}
                   />
                 </div>
                 <div>
                   <label style={labelStyle}>Consumo por defecto *</label>
-                  <div style={{display: 'flex', gap: '8px'}}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <input
                       required
                       type="number"
@@ -2430,8 +2441,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                       min="0.001"
                       placeholder="0.25"
                       value={sistemaFormData.consumo_por_m2}
-                      onChange={e => setSistemaFormData({...sistemaFormData, consumo_por_m2: e.target.value})}
-                      style={{...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff'}}
+                      onChange={e => setSistemaFormData({ ...sistemaFormData, consumo_por_m2: e.target.value })}
+                      style={{ ...inputStyle, borderColor: '#c4b5fd', background: '#fcfaff' }}
                     />
                     <button
                       type="button"
@@ -2442,7 +2453,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           productos: prev.productos.map(p => ({ ...p, consumo_por_m2: val }))
                         }))
                       }}
-                      style={{padding: '0 10px', background: '#e9d5ff', color: '#6d28d9', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap'}}
+                      style={{ padding: '0 10px', background: '#e9d5ff', color: '#6d28d9', border: 'none', borderRadius: '8px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
                     >
                       Aplicar a todos
                     </button>
@@ -2450,36 +2461,36 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </div>
               </div>
 
-              <div style={{borderTop: '1px solid #f3e8ff', paddingTop: '16px', marginTop: '8px'}}>
-                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'}}>
-                  <h3 style={{margin: 0, fontSize: '14px', fontWeight: 700, color: '#6d28d9'}}>
+              <div style={{ borderTop: '1px solid #f3e8ff', paddingTop: '16px', marginTop: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#6d28d9' }}>
                     Componentes / Capas del Sistema
                   </h3>
                   <button
                     type="button"
                     onClick={agregarProductoAlSistema}
-                    style={{padding: '8px 16px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px'}}
+                    style={{ padding: '8px 16px', background: '#7c3aed', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                   >
                     ➕ Agregar producto al sistema
                   </button>
                 </div>
 
                 {sistemaFormData.productos.length === 0 ? (
-                  <div style={{padding: '28px', textAlign: 'center', background: '#faf5ff', borderRadius: '8px', border: '2px dashed #d8b4fe', color: '#6b21a8', fontSize: '13px'}}>
-                    <div style={{fontSize: '28px', marginBottom: '8px'}}>📦</div>
-                    <strong>Sin productos aún</strong><br/>
-                    <span style={{color: '#9333ea', fontSize: '12px'}}>Haz clic en "Agregar producto al sistema" para elegir de tu catálogo</span>
+                  <div style={{ padding: '28px', textAlign: 'center', background: '#faf5ff', borderRadius: '8px', border: '2px dashed #d8b4fe', color: '#6b21a8', fontSize: '13px' }}>
+                    <div style={{ fontSize: '28px', marginBottom: '8px' }}>📦</div>
+                    <strong>Sin productos aún</strong><br />
+                    <span style={{ color: '#9333ea', fontSize: '12px' }}>Haz clic en "Agregar producto al sistema" para elegir de tu catálogo</span>
                   </div>
                 ) : (
                   <div
-                    style={{display: 'flex', flexDirection: 'column', gap: '0px'}}
+                    style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}
                     onDragOver={e => e.preventDefault()}
                   >
                     {sistemaFormData.productos.map((prodRow, idx) => (
                       <>
                         {/* Línea indicadora ENCIMA del elemento si dropIdx === idx */}
                         {dragIdx !== null && dropIdx === idx && dragIdx !== idx && dragIdx !== idx - 1 && (
-                          <div style={{height: '3px', background: '#7c3aed', borderRadius: '2px', margin: '2px 0', transition: 'all 0.15s'}} />
+                          <div style={{ height: '3px', background: '#7c3aed', borderRadius: '2px', margin: '2px 0', transition: 'all 0.15s' }} />
                         )}
                         <div
                           key={idx}
@@ -2515,74 +2526,74 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             transition: 'border 0.1s, opacity 0.1s'
                           }}
                         >
-                        {/* Badge de orden */}
-                        <div style={{width: '28px', height: '28px', borderRadius: '50%', background: '#7c3aed', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0}}>
-                          {idx + 1}
-                        </div>
+                          {/* Badge de orden */}
+                          <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#7c3aed', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>
+                            {idx + 1}
+                          </div>
 
-                        {/* Handle de arrastre */}
-                        <div style={{color: '#a78bfa', fontSize: '16px', flexShrink: 0, userSelect: 'none'}} title="Arrastra para reordenar">
-                          ⠿
-                        </div>
+                          {/* Handle de arrastre */}
+                          <div style={{ color: '#a78bfa', fontSize: '16px', flexShrink: 0, userSelect: 'none' }} title="Arrastra para reordenar">
+                            ⠿
+                          </div>
 
-                        <div style={{flex: '1 1 auto'}}>
-                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
-                            Producto
-                          </label>
-                          <select
-                            required
-                            value={prodRow.producto_id}
-                            onChange={e => actualizarProductoEnSistema(idx, 'producto_id', e.target.value)}
-                            style={{...inputStyle, height: '34px', padding: '4px 8px', borderColor: prodRow.producto_id ? '#c4b5fd' : '#dc2626'}}
-                          >
-                            <option value="">-- Elige un producto --</option>
-                            {productos.map(p => (
-                              <option key={p.id} value={p.id}>
-                                {p.nombre} ({p.unidad})
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                          <div style={{ flex: '1 1 auto' }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px' }}>
+                              Producto
+                            </label>
+                            <select
+                              required
+                              value={prodRow.producto_id}
+                              onChange={e => actualizarProductoEnSistema(idx, 'producto_id', e.target.value)}
+                              style={{ ...inputStyle, height: '34px', padding: '4px 8px', borderColor: prodRow.producto_id ? '#c4b5fd' : '#dc2626' }}
+                            >
+                              <option value="">-- Elige un producto --</option>
+                              {productos.map(p => (
+                                <option key={p.id} value={p.id}>
+                                  {p.nombre} ({p.unidad})
+                                </option>
+                              ))}
+                            </select>
+                          </div>
 
-                        <div style={{width: '130px', flexShrink: 0}}>
-                          <label style={{fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px'}}>
-                            Consumo por m²
-                          </label>
-                          <input
-                            type="number"
-                            step="0.001"
-                            required
-                            placeholder="0.25"
-                            value={prodRow.consumo_por_m2}
-                            onChange={e => actualizarProductoEnSistema(idx, 'consumo_por_m2', e.target.value)}
-                            style={{...inputStyle, height: '34px', padding: '4px 8px'}}
-                          />
-                          {(() => {
-                            const prod = productos.find(p => p.id === prodRow.producto_id)
-                            if (!prod) return null
-                            const sugerido = calcularConsumoSugerido(prod)
-                            if (sugerido === null) return null
-                            return (
-                              <span style={{fontSize: '10px', color: '#16a34a', fontWeight: 600, display: 'block', marginTop: '3px'}}>
-                                💡 Sugerido: {sugerido} {prod.unidad}/m²
-                              </span>
-                            )
-                          })()}
-                        </div>
+                          <div style={{ width: '130px', flexShrink: 0 }}>
+                            <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px' }}>
+                              Consumo por m²
+                            </label>
+                            <input
+                              type="number"
+                              step="0.001"
+                              required
+                              placeholder="0.25"
+                              value={prodRow.consumo_por_m2}
+                              onChange={e => actualizarProductoEnSistema(idx, 'consumo_por_m2', e.target.value)}
+                              style={{ ...inputStyle, height: '34px', padding: '4px 8px' }}
+                            />
+                            {(() => {
+                              const prod = productos.find(p => p.id === prodRow.producto_id)
+                              if (!prod) return null
+                              const sugerido = calcularConsumoSugerido(prod)
+                              if (sugerido === null) return null
+                              return (
+                                <span style={{ fontSize: '10px', color: '#16a34a', fontWeight: 600, display: 'block', marginTop: '3px' }}>
+                                  💡 Sugerido: {sugerido} {prod.unidad}/m²
+                                </span>
+                              )
+                            })()}
+                          </div>
 
-                        <div style={{flexShrink: 0, paddingTop: '18px'}}>
-                          <button
-                            type="button"
-                            onClick={() => eliminarProductoDelSistema(idx)}
-                            style={{padding: '6px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 600}}
-                          >
-                            🗑️
-                          </button>
-                        </div>
+                          <div style={{ flexShrink: 0, paddingTop: '18px' }}>
+                            <button
+                              type="button"
+                              onClick={() => eliminarProductoDelSistema(idx)}
+                              style={{ padding: '6px 10px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', fontWeight: 600 }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
                         {/* Línea indicadora DEBAJO del último elemento */}
                         {dragIdx !== null && dropIdx === idx && idx === sistemaFormData.productos.length - 1 && dragIdx !== idx && (
-                          <div style={{height: '3px', background: '#7c3aed', borderRadius: '2px', margin: '2px 0'}} />
+                          <div style={{ height: '3px', background: '#7c3aed', borderRadius: '2px', margin: '2px 0' }} />
                         )}
                       </>
                     ))}
@@ -2590,11 +2601,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 )}
               </div>
 
-              <div style={{display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #f3e8ff', paddingTop: '16px', marginTop: '8px'}}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #f3e8ff', paddingTop: '16px', marginTop: '8px' }}>
                 <button
                   type="button"
                   onClick={handleSistemaCancel}
-                  style={{padding: '10px 20px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer'}}
+                  style={{ padding: '10px 20px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
                 >
                   ✕ Cancelar
                 </button>
@@ -2621,44 +2632,44 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
         {/* Lista de Sistemas */}
         {!showSistemaForm && currentTab === 'sistemas' && (
-          <div style={{background:'white', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', overflow:'hidden'}}>
+          <div style={{ background: 'white', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
             {loadingSistemas ? (
-              <div style={{padding:'60px', textAlign:'center', color:'#64748b'}}>Cargando sistemas...</div>
+              <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>Cargando sistemas...</div>
             ) : sistemas.length === 0 ? (
-              <div style={{padding:'60px', textAlign:'center'}}>
-                <div style={{fontSize:'48px', marginBottom:'12px'}}>🧪</div>
-                <h3 style={{color:'#1e293b', margin:'0 0 8px'}}>No hay sistemas multicapa aún</h3>
-                <p style={{color:'#64748b', fontSize:'14px'}}>Crea uno nuevo presionando el botón "+ Nuevo Sistema".</p>
+              <div style={{ padding: '60px', textAlign: 'center' }}>
+                <div style={{ fontSize: '48px', marginBottom: '12px' }}>🧪</div>
+                <h3 style={{ color: '#1e293b', margin: '0 0 8px' }}>No hay sistemas multicapa aún</h3>
+                <p style={{ color: '#64748b', fontSize: '14px' }}>Crea uno nuevo presionando el botón "+ Nuevo Sistema".</p>
               </div>
             ) : (
-              <div style={{overflowX:'auto'}}>
-                <table style={{width:'100%', borderCollapse:'collapse', fontSize:'13px'}}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{background:'#f8fafc', borderBottom:'1px solid #e2e8f0'}}>
+                    <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       <th style={thStyle}>Nombre del Sistema</th>
                       <th style={thStyle}>Descripción</th>
                       <th style={thStyle}>Productos Vinculados (Dosificación)</th>
-                      <th style={{...thStyle, textAlign:'right'}}>Acciones</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Acciones</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sistemas.map(sys => (
-                      <tr key={sys.id} style={{borderBottom:'1px solid #f1f5f9'}} onMouseEnter={e => (e.currentTarget.style.background='#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background='white')}>
-                        <td style={{...tdStyle, fontWeight:600, color:'#1e293b'}}>{sys.nombre}</td>
-                        <td style={{...tdStyle, color:'#64748b'}}>{sys.descripcion || 'Sin descripción'}</td>
+                      <tr key={sys.id} style={{ borderBottom: '1px solid #f1f5f9' }} onMouseEnter={e => (e.currentTarget.style.background = '#f8fafc')} onMouseLeave={e => (e.currentTarget.style.background = 'white')}>
+                        <td style={{ ...tdStyle, fontWeight: 600, color: '#1e293b' }}>{sys.nombre}</td>
+                        <td style={{ ...tdStyle, color: '#64748b' }}>{sys.descripcion || 'Sin descripción'}</td>
                         <td style={tdStyle}>
                           <SystemProductListSummary sysId={sys.id} productosDisponibles={productos} />
                         </td>
-                        <td style={{...tdStyle, textAlign:'right', whiteSpace:'nowrap'}}>
+                        <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
                           <button
                             onClick={() => handleSistemaEdit(sys)}
-                            style={{padding:'4px 12px', background:'#f5f3ff', color:'#7c3aed', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer', marginRight:'8px'}}
+                            style={{ padding: '4px 12px', background: '#f5f3ff', color: '#7c3aed', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginRight: '8px' }}
                           >
                             ✏️ Editar
                           </button>
                           <button
                             onClick={() => handleSistemaDelete(sys.id, sys.nombre)}
-                            style={{padding:'4px 12px', background:'#fee2e2', color:'#dc2626', border:'none', borderRadius:'6px', fontSize:'12px', fontWeight:700, cursor:'pointer'}}
+                            style={{ padding: '4px 12px', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}
                           >
                             🗑️ Eliminar
                           </button>
@@ -2675,14 +2686,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         {/* Footer legend */}
         {/* Pestaña de Importación Masiva por Drag & Drop */}
         {currentTab === 'migracion' && (
-          <div style={{display:'flex', flexDirection:'column', gap:'24px', animation:'fadeIn 0.3s ease'}}>
-            
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', animation: 'fadeIn 0.3s ease' }}>
+
             {/* Cabecera */}
-            <div style={{background:'white', padding:'24px', borderRadius:'12px', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', border:'1px solid #bae6fd'}}>
-              <h2 style={{margin:0, fontSize:'18px', fontWeight:700, color:'#0369a1', display:'flex', alignItems:'center', gap:'8px'}}>
+            <div style={{ background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #bae6fd' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 📥 Importación de PDFs por Lotes (Arrastrar y Soltar)
               </h2>
-              <p style={{margin:'6px 0 0', fontSize:'13px', color:'#475569', lineHeight:'1.5'}}>
+              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>
                 Sube múltiples fichas técnicas (TDS) o de seguridad (SDS) en formato PDF al mismo tiempo. El sistema las asociará a tus productos actuales de BUCA por coincidencia de nombre o propondrá la creación de nuevos productos, extrayendo la información técnica con Gemini IA.
               </p>
             </div>
@@ -2749,7 +2760,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 input.onchange = (e: any) => {
                   const files = Array.from(e.target.files || []).filter((f: any) => f.type === 'application/pdf');
                   if (files.length === 0) return;
-                  
+
                   const nuevasFilas = files.map((file: any) => {
                     const yaEnCola = colaMigracion.some(x => x.fileName === file.name && x.file.size === file.size);
                     if (yaEnCola) return null;
@@ -2780,18 +2791,18 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 input.click();
               }}
             >
-              <div style={{fontSize:'48px', marginBottom:'12px'}}>📥</div>
-              <h3 style={{margin:0, fontSize:'16px', fontWeight:700, color: isDragging ? '#0284c7' : '#0369a1'}}>
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>📥</div>
+              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: isDragging ? '#0284c7' : '#0369a1' }}>
                 {isDragging ? '¡Suelta los archivos aquí!' : 'Arrastra aquí tus archivos PDF (TDS / SDS)'}
               </h3>
-              <p style={{margin:'6px 0 0', fontSize:'13px', color:'#64748b'}}>
+              <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#64748b' }}>
                 O haz clic para seleccionar archivos desde tu computadora
               </p>
-              <div style={{marginTop:'12px', display:'flex', gap:'8px', justifyContent:'center'}}>
-                <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'3px 8px', borderRadius:'12px', border:'1px solid #bae6fd'}}>
+              <div style={{ marginTop: '12px', display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                <span style={{ background: '#f0f9ff', color: '#0369a1', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
                   📁 Autodetecta TDS / SDS
                 </span>
-                <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'3px 8px', borderRadius:'12px', border:'1px solid #bae6fd'}}>
+                <span style={{ background: '#f0f9ff', color: '#0369a1', fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '12px', border: '1px solid #bae6fd' }}>
                   🤖 Extracción Gemini
                 </span>
               </div>
@@ -2799,9 +2810,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
             {/* List of elements in queue */}
             {colaMigracion.length > 0 && (
-              <div style={{display:'flex', flexDirection:'column', gap:'16px'}}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:'1px solid #e2e8f0', paddingBottom:'8px'}}>
-                  <h3 style={{margin:0, fontSize:'14px', fontWeight:700, color:'#1e293b'}}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px' }}>
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>
                     Archivos en Proceso ({colaMigracion.filter(x => x.estado === 'guardado' || x.estado === 'completado').length}/{colaMigracion.length})
                   </h3>
                   <button
@@ -2811,7 +2822,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                         setColaMigracion([]);
                       }
                     }}
-                    style={{background:'none', border:'none', color:'#ef4444', fontSize:'12px', fontWeight:600, cursor:'pointer'}}
+                    style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
                   >
                     Limpiar lista
                   </button>
@@ -2829,19 +2840,19 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     gap: '12px',
                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02)'
                   }}>
-                    <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-                      <span style={{fontSize:'24px'}}>🚦</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '24px' }}>🚦</span>
                       <div>
-                        <h4 style={{margin:0, fontSize:'14px', fontWeight:700, color:'#14532d'}}>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#14532d' }}>
                           Revisión Preliminar de Lote (Luz Verde requerida)
                         </h4>
-                        <p style={{margin:'2px 0 0', fontSize:'12px', color:'#166534'}}>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
                           Detectamos <strong>{colaMigracion.filter(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd).length}</strong> nuevos y <strong>{colaMigracion.filter(x => x.estado === 'pre_analisis' && x.yaExisteEnBd).length}</strong> repetidos en la base de datos.
                         </p>
                       </div>
                     </div>
-                    
-                    <div style={{display:'flex', gap:'12px', flexWrap:'wrap'}}>
+
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       {colaMigracion.some(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd) && (
                         <button
                           type="button"
@@ -2867,7 +2878,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           🟢 Dar Luz Verde (Procesar Nuevos)
                         </button>
                       )}
-                      
+
                       {colaMigracion.some(x => x.estado === 'pre_analisis' && x.yaExisteEnBd) && (
                         <button
                           type="button"
@@ -2897,10 +2908,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   </div>
                 )}
 
-                <div style={{display:'flex', flexDirection:'column', gap:'12px'}}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {colaMigracion.map((item) => {
                     const esTds = item.tipoDoc === 'ficha_tecnica';
-                    
+
                     // Definir colores según estado
                     let borderColor = '#e2e8f0';
                     let bgColor = 'white';
@@ -2936,55 +2947,55 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                         }}
                       >
                         {/* Fila superior: info archivo */}
-                        <div style={{display:'flex', alignItems:'center', justifyBetween:'space-between', gap:'12px', flexWrap:'wrap', justifyContent:'space-between'}}>
-                          <div style={{display:'flex', alignItems:'center', gap:'8px', minWidth:0, flex:1}}>
-                            <span style={{fontSize:'18px', flexShrink:0}}>{esTds ? '📄' : '🛡️'}</span>
-                            <div style={{minWidth:0}}>
-                              <h4 style={{margin:0, fontSize:'13px', fontWeight:700, color:'#1e293b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}} title={item.fileName}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', gap: '12px', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
+                            <span style={{ fontSize: '18px', flexShrink: 0 }}>{esTds ? '📄' : '🛡️'}</span>
+                            <div style={{ minWidth: 0 }}>
+                              <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.fileName}>
                                 {item.fileName}
                               </h4>
-                              <span style={{fontSize:'11px', color: esTds ? '#0284c7' : '#ea580c', fontWeight:600}}>
+                              <span style={{ fontSize: '11px', color: esTds ? '#0284c7' : '#ea580c', fontWeight: 600 }}>
                                 {esTds ? 'Ficha Técnica (TDS)' : 'Hoja de Seguridad (MSDS)'}
                               </span>
                             </div>
                           </div>
 
-                          <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             {/* Producto Asociado */}
                             {item.productoAsociado ? (
-                              <span style={{background:'#f0f9ff', color:'#0369a1', fontSize:'11px', fontWeight:600, padding:'4px 8px', borderRadius:'6px', border:'1px solid #7dd3fc'}}>
+                              <span style={{ background: '#f0f9ff', color: '#0369a1', fontSize: '11px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px', border: '1px solid #7dd3fc' }}>
                                 🔗 Asociado a: {item.productoAsociado.nombre}
                               </span>
                             ) : (
-                              <span style={{background:'#fef3c7', color:'#92400e', fontSize:'11px', fontWeight:600, padding:'4px 8px', borderRadius:'6px', border:'1px solid #fde68a'}}>
+                              <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '11px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px', border: '1px solid #fde68a' }}>
                                 ✨ Crear como NUEVO
                               </span>
                             )}
 
                             {/* Indicador de Estado */}
                             {item.estado === 'pre_analisis' && (
-                              <span style={{fontSize:'11px', color: item.yaExisteEnBd ? '#b45309' : '#0369a1', fontWeight:600}}>
+                              <span style={{ fontSize: '11px', color: item.yaExisteEnBd ? '#b45309' : '#0369a1', fontWeight: 600 }}>
                                 {item.yaExisteEnBd ? '⚠️ Repetido en BD' : '⏳ Pendiente Luz Verde'}
                               </span>
                             )}
                             {item.estado === 'cola' && (
-                              <span style={{fontSize:'11px', color:'#64748b', fontWeight:600}}>⏳ En espera...</span>
+                              <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>⏳ En espera...</span>
                             )}
                             {item.estado === 'subiendo' && (
-                              <span style={{fontSize:'11px', color:'#2563eb', fontWeight:600, display:'flex', alignItems:'center', gap:'4px'}}>
-                                <div style={{width:'8px', height:'8px', border:'2px solid #2563eb', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.6s linear infinite'}} />
+                              <span style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <div style={{ width: '8px', height: '8px', border: '2px solid #2563eb', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
                                 Subiendo PDF...
                               </span>
                             )}
                             {item.estado === 'analizando' && (
-                              <span style={{fontSize:'11px', color:'#7c3aed', fontWeight:600, display:'flex', alignItems:'center', gap:'4px'}}>
-                                <div style={{width:'8px', height:'8px', border:'2px solid #7c3aed', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.6s linear infinite'}} />
+                              <span style={{ fontSize: '11px', color: '#7c3aed', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <div style={{ width: '8px', height: '8px', border: '2px solid #7c3aed', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
                                 Gemini analizando...
                               </span>
                             )}
                             {item.estado === 'error' && (
-                              <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                                <span style={{fontSize:'11px', color: item.yaExisteEnBd ? '#d97706' : '#ef4444', fontWeight:600}} title={item.errorMsg}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '11px', color: item.yaExisteEnBd ? '#d97706' : '#ef4444', fontWeight: 600 }} title={item.errorMsg}>
                                   {item.yaExisteEnBd ? '⚠️ Ya existe en BD' : '❌ Error'}
                                 </span>
                                 {item.yaExisteEnBd && (
@@ -3010,10 +3021,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               </div>
                             )}
                             {item.estado === 'guardado' && (
-                              <span style={{fontSize:'11px', color:'#16a34a', fontWeight:700}}>✅ Guardado exitosamente</span>
+                              <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>✅ Guardado exitosamente</span>
                             )}
                             {item.estado === 'completado' && (
-                              <span style={{fontSize:'11px', color:'#047857', fontWeight:700}}>🤖 Análisis listo</span>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>🤖 Análisis listo</span>
                             )}
 
                             {/* Botón de descarte individual */}
@@ -3057,8 +3068,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             alignItems: 'center',
                             marginTop: '4px'
                           }}>
-                            <div style={{display:'flex', flexDirection:'column', gap:'4px', flex:1, minWidth:'200px'}}>
-                              <label style={{fontSize:'11px', fontWeight:700, color:'#475569'}}>Asociar a Producto:</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '200px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Asociar a Producto:</label>
                               <select
                                 value={item.productoAsociado?.id || 'nuevo'}
                                 onChange={(e) => {
@@ -3067,17 +3078,17 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                   if (val !== 'nuevo') {
                                     pMatch = productos.find(x => x.id === val) || null;
                                   }
-                                  
+
                                   // Calcular de nuevo si ya existe en BD para este nuevo producto
                                   let yaExisteEnBd = false;
                                   if (pMatch) {
                                     const urlExistente = item.tipoDoc === 'ficha_tecnica' ? pMatch.ficha_tecnica_url : pMatch.ficha_seguridad_url;
                                     yaExisteEnBd = !!urlExistente;
                                   }
-                                  
-                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? { 
-                                    ...x, 
-                                    productoAsociado: pMatch, 
+
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    productoAsociado: pMatch,
                                     yaExisteEnBd,
                                     errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
                                     estado: 'pre_analisis' // Resetear a pre-analisis
@@ -3102,13 +3113,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               </select>
                             </div>
 
-                            <div style={{display:'flex', flexDirection:'column', gap:'4px', width:'200px'}}>
-                              <label style={{fontSize:'11px', fontWeight:700, color:'#475569'}}>Tipo de Documento:</label>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '200px' }}>
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Tipo de Documento:</label>
                               <select
                                 value={item.tipoDoc}
                                 onChange={(e) => {
                                   const val = e.target.value as 'ficha_tecnica' | 'ficha_seguridad';
-                                  
+
                                   // Re-calcular si ya existe en BD
                                   let yaExisteEnBd = false;
                                   if (item.productoAsociado) {
@@ -3116,8 +3127,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                     yaExisteEnBd = !!urlExistente;
                                   }
 
-                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? { 
-                                    ...x, 
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
                                     tipoDoc: val,
                                     yaExisteEnBd,
                                     errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
@@ -3161,30 +3172,30 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
                         {/* Fila inferior: datos sugeridos para revisión */}
                         {item.estado === 'completado' && item.propuesta && (
-                          <div style={{background:'#f8fafc', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0', display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'12px'}}>
-                            
-                            <div style={{gridColumn:'1 / -1', borderBottom:'1px solid #e2e8f0', paddingBottom:'6px', marginBottom:'4px', display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                              <span style={{fontSize:'12px', fontWeight:700, color:'#334155'}}>🔍 Comparación e Información Sugerida por la IA:</span>
-                              <div style={{display:'flex', gap:'8px'}}>
+                          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+
+                            <div style={{ gridColumn: '1 / -1', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>🔍 Comparación e Información Sugerida por la IA:</span>
+                              <div style={{ display: 'flex', gap: '8px' }}>
                                 <button
                                   type="button"
                                   onClick={() => aplicarPropuestaWeb(item)}
-                                  style={{padding:'4px 10px', background:'#16a34a', color:'white', border:'none', borderRadius:'4px', fontSize:'11px', fontWeight:700, cursor:'pointer'}}
+                                  style={{ padding: '4px 10px', background: '#16a34a', color: 'white', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
                                 >
                                   💾 Confirmar y Guardar en Supabase
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setColaMigracion(prev => prev.filter(x => x.id !== item.id))}
-                                  style={{padding:'4px 10px', background:'#e2e8f0', color:'#475569', border:'none', borderRadius:'4px', fontSize:'11px', fontWeight:600, cursor:'pointer'}}
+                                  style={{ padding: '4px 10px', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 600, cursor: 'pointer' }}
                                 >
                                   Descartar
                                 </button>
                               </div>
                             </div>
 
-                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Nombre extraído:</strong>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Nombre extraído:</strong>
                               <input
                                 type="text"
                                 value={item.propuesta.nombre || ''}
@@ -3198,9 +3209,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 style={editableInputStyle}
                               />
                             </div>
-                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Rendimiento:</strong>
-                              <div style={{display:'flex', alignItems:'center', gap:'6px', height:'28px'}}>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Rendimiento:</strong>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', height: '28px' }}>
                                 <input
                                   type="checkbox"
                                   checked={!!item.propuesta.tieneRendimiento}
@@ -3213,7 +3224,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                   }}
                                   id={`tiene_rend_${item.id}`}
                                 />
-                                <label htmlFor={`tiene_rend_${item.id}`} style={{fontSize:'11px', color:'#475569', cursor:'pointer'}}>¿Tiene rendimiento?</label>
+                                <label htmlFor={`tiene_rend_${item.id}`} style={{ fontSize: '11px', color: '#475569', cursor: 'pointer' }}>¿Tiene rendimiento?</label>
                               </div>
                               {item.propuesta.tieneRendimiento && (
                                 <input
@@ -3231,8 +3242,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 />
                               )}
                             </div>
-                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Espesor sugerido:</strong>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Espesor sugerido:</strong>
                               <input
                                 type="text"
                                 placeholder="Ej. 4 a 6 mils"
@@ -3247,8 +3258,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 style={editableInputStyle}
                               />
                             </div>
-                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Manos/Capas:</strong>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Manos/Capas:</strong>
                               <input
                                 type="text"
                                 placeholder="Ej. 1 a 2 manos"
@@ -3263,8 +3274,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 style={editableInputStyle}
                               />
                             </div>
-                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Densidad:</strong>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Densidad:</strong>
                               <input
                                 type="text"
                                 placeholder="Ej. 1.25 g/cm³"
@@ -3279,8 +3290,25 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 style={editableInputStyle}
                               />
                             </div>
-                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Mezcla:</strong>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#10b981' }}>Densidad Conversión:</strong>
+                              <input
+                                type="number"
+                                step="0.001"
+                                placeholder="Ej. 1.25"
+                                value={item.propuesta.densidad_conversion !== undefined ? item.propuesta.densidad_conversion : 1.0}
+                                onChange={(e) => {
+                                  const val = parseFloat(e.target.value) || 1.0;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, densidad_conversion: val }
+                                  } : x));
+                                }}
+                                style={{...editableInputStyle, borderColor: '#a7f3d0'}}
+                              />
+                            </div>
+                            <div style={{ fontSize: '12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Mezcla:</strong>
                               <input
                                 type="text"
                                 placeholder="Ej. 4:1 (A:B)"
@@ -3295,8 +3323,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 style={editableInputStyle}
                               />
                             </div>
-                            <div style={{fontSize:'12px', gridColumn:'1 / -1', display:'flex', flexDirection:'column', gap:'4px'}}>
-                              <strong style={{color:'#475569'}}>Descripción / Nota:</strong>
+                            <div style={{ fontSize: '12px', gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <strong style={{ color: '#475569' }}>Descripción / Nota:</strong>
                               <textarea
                                 placeholder="Breve descripción del producto..."
                                 value={item.propuesta.nota || ''}
@@ -3311,9 +3339,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 rows={2}
                               />
                             </div>
-                            <div style={{fontSize:'12px', gridColumn:'1 / -1', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px', background:'white', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0'}}>
-                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                                <strong style={{color:'#166534', fontSize:'11px'}}>✅ Pros:</strong>
+                            <div style={{ fontSize: '12px', gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', background: 'white', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <strong style={{ color: '#166534', fontSize: '11px' }}>✅ Pros:</strong>
                                 <input
                                   type="text"
                                   value={item.propuesta.pros || ''}
@@ -3328,8 +3356,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                   placeholder="Ventajas..."
                                 />
                               </div>
-                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                                <strong style={{color:'#9a3412', fontSize:'11px'}}>⚠️ Contras:</strong>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <strong style={{ color: '#9a3412', fontSize: '11px' }}>⚠️ Contras:</strong>
                                 <input
                                   type="text"
                                   value={item.propuesta.cons || ''}
@@ -3344,8 +3372,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                   placeholder="Limitaciones..."
                                 />
                               </div>
-                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
-                                <strong style={{color:'#991b1b', fontSize:'11px'}}>🚫 Cuidado con:</strong>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <strong style={{ color: '#991b1b', fontSize: '11px' }}>🚫 Cuidado con:</strong>
                                 <input
                                   type="text"
                                   value={item.propuesta.cuidadoCon || ''}
@@ -3364,11 +3392,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
                           </div>
                         )}
-                        
+
                         {/* Enlace de previsualización de PDF subido */}
                         {item.pdfUrl && (
-                          <div style={{fontSize:'11px', display:'flex', gap:'8px'}}>
-                            <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer" style={{color:'#0284c7', textDecoration:'none', fontWeight:600}}>
+                          <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
+                            <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>
                               📄 Ver PDF cargado en Supabase Storage →
                             </a>
                           </div>
@@ -3384,7 +3412,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           </div>
         )}
 
-        <style dangerouslySetInnerHTML={{__html: `
+        <style dangerouslySetInnerHTML={{
+          __html: `
           @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -3395,10 +3424,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           }
         `}} />
 
-        <footer style={{marginTop:'32px', padding:'24px 0 12px', borderTop:'1px solid #e2e8f0', textAlign:'center', fontSize:'12px', color:'#64748b', lineHeight:'1.6'}}>
-          <p style={{margin:0, fontWeight:700, color:'#475569'}}>⚠️ Nota Importante sobre el Tipo de Cambio:</p>
-          <p style={{margin:'4px 0 0'}}>El valor del dólar es el aproximado y el único oficial es el del Diario Oficial de la Federación (DOF).</p>
-          <p style={{margin:'4px 0 0', color:'#d97706', fontWeight:600}}>Se sugiere confirmar de manera manual antes de pasarlo así.</p>
+        <footer style={{ marginTop: '32px', padding: '24px 0 12px', borderTop: '1px solid #e2e8f0', textAlign: 'center', fontSize: '12px', color: '#64748b', lineHeight: '1.6' }}>
+          <p style={{ margin: 0, fontWeight: 700, color: '#475569' }}>⚠️ Nota Importante sobre el Tipo de Cambio:</p>
+          <p style={{ margin: '4px 0 0' }}>El valor del dólar es el aproximado y el único oficial es el del Diario Oficial de la Federación (DOF).</p>
+          <p style={{ margin: '4px 0 0', color: '#d97706', fontWeight: 600 }}>Se sugiere confirmar de manera manual antes de pasarlo así.</p>
         </footer>
 
       </div>
@@ -3483,17 +3512,17 @@ function SystemProductListSummary({ sysId, productosDisponibles }: { sysId: stri
     })
   }, [sysId])
 
-  if (loading) return <span style={{color: '#94a3b8'}}>Cargando...</span>
-  if (rels.length === 0) return <span style={{color: '#94a3b8'}}>Sin productos asignados</span>
+  if (loading) return <span style={{ color: '#94a3b8' }}>Cargando...</span>
+  if (rels.length === 0) return <span style={{ color: '#94a3b8' }}>Sin productos asignados</span>
 
   return (
-    <div style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
       {rels.map(r => {
         const prod = productosDisponibles.find(p => p.id === r.producto_id)
         return (
-          <div key={r.id} style={{fontSize: '12px'}}>
-            <span style={{fontWeight: 600, color: '#334155'}}>{prod ? prod.nombre : 'Producto desconocido'}</span>
-            <span style={{color: '#64748b'}}> (Dosificación: {r.consumo_por_m2} {prod?.unidad || 'L'}/m² · Capa {r.orden})</span>
+          <div key={r.id} style={{ fontSize: '12px' }}>
+            <span style={{ fontWeight: 600, color: '#334155' }}>{prod ? prod.nombre : 'Producto desconocido'}</span>
+            <span style={{ color: '#64748b' }}> (Dosificación: {r.consumo_por_m2} {prod?.unidad || 'L'}/m² · Capa {r.orden})</span>
           </div>
         )
       })}

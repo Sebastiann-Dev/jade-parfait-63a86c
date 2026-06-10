@@ -63,10 +63,22 @@ export function generarPDF(data: CotizacionData) {
         <td style="padding:10px 12px; font-size:13px; color:#1e293b;">
           <strong>${l.producto.nombre}</strong>
           ${l.producto.nota ? `<br><span style="font-size:11px;color:#64748b;">${l.producto.nota}</span>` : ''}
+          ${l.producto.densidad_conversion && l.producto.densidad_conversion !== 1.0 ? `<br><span style="font-size:10px;color:#059669;font-weight:500;">⚖️ Densidad de conversión: ${l.producto.densidad_conversion} kg/L</span>` : ''}
           ${docLinks ? `<br><span style="font-size:11px;margin-top:2px;display:inline-block;">${docLinks}</span>` : ''}
         </td>
         <td style="padding:10px 12px; text-align:right; font-size:13px; color:#374151;">
-          ${formatNum(l.cantidad)} ${l.producto.unidad}
+          ${(() => {
+            const dens = l.producto.densidad_conversion || 1.0;
+            const uni = l.producto.unidad.toLowerCase();
+            if (dens > 0 && dens !== 1.0) {
+              if (uni === 'kg') {
+                return `${formatNum(l.cantidad)} kg<br><span style="font-size:11px;color:#64748b;">(${formatNum(l.cantidad / dens)} L)</span>`;
+              } else if (uni === 'l' || uni === 'litro' || uni === 'litros') {
+                return `${formatNum(l.cantidad)} L<br><span style="font-size:11px;color:#64748b;">(${formatNum(l.cantidad * dens)} kg)</span>`;
+              }
+            }
+            return `${formatNum(l.cantidad)} ${l.producto.unidad}`;
+          })()}
           ${l.producto.tieneRendimiento && l.metros > 0 ? `<br><span style="font-size:11px;color:#3b82f6;">${formatNum(l.metros)} m²</span>` : ''}
         </td>
         <td style="padding:10px 12px; text-align:right; font-size:13px; color:#374151;">
