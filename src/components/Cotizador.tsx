@@ -4,6 +4,32 @@ import { PRODUCTOS, type Producto } from '../data/productos'
 import { fetchProductosSupabase, fetchSistemasSupabase, fetchSistemaProductosSupabase, type Sistema } from '../supabase'
 import { generarPDF } from '../utils/generarPDF'
 
+// Helper to decrypt preconfigured Gemini API keys
+function decryptApiKey(encryptedStr: string): string {
+  try {
+    const encryptedBytes = atob(encryptedStr);
+    const xorKey = "antigravity";
+    const decryptedChars: string[] = [];
+    for (let i = 0; i < encryptedBytes.length; i++) {
+      const byte = encryptedBytes.charCodeAt(i);
+      const keyChar = xorKey.charCodeAt(i % xorKey.length);
+      decryptedChars.push(String.fromCharCode(byte ^ keyChar));
+    }
+    return decryptedChars.join("").split("").reverse().join("");
+  } catch (e) {
+    console.error("Error decrypting API Key", e);
+    return "";
+  }
+}
+
+const OBFUSCATED_KEYS = [
+  "Bj0tWj5ALh0OPyEWWy09BDYVAQw+I1UMHDoEPSBBPkQJCwoAXC1HCxgGBTJXICZRBTNPJyg=", // Clave Principal (Ofuscada)
+  "MCYrCwEAKw4fMjAiBAAbOBgiDzY2NREDBwIqOgcEMAQ/JzlEAD0VA0IoMTVXICZRBTNPJyg="  // Clave de Respaldo (Ofuscada)
+];
+
+const PRECONFIGURED_KEYS = OBFUSCATED_KEYS.map(decryptApiKey).filter(Boolean);
+
+
 interface LineaProducto {
   id: string
   producto: Producto
@@ -77,7 +103,7 @@ export default function Cotizador() {
   const [dofCargando, setDofCargando] = useState(true)
   const [esMinorista, setEsMinorista] = useState(true)
   const [descuentoPorcentaje, setDescuentoPorcentaje] = useState(5)
-  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto>(PRODUCTOS[0])
+  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null)
   const [presentacionSeleccionada, setPresentacionSeleccionada] = useState<any>(null)
   const [metros, setMetros] = useState<string>('')
   const [cantidadManual, setCantidadManual] = useState<string>('1')
@@ -100,10 +126,142 @@ export default function Cotizador() {
   const [sistemaRels, setSistemaRels] = useState<{ id: string; producto: Producto; consumo_por_m2: number; orden: number }[]>([])
   const [loadingSistemaRels, setLoadingSistemaRels] = useState(false)
 
+  // Chat Assistant States
+  const [chatAbierto, setChatAbierto] = useState(false)
+  const [chatMensaje, setChatMensaje] = useState('')
+  const [chatHistorial, setChatHistorial] = useState<{ remitente: 'user' | 'ia'; texto: string }[]>([])
+  const [chatCargando, setChatCargando] = useState(false)
+  const [chatActiveKeyIndex, setChatActiveKeyIndex] = useState(0)
+  
+  const chatMessagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Auto-scroll chat window when new messages arrive
+  useEffect(() => {
+    if (chatMessagesEndRef.current) {
+      chatMessagesEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [chatHistorial, chatAbierto])
+
+  // Click outside and Escape handler to close the product search list
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (busquedaRef.current && !busquedaRef.current.contains(event.target as Node)) {
+        setMostrarLista(false)
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setMostrarLista(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [])
+
+  const enviarMensajeChat = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const texto = chatMensaje.trim();
+    if (!texto || chatCargando) return;
+
+    const nuevoHistorial = [...chatHistorial, { remitente: 'user' as const, texto }];
+    setChatHistorial(nuevoHistorial);
+    setChatMensaje('');
+    setChatCargando(true);
+
+    try {
+      const contextPrompt = `Eres el Asistente Técnico experto de BUCA MX. Tu objetivo es ayudar a los vendedores a resolver dudas sobre fichas técnicas, realizar conversiones (como mils a micras, litros a galones) y hacer cálculos de consumo de material.
+
+Información del producto actualmente seleccionado en el cotizador por el usuario:
+${productoSeleccionado ? `
+- Nombre: ${productoSeleccionado.nombre}
+- Descripción: ${productoSeleccionado.nota || 'No disponible'}
+- Rendimiento: ${productoSeleccionado.tieneRendimiento && productoSeleccionado.rendimiento ? `${productoSeleccionado.rendimiento} m²/${productoSeleccionado.unidad}` : 'No aplica o requiere cálculo dinámico'}
+- Espesor recomendado: ${productoSeleccionado.espesorRecomendado || 'No especificado'}
+- Manos/Capas recomendadas: ${productoSeleccionado.manosRecomendadas || 'No especificado'}
+- Densidad: ${productoSeleccionado.densidadRecomendada || 'No especificado'}
+- Proporciones de mezcla: ${productoSeleccionado.proporcionesMezcla || 'No aplica (monocomponente)'}
+- Ventajas (Pros): ${productoSeleccionado.pros || 'No especificados'}
+- Limitantes (Cons): ${productoSeleccionado.cons || 'No especificadas'}
+- Precauciones (Cuidado con): ${productoSeleccionado.cuidadoCon || 'No especificadas'}
+` : 'Ningún producto está seleccionado actualmente en la pantalla. Sugiérele al usuario seleccionar un producto de la lista para poder asesorarle con precisión técnica.'}
+
+Reglas de comportamiento:
+1. Sé conciso y técnico. Tus respuestas deben ser rápidas y al grano, ideales para un vendedor en medio de una llamada comercial.
+2. Si el usuario te pregunta por consumos para un área específica (ej. "tengo 150 m2"), calcula el volumen necesario de forma precisa dividiendo el área entre el rendimiento del producto (Área / Rendimiento) si tiene rendimiento. Si no tiene rendimiento especificado, dile amablemente cómo estimarlo o que depende de la aplicación.
+3. Si el usuario te hace preguntas sobre otros productos, pídeles amablemente que seleccionen el producto en el cotizador para poder leer su ficha técnica.
+4. NUNCA inventes especificaciones técnicas que no estén listadas arriba. Si un valor es "No especificado" o null, dile amablemente que no está registrado en la ficha actual y sugiérele verificar el documento físico o consultarlo con soporte técnico.
+5. Puedes hacer conversiones matemáticas estándar si es necesario (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).`;
+
+      const formattedContents = [
+        ...nuevoHistorial.map(h => ({
+          role: h.remitente === 'user' ? 'user' : 'model',
+          parts: [{ text: h.texto }]
+        }))
+      ];
+
+      let success = false;
+      let lastErrorMsg = '';
+
+      let currentKeyIndex = chatActiveKeyIndex;
+      for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
+        const targetIndex = (currentKeyIndex + i) % PRECONFIGURED_KEYS.length;
+        const currentKey = PRECONFIGURED_KEYS[targetIndex];
+
+        try {
+          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${currentKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: formattedContents,
+              systemInstruction: {
+                parts: [{ text: contextPrompt }]
+              }
+            })
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+          }
+
+          const resJson = await response.json();
+          const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!textResponse) {
+            throw new Error('No se recibió respuesta en texto.');
+          }
+
+          setChatActiveKeyIndex(targetIndex);
+          setChatHistorial(prev => [...prev, { remitente: 'ia', texto: textResponse }]);
+          success = true;
+          break;
+        } catch (err: any) {
+          console.warn(`Error de Gemini Assistant con Key Index ${targetIndex}:`, err.message);
+          lastErrorMsg = err.message || 'Error desconocido';
+        }
+      }
+
+      if (!success) {
+        setChatHistorial(prev => [...prev, { remitente: 'ia', texto: `❌ Error al conectar con el Asistente Técnico: ${lastErrorMsg}` }]);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setChatHistorial(prev => [...prev, { remitente: 'ia', texto: `❌ Error inesperado: ${err.message}` }]);
+    } finally {
+      setChatCargando(false);
+    }
+  };
+
   const metrosNum = parseFloat(metros) || 0
   const cantidadManualNum = parseFloat(cantidadManual) || 1
 
   const productoSeleccionadoConRendimientoDinamico = useMemo(() => {
+    if (!productoSeleccionado) return null
     const densidadNum = parseFloat(productoSeleccionado.densidadRecomendada || '0')
     const espesorNum = parseFloat(espesorMm || '0')
 
@@ -114,26 +272,13 @@ export default function Cotizador() {
     return p
   }, [productoSeleccionado, espesorMm])
 
+
   useEffect(() => {
     async function loadDatabase() {
       const dbProducts = await fetchProductosSupabase(false)
       if (dbProducts && dbProducts.length > 0) {
         setProductosDisponibles(dbProducts)
-        const first = dbProducts[0]
-        setProductoSeleccionado(first)
-        if (first.kitInfo && (first.kitInfo.startsWith('[') || first.kitInfo.startsWith('{'))) {
-          try {
-            let list: any[] = []
-            if (first.kitInfo.startsWith('{')) {
-              list = JSON.parse(first.kitInfo).presentaciones || []
-            } else {
-              list = JSON.parse(first.kitInfo) || []
-            }
-            if (list && list.length > 0) {
-              setPresentacionSeleccionada(list[0])
-            }
-          } catch (e) {}
-        }
+        // Keep productoSeleccionado as null initially so the user has to select a material explicitly.
       }
       const dbSistemas = await fetchSistemasSupabase()
       setSistemasDisponibles(dbSistemas)
@@ -534,15 +679,38 @@ export default function Cotizador() {
                     className="buca-input flex items-center justify-between cursor-pointer select-none gap-2"
                     onClick={() => setMostrarLista(!mostrarLista)}
                   >
-                    <span className="truncate text-gray-800 font-medium">{productoSeleccionado.nombre}</span>
-                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <span className={`truncate font-medium ${productoSeleccionado ? 'text-gray-800' : 'text-gray-400'}`}>
+                      {productoSeleccionado ? productoSeleccionado.nombre : 'Seleccionar un producto...'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {productoSeleccionado && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProductoSeleccionado(null);
+                            setPresentacionSeleccionada(null);
+                            setMetros('');
+                            setCantidadManual('1');
+                            setEspesorMm('');
+                          }}
+                          className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors animate-fade-in"
+                          title="Limpiar selección"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      )}
+                      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
                   </div>
-                  {productoSeleccionado.nota && (
+                  {productoSeleccionado && productoSeleccionado.nota && (
                     <p className="text-xs text-gray-400 mt-1">{productoSeleccionado.nota}</p>
                   )}
-                  {(productoSeleccionado.ficha_tecnica_url || productoSeleccionado.ficha_seguridad_url) && (
+                  {productoSeleccionado && (productoSeleccionado.ficha_tecnica_url || productoSeleccionado.ficha_seguridad_url) && (
                     <div className="mt-1.5 flex gap-2">
                       {productoSeleccionado.ficha_tecnica_url && (
                         <a
@@ -571,22 +739,33 @@ export default function Cotizador() {
 
                   {mostrarLista && (
                     <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
-                      <div className="p-2 border-b">
+                      <div className="p-2 border-b flex gap-2 items-center">
                         <input
                           autoFocus
-                          className="w-full text-sm px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-blue-400"
+                          className="flex-1 text-sm px-3 py-2 border border-gray-200 rounded-lg outline-none focus:border-blue-400"
                           placeholder="Buscar producto..."
                           value={busqueda}
                           onChange={e => setBusqueda(e.target.value)}
                           onClick={e => e.stopPropagation()}
                         />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMostrarLista(false);
+                          }}
+                          className="p-2 text-gray-400 hover:text-gray-600 font-bold text-lg leading-none select-none outline-none"
+                          title="Cerrar"
+                        >
+                          ×
+                        </button>
                       </div>
                       <ul className="max-h-64 overflow-y-auto">
-                        {productosFiltrados.map(p => (
+                        {productosFiltrados.map((p, idx) => (
                           <li
-                            key={p.nombre}
+                            key={p.id || `${p.nombre}-${idx}`}
                             className={`px-3 py-2.5 cursor-pointer hover:bg-blue-50 transition-colors ${
-                              p.nombre === productoSeleccionado.nombre ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                              productoSeleccionado && (p.id ? p.id === productoSeleccionado.id : p.nombre === productoSeleccionado.nombre) ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
                             }`}
                             onClick={() => seleccionarProducto(p)}
                           >
@@ -609,117 +788,127 @@ export default function Cotizador() {
                   )}
                 </div>
 
-                {/* Input m² o cantidad */}
-                <div>
-                  {productoSeleccionadoConRendimientoDinamico.tieneRendimiento ? (
-                    <>
-                      <label className="buca-label">Metros cuadrados (m²)</label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          className="buca-input"
-                          style={{paddingRight: '56px'}}
-                          placeholder="0"
-                          min="0"
-                          value={metros}
-                          onChange={e => setMetros(e.target.value)}
-                        />
-                        <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>m²</span>
-                      </div>
-
-                      {/* Espesor requerido para morteros/productos con densidad */}
-                      {productoSeleccionadoConRendimientoDinamico.densidadRecomendada && (
-                        <div className="mt-3">
-                          <label className="buca-label" style={{color: '#1d4ed8', fontWeight: 700}}>Espesor requerido (mm)</label>
+                {/* Placeholder o Especificaciones */}
+                {productoSeleccionadoConRendimientoDinamico ? (
+                  <>
+                    {/* Input m² o cantidad */}
+                    <div>
+                      {productoSeleccionadoConRendimientoDinamico.tieneRendimiento ? (
+                        <>
+                          <label className="buca-label">Metros cuadrados (m²)</label>
                           <div className="relative">
                             <input
                               type="number"
                               className="buca-input"
                               style={{paddingRight: '56px'}}
-                              placeholder="Ej. 6"
-                              min="0.1"
-                              step="0.5"
-                              value={espesorMm}
-                              onChange={e => setEspesorMm(e.target.value)}
+                              placeholder="0"
+                              min="0"
+                              value={metros}
+                              onChange={e => setMetros(e.target.value)}
                             />
-                            <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>mm</span>
+                            <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>m²</span>
                           </div>
-                        </div>
-                      )}
 
-                      {productoSeleccionadoConRendimientoDinamico.rendimiento && (
-                        <p className="text-xs text-gray-400 mt-1 font-medium">
-                          Rendimiento aprox: {productoSeleccionadoConRendimientoDinamico.rendimiento.toFixed(2)} m²/{productoSeleccionadoConRendimientoDinamico.unidad}
-                          {productoSeleccionadoConRendimientoDinamico.densidadRecomendada ? ` a una densidad de ${productoSeleccionadoConRendimientoDinamico.densidadRecomendada}` : ''}
-                        </p>
+                          {/* Espesor requerido para morteros/productos con densidad */}
+                          {productoSeleccionadoConRendimientoDinamico.densidadRecomendada && (
+                            <div className="mt-3">
+                              <label className="buca-label" style={{color: '#1d4ed8', fontWeight: 700}}>Espesor requerido (mm)</label>
+                              <div className="relative">
+                                <input
+                                  type="number"
+                                  className="buca-input"
+                                  style={{paddingRight: '56px'}}
+                                  placeholder="Ej. 6"
+                                  min="0.1"
+                                  step="0.5"
+                                  value={espesorMm}
+                                  onChange={e => setEspesorMm(e.target.value)}
+                                />
+                                <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>mm</span>
+                              </div>
+                            </div>
+                          )}
+
+                          {productoSeleccionadoConRendimientoDinamico.rendimiento && (
+                            <p className="text-xs text-gray-400 mt-1 font-medium">
+                              Rendimiento aprox: {productoSeleccionadoConRendimientoDinamico.rendimiento.toFixed(2)} m²/{productoSeleccionadoConRendimientoDinamico.unidad}
+                              {productoSeleccionadoConRendimientoDinamico.densidadRecomendada ? ` a una densidad de ${productoSeleccionadoConRendimientoDinamico.densidadRecomendada}` : ''}
+                            </p>
+                          )}
+                          {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco') && (
+                            <p className="text-[11px] text-gray-400 mt-0.5">
+                              (El sistema calculará cuántos sacos de {productoSeleccionadoConRendimientoDinamico.cantRef} kg se necesitan)
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <label className="buca-label">
+                            {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco') ? '¿Cuántos sacos?' : `Cantidad (${productoSeleccionadoConRendimientoDinamico.unidad})`}
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              className="buca-input"
+                              style={{paddingRight: '72px'}}
+                              placeholder={String(productoSeleccionadoConRendimientoDinamico.cantRef)}
+                              min="0"
+                              step="0.5"
+                              value={cantidadManual}
+                              onChange={e => setCantidadManual(e.target.value)}
+                            />
+                            <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>{productoSeleccionadoConRendimientoDinamico.unidad}</span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco')
+                              ? `Se vende por sacos de ${productoSeleccionadoConRendimientoDinamico.cantRef} kg`
+                              : 'Sin rendimiento por m² — ingresa la cantidad directamente'}
+                          </p>
+                        </>
                       )}
-                      {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco') && (
-                        <p className="text-[11px] text-gray-400 mt-0.5">
-                          (El sistema calculará cuántos sacos de {productoSeleccionadoConRendimientoDinamico.cantRef} kg se necesitan)
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <label className="buca-label">
-                        {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco') ? '¿Cuántos sacos?' : `Cantidad (${productoSeleccionadoConRendimientoDinamico.unidad})`}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
+                    </div>
+
+                    {/* Selector de presentación de kit si tiene */}
+                    {tienePresentacionesKit && (
+                      <div className="sm:col-span-2">
+                        <label className="buca-label" style={{color: '#7c3aed', fontWeight: 700}}>Presentación del Kit</label>
+                        <select
                           className="buca-input"
-                          style={{paddingRight: '72px'}}
-                          placeholder={String(productoSeleccionadoConRendimientoDinamico.cantRef)}
-                          min="0"
-                          step="0.5"
-                          value={cantidadManual}
-                          onChange={e => setCantidadManual(e.target.value)}
-                        />
-                        <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>{productoSeleccionadoConRendimientoDinamico.unidad}</span>
+                          style={{borderColor: '#c4b5fd', background: '#f5f3ff'}}
+                          value={presentacionSeleccionada ? JSON.stringify(presentacionSeleccionada) : ''}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            if (val) {
+                              setPresentacionSeleccionada(JSON.parse(val))
+                            } else {
+                              setPresentacionSeleccionada(null)
+                            }
+                          }}
+                        >
+                          {listaPresentacionesKit.map((pres: any, idx: number) => {
+                            const partsStr = pres.partes && pres.partes.length > 0
+                              ? ` (${pres.partes.map((p: any, i: number) => `${p}L Parte ${String.fromCharCode(65 + i)}`).join(' + ')})`
+                              : ''
+                            return (
+                              <option key={idx} value={JSON.stringify(pres)}>
+                                {pres.nombre}{partsStr} — {pres.moneda} {pres.moneda === 'USD' ? '≈$' : '$'}{pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
+                              </option>
+                            )
+                          })}
+                        </select>
                       </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {productoSeleccionadoConRendimientoDinamico.unidad.toLowerCase().includes('saco')
-                          ? `Se vende por sacos de ${productoSeleccionadoConRendimientoDinamico.cantRef} kg`
-                          : 'Sin rendimiento por m² — ingresa la cantidad directamente'}
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                {/* Selector de presentación de kit si tiene */}
-                {tienePresentacionesKit && (
-                  <div className="sm:col-span-2">
-                    <label className="buca-label" style={{color: '#7c3aed', fontWeight: 700}}>Presentación del Kit</label>
-                    <select
-                      className="buca-input"
-                      style={{borderColor: '#c4b5fd', background: '#f5f3ff'}}
-                      value={presentacionSeleccionada ? JSON.stringify(presentacionSeleccionada) : ''}
-                      onChange={(e) => {
-                        const val = e.target.value
-                        if (val) {
-                          setPresentacionSeleccionada(JSON.parse(val))
-                        } else {
-                          setPresentacionSeleccionada(null)
-                        }
-                      }}
-                    >
-                      {listaPresentacionesKit.map((pres: any, idx: number) => {
-                        const partsStr = pres.partes && pres.partes.length > 0
-                          ? ` (${pres.partes.map((p: any, i: number) => `${p}L Parte ${String.fromCharCode(65 + i)}`).join(' + ')})`
-                          : ''
-                        return (
-                          <option key={idx} value={JSON.stringify(pres)}>
-                            {pres.nombre}{partsStr} — {pres.moneda} {pres.moneda === 'USD' ? '≈$' : '$'}{pres.precio} (equiv. MXN ${(pres.moneda === 'USD' ? pres.precio * tipoCambio : pres.precio).toFixed(2)})
-                          </option>
-                        )
-                      })}
-                    </select>
+                    )}
+                  </>
+                ) : (
+                  <div className="sm:col-span-2 border border-dashed border-gray-300 bg-gray-50 rounded-xl p-6 text-center text-gray-400 flex flex-col items-center justify-center min-h-[120px]">
+                    <div className="text-2xl mb-1">👈</div>
+                    <p className="text-xs font-semibold">Busca y selecciona un producto a la izquierda para configurar su cotización.</p>
                   </div>
                 )}
               </div>
 
               {/* Preview resultado */}
-              {preview && (
+              {preview && productoSeleccionado && (
                 <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4">
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div>
@@ -743,10 +932,23 @@ export default function Cotizador() {
                 </div>
               )}
 
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProductoSeleccionado(null)
+                    setPresentacionSeleccionada(null)
+                    setMetros('')
+                    setCantidadManual('1')
+                    setEspesorMm('')
+                  }}
+                  className="px-4 py-2 text-xs font-bold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
+                >
+                  Cancelar
+                </button>
                 <button
                   onClick={agregarProducto}
-                  disabled={!preview || (productoSeleccionado.tieneRendimiento && metrosNum <= 0)}
+                  disabled={!preview || !productoSeleccionado || (productoSeleccionado.tieneRendimiento && metrosNum <= 0)}
                   className="buca-btn-primary disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   + Agregar a cotización
