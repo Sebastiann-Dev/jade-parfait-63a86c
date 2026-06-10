@@ -1308,7 +1308,7 @@ Reglas de comportamiento:
 
       {/* Chat Window Panel */}
       {chatAbierto && (
-        <div className="fixed bottom-20 right-6 w-96 max-w-[calc(100vw-2rem)] h-[550px] bg-white border border-gray-150 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 print:hidden">
+        <div className="fixed bottom-20 right-6 w-[340px] max-w-[calc(100vw-2rem)] h-[480px] bg-white border border-gray-150 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 print:hidden">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white flex justify-between items-center shadow-md">
             <div>
