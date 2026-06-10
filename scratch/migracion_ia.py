@@ -117,9 +117,10 @@ def analyze_pdf_with_gemini(pdf_base64, api_key):
         "- manosRecomendadas: string o null (número de capas o manos recomendadas, ej: \"1 a 2 manos\")\n"
         "- densidadRecomendada: string o null (densidad o peso específico, ej: \"1.25 g/cm³\")\n"
         "- pros: string o null (las 2 o 3 ventajas clave resumidas en 1 o 2 palabras cada una separadas por coma, ej: \"Rápido secado, alta resistencia\")\n"
-        "- cons: string o null (las 2 o 3 limitantes principales resumidas, ej: \"No exponer a rayos UV directos\")\n"
-        "- cuidadoCon: string o null (precauciones principales de seguridad o aplicación, ej: \"Requiere equipo autónomo, inflamable\")\n"
+        "- cons: string o null (las 2 o 3 limitantes físicas, químicas o de compatibilidad reales y específicas del producto extraídas exclusivamente del texto, por ejemplo: \"no resistente a rayos UV\", \"no mezclar con solventes\", \"sensible a la humedad\", \"no apto para inmersión constante\". CRÍTICO: No inventes ni asumas información genérica o de sentido común. Si el documento no menciona limitantes de compatibilidad o químicas específicas del producto, establece su valor como null)\n"
+        "- cuidadoCon: string o null (precauciones de seguridad o aplicación críticas y específicas de este material extraídas del texto, por ejemplo: \"irritante\", \"inflamable\", \"requiere ventilación forzada\", \"aplicar antes de 20 min\". CRÍTICO: No pongas advertencias genéricas de sentido común o generales como \"usar EPP\" o \"no ingerir\" a menos que sea un riesgo primario muy específico del texto. Si no hay advertencias de aplicación críticas y específicas en el texto, establece su valor como null)\n"
         "- proporcionesMezcla: string o null (proporción de mezcla si es kit, o de volumen A:B, ej: \"4 partes A : 1 parte B\")\n\n"
+        "REGLA DE GUARDRAIL CRÍTICA: Queda estrictamente prohibido alucinar, inventar o asumir información genérica o de sentido común. Si un dato o campo no está explícitamente mencionado en el texto de la ficha técnica/seguridad, debes establecer su valor exactamente en null.\n\n"
         "Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No incluyas bloques de código Markdown (como ```json), comentarios, ni texto introductorio."
     )
 
