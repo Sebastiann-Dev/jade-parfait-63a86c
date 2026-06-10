@@ -527,6 +527,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     let success = false;
     let lastErrorMsg = '';
     let extractedData: any = null;
+    const errorsTrace: string[] = [];
 
     let currentKeyIndex = activeKeyIndex;
     for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
@@ -619,12 +620,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         success = true;
         break;
       } catch (err: any) {
-        lastErrorMsg = err.message || 'Error desconocido';
+        const errMsg = err.message || 'Error desconocido';
+        errorsTrace.push(`Llave ${targetIndex + 1}: ❌ (${errMsg})`);
+        lastErrorMsg = errMsg;
       }
     }
 
     if (!success) {
-      throw new Error(lastErrorMsg || 'Error desconocido al consultar Gemini.');
+      throw new Error(`Todas las llaves fallaron. [Detalle: ${errorsTrace.join(' · ')}]`);
     }
 
     return extractedData;

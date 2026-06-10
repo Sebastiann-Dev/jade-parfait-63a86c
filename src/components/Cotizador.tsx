@@ -98,7 +98,7 @@ function formatNum(value: number, decimals = 2) {
   return value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: decimals })
 }
 
-async function testKey(apiKey: string): Promise<boolean> {
+async function testKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
   try {
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
@@ -109,12 +109,16 @@ async function testKey(apiKey: string): Promise<boolean> {
         contents: [{ role: 'user', parts: [{ text: "Responde unicamente con un punto: ." }] }]
       })
     });
-    if (!response.ok) return false;
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      return { success: false, error: errJson.error?.message || `HTTP ${response.status}` };
+    }
     const resJson = await response.json();
     const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    return !!textResponse && textResponse.trim().includes('.');
-  } catch (e) {
-    return false;
+    const isOk = !!textResponse && textResponse.trim().includes('.');
+    return { success: isOk, error: isOk ? undefined : 'Respuesta no contiene un punto' };
+  } catch (e: any) {
+    return { success: false, error: e.message || 'Error de conexión' };
   }
 }
 
@@ -238,16 +242,16 @@ Reglas de comportamiento:
         const currentKey = PRECONFIGURED_KEYS[targetIndex];
         console.log(`[Chat Fallback] Probando Key ${targetIndex} con consulta de prueba "."`);
         
-        const isWorking = await testKey(currentKey);
-        checkTrace.push(`Llave ${targetIndex + 1}: ${isWorking ? '🟢' : '❌'}`);
+        const testResult = await testKey(currentKey);
+        checkTrace.push(`Llave ${targetIndex + 1}: ${testResult.success ? '🟢' : `❌ (${testResult.error || 'Inactiva'})`}`);
         
-        if (isWorking) {
+        if (testResult.success) {
           activeKey = currentKey;
           activeKeyIndex = targetIndex;
           console.log(`[Chat Fallback] Key ${targetIndex} activa y seleccionada.`);
           break;
         } else {
-          console.warn(`[Chat Fallback] Key ${targetIndex} reportó error o límite de cuota.`);
+          console.warn(`[Chat Fallback] Key ${targetIndex} reportó error o límite de cuota: ${testResult.error}`);
         }
       }
 
