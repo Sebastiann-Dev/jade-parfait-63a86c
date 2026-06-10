@@ -252,7 +252,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
         try {
           console.log(`Intentando extracción con Gemini API Key (índice ${currentKeyIndex})...`)
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
+          let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -280,8 +280,41 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           })
 
           if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error?.message || `HTTP ${response.status}`)
+            const errorData = await response.json().catch(() => ({}))
+            const errorMsg = errorData.error?.message || `HTTP ${response.status}`
+            console.warn(`Error con gemini-2.5-flash: ${errorMsg}. Intentando fallback a gemini-1.5-flash...`)
+            
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                contents: [
+                  {
+                    parts: [
+                      {
+                        inlineData: {
+                          data: base64Data,
+                          mimeType: 'application/pdf'
+                        }
+                      },
+                      {
+                        text: prompt
+                      }
+                    ]
+                  }
+                ],
+                generationConfig: {
+                  responseMimeType: "application/json"
+                }
+              })
+            })
+
+            if (!response.ok) {
+              const errorDataFallback = await response.json().catch(() => ({}))
+              throw new Error(errorDataFallback.error?.message || `HTTP ${response.status}`)
+            }
           }
 
           const resJson = await response.json()
@@ -495,7 +528,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       const currentKey = PRECONFIGURED_KEYS[targetIndex];
 
       try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
+        let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -523,8 +556,41 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         });
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+          const errorData = await response.json().catch(() => ({}));
+          const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
+          console.warn(`Error con gemini-2.5-flash: ${errorMsg}. Intentando fallback a gemini-1.5-flash...`);
+
+          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [
+                    {
+                      inlineData: {
+                        data: base64Data,
+                        mimeType: 'application/pdf'
+                      }
+                    },
+                    {
+                      text: prompt
+                    }
+                  ]
+                }
+              ],
+              generationConfig: {
+                responseMimeType: "application/json"
+              }
+            })
+          });
+
+          if (!response.ok) {
+            const errorDataFallback = await response.json().catch(() => ({}));
+            throw new Error(errorDataFallback.error?.message || `HTTP ${response.status}`);
+          }
         }
 
         const resJson = await response.json();

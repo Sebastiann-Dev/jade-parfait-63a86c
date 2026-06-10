@@ -109,7 +109,7 @@ def analyze_pdf_with_gemini(pdf_base64, api_key):
     prompt = (
         "Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. "
         "Devuelve un objeto JSON con las siguientes claves (y los tipos de datos correspondientes):\n"
-        "- nombre: string (nombre comercial corto del producto, ej. BucaTrafic, sin marcas como ®, TM)\n"
+        "- nombre: string (nombre comercial corto del producto, ej. BucaTrafic, sin marcas como ® TM)\n"
         "- nota: string (breve descripción de una línea de para qué sirve o qué es, ej. Pintura epóxica de altos sólidos para tráfico vehicular)\n"
         "- tieneRendimiento: boolean (true si se menciona rendimiento por m² o consumo por m²)\n"
         "- rendimiento: number o null (si tieneRendimiento es true, extrae el rendimiento promedio en m² por litro o por kilogramo. Por ejemplo, si dice \"rendimiento de 4 a 6 m²/L\", extrae 5. Si no aplica, null)\n"
@@ -155,19 +155,52 @@ def analyze_pdf_with_gemini(pdf_base64, api_key):
         with urllib.request.urlopen(req, timeout=60) as response:
             res_json = json.loads(response.read().decode('utf-8'))
             text_response = res_json['candidates'][0]['content']['parts'][0]['text']
-            
-            clean_text = text_response.strip()
-            if clean_text.startswith("```"):
-                clean_text = clean_text.replace("```json", "", 1).replace("```", "").strip()
-                
-            return json.loads(clean_text)
     except urllib.error.HTTPError as e:
-        if e.code == 429:
-            raise Exception("RATE_LIMIT_ERROR")
-        else:
-            raise Exception(f"HTTP_{e.code}: {e.read().decode('utf-8')}")
+        print(f"⚠️ Error con gemini-2.5-flash (HTTP {e.code}). Intentando fallback a gemini-1.5-flash...")
+        fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        try:
+            req_fallback = urllib.request.Request(
+                fallback_url, 
+                data=json.dumps(payload).encode('utf-8'),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req_fallback, timeout=60) as response:
+                res_json = json.loads(response.read().decode('utf-8'))
+                text_response = res_json['candidates'][0]['content']['parts'][0]['text']
+        except urllib.error.HTTPError as e_fallback:
+            if e_fallback.code == 429:
+                raise Exception("RATE_LIMIT_ERROR")
+            else:
+                raise Exception(f"HTTP_{e_fallback.code}: {e_fallback.read().decode('utf-8')}")
+        except Exception as e_fallback:
+            raise Exception(f"Gemini Fallback API Error: {e_fallback}")
     except Exception as e:
-        raise Exception(f"Gemini API Error: {e}")
+        print(f"⚠️ Error general con gemini-2.5-flash ({e}). Intentando fallback a gemini-1.5-flash...")
+        fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        try:
+            req_fallback = urllib.request.Request(
+                fallback_url, 
+                data=json.dumps(payload).encode('utf-8'),
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req_fallback, timeout=60) as response:
+                res_json = json.loads(response.read().decode('utf-8'))
+                text_response = res_json['candidates'][0]['content']['parts'][0]['text']
+        except urllib.error.HTTPError as e_fallback:
+            if e_fallback.code == 429:
+                raise Exception("RATE_LIMIT_ERROR")
+            else:
+                raise Exception(f"HTTP_{e_fallback.code}: {e_fallback.read().decode('utf-8')}")
+        except Exception as e_fallback:
+            raise Exception(f"Gemini Fallback API Error: {e_fallback}")
+
+    clean_text = text_response.strip()
+    if clean_text.startswith("```"):
+        clean_text = clean_text.replace("```json", "", 1).replace("```", "").strip()
+        
+    return json.loads(clean_text)
 
 def encontrar_producto_por_archivo(filename, productos):
     """Busca coincidencias heurísticas entre el nombre del archivo PDF y los productos en Supabase."""
