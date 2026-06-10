@@ -353,6 +353,7 @@ Reglas de comportamiento:
   }, [busqueda, productosDisponibles])
 
   const preview = useMemo(() => {
+    if (!productoSeleccionadoConRendimientoDinamico) return null
     if (metrosNum <= 0 && !productoSeleccionadoConRendimientoDinamico.tieneRendimiento && cantidadManualNum <= 0) return null
     return calcularLinea(productoSeleccionadoConRendimientoDinamico, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada, estadoPiso)
   }, [productoSeleccionadoConRendimientoDinamico, metrosNum, cantidadManualNum, esMinorista, tipoCambio, descuentoPorcentaje, presentacionSeleccionada, estadoPiso])
