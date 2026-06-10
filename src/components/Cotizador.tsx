@@ -289,9 +289,13 @@ Reglas de comportamiento:
       setChatHistorial(prev => [...prev, { remitente: 'ia', texto: textResponse, hora: horaResponse }]);
       success = true;
     } catch (err: any) {
-      console.error(err);
+      console.error("Error completo de Gemini:", err);
       const horaError = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-      setChatHistorial(prev => [...prev, { remitente: 'ia', texto: `❌ Error al conectar con el Asistente Técnico: ${err.message}`, hora: horaError }]);
+      setChatHistorial(prev => [...prev, { 
+        remitente: 'ia', 
+        texto: `❌ Error al conectar con el Asistente Técnico: Todas las API Keys de Gemini han alcanzado su límite de cuota.`, 
+        hora: horaError 
+      }]);
     } finally {
       setChatCargando(false);
     }
