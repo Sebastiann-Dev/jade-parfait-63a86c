@@ -230,6 +230,7 @@ Reglas de comportamiento:
       let lastErrorMsg = 'Todas las llaves están saturadas o inactivas.';
       let activeKey: string | null = null;
       let activeKeyIndex = chatActiveKeyIndex;
+      const checkTrace: string[] = [];
 
       // Sistema por capas (pre-flight check): verificar con una consulta barata "." si la key está activa
       for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
@@ -238,6 +239,8 @@ Reglas de comportamiento:
         console.log(`[Chat Fallback] Probando Key ${targetIndex} con consulta de prueba "."`);
         
         const isWorking = await testKey(currentKey);
+        checkTrace.push(`Llave ${targetIndex + 1}: ${isWorking ? '🟢' : '❌'}`);
+        
         if (isWorking) {
           activeKey = currentKey;
           activeKeyIndex = targetIndex;
@@ -249,7 +252,7 @@ Reglas de comportamiento:
       }
 
       if (!activeKey) {
-        throw new Error("Todas las API Keys de Gemini han alcanzado su límite de cuota (RPM/RPD). Por favor, intenta de nuevo en un minuto.");
+        throw new Error(`Todas las API Keys de Gemini han alcanzado su límite de cuota (RPM/RPD). [Diagnóstico: ${checkTrace.join(' · ')}]. Por favor, intenta de nuevo en un minuto.`);
       }
 
       // Procedemos a hacer la consulta real usando la key que pasó la verificación
