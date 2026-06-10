@@ -634,6 +634,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         motivo_incompleto: null
       };
 
+      // Safe conversions for edited values
+      payload.tieneRendimiento = !!payload.tieneRendimiento;
+      if (payload.tieneRendimiento && payload.rendimiento !== '' && payload.rendimiento !== null && payload.rendimiento !== undefined) {
+        payload.rendimiento = parseFloat(payload.rendimiento) || null;
+      } else {
+        payload.rendimiento = null;
+      }
+
       if (item.tipoDoc === 'ficha_tecnica') {
         payload.ficha_tecnica_url = item.pdfUrl || '';
       } else {
@@ -3166,46 +3174,182 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               </div>
                             </div>
 
-                            <div style={{fontSize:'12px'}}>
+                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Nombre extraído:</strong>
-                              <div style={{fontSize:'13px', fontWeight:600, color:'#1e293b'}}>{item.propuesta.nombre}</div>
+                              <input
+                                type="text"
+                                value={item.propuesta.nombre || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, nombre: val }
+                                  } : x));
+                                }}
+                                style={editableInputStyle}
+                              />
                             </div>
-                            <div style={{fontSize:'12px'}}>
+                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Rendimiento:</strong>
-                              <div style={{fontSize:'13px'}}>{item.propuesta.tieneRendimiento ? `${item.propuesta.rendimiento} m²/L` : 'No aplica'}</div>
+                              <div style={{display:'flex', alignItems:'center', gap:'6px', height:'28px'}}>
+                                <input
+                                  type="checkbox"
+                                  checked={!!item.propuesta.tieneRendimiento}
+                                  onChange={(e) => {
+                                    const val = e.target.checked;
+                                    setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                      ...x,
+                                      propuesta: { ...x.propuesta, tieneRendimiento: val, rendimiento: val ? (x.propuesta.rendimiento || '') : null }
+                                    } : x));
+                                  }}
+                                  id={`tiene_rend_${item.id}`}
+                                />
+                                <label htmlFor={`tiene_rend_${item.id}`} style={{fontSize:'11px', color:'#475569', cursor:'pointer'}}>¿Tiene rendimiento?</label>
+                              </div>
+                              {item.propuesta.tieneRendimiento && (
+                                <input
+                                  type="text"
+                                  placeholder="Ej. 3.5"
+                                  value={item.propuesta.rendimiento || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                      ...x,
+                                      propuesta: { ...x.propuesta, rendimiento: val }
+                                    } : x));
+                                  }}
+                                  style={editableInputStyle}
+                                />
+                              )}
                             </div>
-                            <div style={{fontSize:'12px'}}>
+                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Espesor sugerido:</strong>
-                              <div style={{fontSize:'13px'}}>{item.propuesta.espesorRecomendado || '—'}</div>
+                              <input
+                                type="text"
+                                placeholder="Ej. 4 a 6 mils"
+                                value={item.propuesta.espesorRecomendado || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, espesorRecomendado: val }
+                                  } : x));
+                                }}
+                                style={editableInputStyle}
+                              />
                             </div>
-                            <div style={{fontSize:'12px'}}>
+                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Manos/Capas:</strong>
-                              <div style={{fontSize:'13px'}}>{item.propuesta.manosRecomendadas || '—'}</div>
+                              <input
+                                type="text"
+                                placeholder="Ej. 1 a 2 manos"
+                                value={item.propuesta.manosRecomendadas || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, manosRecomendadas: val }
+                                  } : x));
+                                }}
+                                style={editableInputStyle}
+                              />
                             </div>
-                            <div style={{fontSize:'12px'}}>
+                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Densidad:</strong>
-                              <div style={{fontSize:'13px'}}>{item.propuesta.densidadRecomendada || '—'}</div>
+                              <input
+                                type="text"
+                                placeholder="Ej. 1.25 g/cm³"
+                                value={item.propuesta.densidadRecomendada || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, densidadRecomendada: val }
+                                  } : x));
+                                }}
+                                style={editableInputStyle}
+                              />
                             </div>
-                            <div style={{fontSize:'12px'}}>
+                            <div style={{fontSize:'12px', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Mezcla:</strong>
-                              <div style={{fontSize:'13px'}}>{item.propuesta.proporcionesMezcla || '—'}</div>
+                              <input
+                                type="text"
+                                placeholder="Ej. 4:1 (A:B)"
+                                value={item.propuesta.proporcionesMezcla || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, proporcionesMezcla: val }
+                                  } : x));
+                                }}
+                                style={editableInputStyle}
+                              />
                             </div>
-                            <div style={{fontSize:'12px', gridColumn:'1 / -1'}}>
+                            <div style={{fontSize:'12px', gridColumn:'1 / -1', display:'flex', flexDirection:'column', gap:'4px'}}>
                               <strong style={{color:'#475569'}}>Descripción / Nota:</strong>
-                              <div style={{fontSize:'12px', color:'#334155'}}>{item.propuesta.nota || '—'}</div>
+                              <textarea
+                                placeholder="Breve descripción del producto..."
+                                value={item.propuesta.nota || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                    ...x,
+                                    propuesta: { ...x.propuesta, nota: val }
+                                  } : x));
+                                }}
+                                style={editableTextareaStyle}
+                                rows={2}
+                              />
                             </div>
-                            <div style={{fontSize:'12px', gridColumn:'1 / -1', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'8px', background:'white', padding:'8px', borderRadius:'6px', border:'1px solid #f1f5f9'}}>
-                              <div>
+                            <div style={{fontSize:'12px', gridColumn:'1 / -1', display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'12px', background:'white', padding:'12px', borderRadius:'8px', border:'1px solid #e2e8f0'}}>
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <strong style={{color:'#166534', fontSize:'11px'}}>✅ Pros:</strong>
-                                <div style={{fontSize:'11px', color:'#14532d'}}>{item.propuesta.pros || '—'}</div>
+                                <input
+                                  type="text"
+                                  value={item.propuesta.pros || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                      ...x,
+                                      propuesta: { ...x.propuesta, pros: val }
+                                    } : x));
+                                  }}
+                                  style={editableInputStyle}
+                                  placeholder="Ventajas..."
+                                />
                               </div>
-                              <div>
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <strong style={{color:'#9a3412', fontSize:'11px'}}>⚠️ Contras:</strong>
-                                <div style={{fontSize:'11px', color:'#7c2d12'}}>{item.propuesta.cons || '—'}</div>
+                                <input
+                                  type="text"
+                                  value={item.propuesta.cons || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                      ...x,
+                                      propuesta: { ...x.propuesta, cons: val }
+                                    } : x));
+                                  }}
+                                  style={editableInputStyle}
+                                  placeholder="Limitaciones..."
+                                />
                               </div>
-                              <div>
+                              <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                                 <strong style={{color:'#991b1b', fontSize:'11px'}}>🚫 Cuidado con:</strong>
-                                <div style={{fontSize:'11px', color:'#7f1d1d'}}>{item.propuesta.cuidadoCon || '—'}</div>
+                                <input
+                                  type="text"
+                                  value={item.propuesta.cuidadoCon || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setColaMigracion(prev => prev.map(x => x.id === item.id ? {
+                                      ...x,
+                                      propuesta: { ...x.propuesta, cuidadoCon: val }
+                                    } : x));
+                                  }}
+                                  style={editableInputStyle}
+                                  placeholder="Precauciones..."
+                                />
                               </div>
                             </div>
 
@@ -3289,6 +3433,34 @@ const tdStyle: React.CSSProperties = {
   padding: '10px 16px',
   color: '#374151',
   transition: 'background 0.15s'
+}
+
+const editableInputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '6px 10px',
+  border: '1px solid #cbd5e1',
+  borderRadius: '6px',
+  fontSize: '12px',
+  color: '#1e293b',
+  background: 'white',
+  boxSizing: 'border-box',
+  outline: 'none',
+  fontFamily: 'inherit'
+}
+
+const editableTextareaStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '6px 10px',
+  border: '1px solid #cbd5e1',
+  borderRadius: '6px',
+  fontSize: '12px',
+  color: '#1e293b',
+  background: 'white',
+  boxSizing: 'border-box',
+  outline: 'none',
+  fontFamily: 'inherit',
+  minHeight: '42px',
+  resize: 'vertical'
 }
 
 function SystemProductListSummary({ sysId, productosDisponibles }: { sysId: string; productosDisponibles: any[] }) {
