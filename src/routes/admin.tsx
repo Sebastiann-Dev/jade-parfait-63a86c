@@ -1588,19 +1588,19 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 {/* Especificaciones técnicas */}
                 <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px' }}>
                   <div>
-                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Espesor Recomendado</label>
+                    <label style={{ ...labelStyle, color: '#1d4ed8', minHeight: '32px' }}>Espesor Recomendado</label>
                     <input placeholder="Ej. 4 a 6 milésimas" value={formData.espesorRecomendado || ''} onChange={e => setFormData({ ...formData, espesorRecomendado: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} />
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Manos / Pasadas Recomendadas</label>
+                    <label style={{ ...labelStyle, color: '#1d4ed8', minHeight: '32px' }}>Manos / Pasadas Recomendadas</label>
                     <input placeholder="Ej. 1 a 2 manos" value={formData.manosRecomendadas || ''} onChange={e => setFormData({ ...formData, manosRecomendadas: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} />
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, color: '#1d4ed8' }}>Densidad Recomendada</label>
+                    <label style={{ ...labelStyle, color: '#1d4ed8', minHeight: '32px' }}>Densidad Recomendada</label>
                     <input placeholder="Ej. 1.8 kg/L" value={formData.densidadRecomendada || ''} onChange={e => setFormData({ ...formData, densidadRecomendada: e.target.value })} style={{ ...inputStyle, borderColor: '#93c5fd', background: '#eff6ff' }} />
                   </div>
                   <div>
-                    <label style={{ ...labelStyle, color: '#10b981' }}>Densidad Conversión (kg/L) ⚖️</label>
+                    <label style={{ ...labelStyle, color: '#10b981', minHeight: '32px' }}>Densidad Para Conversión</label>
                     <input type="number" step="0.001" placeholder="Ej. 1.25" value={formData.densidad_conversion !== undefined ? formData.densidad_conversion : ''} onChange={e => setFormData({ ...formData, densidad_conversion: e.target.value })} style={{ ...inputStyle, borderColor: '#a7f3d0', background: '#ecfdf5' }} />
                   </div>
                 </div>
