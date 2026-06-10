@@ -6,7 +6,7 @@ import sys
 
 # Configuración de Supabase
 SUPABASE_URL = "https://flefgvaddvviayctxoou.supabase.co"
-SUPABASE_KEY = "sb_publishable_Fo02EzvNfNgQqcUkwLu6mQ_D4JqCodp"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZsZWZndmFkZHZ2aWF5Y3R4b291Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0OTEwMTMsImV4cCI6MjA5NjA2NzAxM30.EPRo18AsngfUF69RjO-RwuMeYHee1eSPPJtTRJ-vHqo"
 PRODUCTS_API_URL = f"{SUPABASE_URL}/rest/v1/productos"
 
 SUPABASE_HEADERS = {
