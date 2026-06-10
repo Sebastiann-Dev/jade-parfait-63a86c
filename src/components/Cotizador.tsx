@@ -98,6 +98,26 @@ function formatNum(value: number, decimals = 2) {
   return value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: decimals })
 }
 
+async function testKey(apiKey: string): Promise<boolean> {
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: "Responde unicamente con un punto: ." }] }]
+      })
+    });
+    if (!response.ok) return false;
+    const resJson = await response.json();
+    const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+    return !!textResponse && textResponse.trim().includes('.');
+  } catch (e) {
+    return false;
+  }
+}
+
 export default function Cotizador() {
   const [productosDisponibles, setProductosDisponibles] = useState<Producto[]>(PRODUCTOS)
   const [tipoCambio, setTipoCambio] = useState(17.5)
@@ -131,7 +151,7 @@ export default function Cotizador() {
   // Chat Assistant States
   const [chatAbierto, setChatAbierto] = useState(false)
   const [chatMensaje, setChatMensaje] = useState('')
-  const [chatHistorial, setChatHistorial] = useState<{ remitente: 'user' | 'ia'; texto: string }[]>([])
+  const [chatHistorial, setChatHistorial] = useState<{ remitente: 'user' | 'ia'; texto: string; hora: string }[]>([])
   const [chatCargando, setChatCargando] = useState(false)
   const [chatActiveKeyIndex, setChatActiveKeyIndex] = useState(0)
   
@@ -169,7 +189,8 @@ export default function Cotizador() {
     const texto = chatMensaje.trim();
     if (!texto || chatCargando) return;
 
-    const nuevoHistorial = [...chatHistorial, { remitente: 'user' as const, texto }];
+    const horaActual = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    const nuevoHistorial = [...chatHistorial, { remitente: 'user' as const, texto, hora: horaActual }];
     setChatHistorial(nuevoHistorial);
     setChatMensaje('');
     setChatCargando(true);
@@ -206,54 +227,64 @@ Reglas de comportamiento:
       ];
 
       let success = false;
-      let lastErrorMsg = '';
+      let lastErrorMsg = 'Todas las llaves están saturadas o inactivas.';
+      let activeKey: string | null = null;
+      let activeKeyIndex = chatActiveKeyIndex;
 
-      let currentKeyIndex = chatActiveKeyIndex;
+      // Sistema por capas (pre-flight check): verificar con una consulta barata "." si la key está activa
       for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
-        const targetIndex = (currentKeyIndex + i) % PRECONFIGURED_KEYS.length;
+        const targetIndex = (chatActiveKeyIndex + i) % PRECONFIGURED_KEYS.length;
         const currentKey = PRECONFIGURED_KEYS[targetIndex];
-
-        try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${currentKey}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              contents: formattedContents,
-              systemInstruction: {
-                parts: [{ text: contextPrompt }]
-              }
-            })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-          }
-
-          const resJson = await response.json();
-          const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!textResponse) {
-            throw new Error('No se recibió respuesta en texto.');
-          }
-
-          setChatActiveKeyIndex(targetIndex);
-          setChatHistorial(prev => [...prev, { remitente: 'ia', texto: textResponse }]);
-          success = true;
+        console.log(`[Chat Fallback] Probando Key ${targetIndex} con consulta de prueba "."`);
+        
+        const isWorking = await testKey(currentKey);
+        if (isWorking) {
+          activeKey = currentKey;
+          activeKeyIndex = targetIndex;
+          console.log(`[Chat Fallback] Key ${targetIndex} activa y seleccionada.`);
           break;
-        } catch (err: any) {
-          console.warn(`Error de Gemini Assistant con Key Index ${targetIndex}:`, err.message);
-          lastErrorMsg = err.message || 'Error desconocido';
+        } else {
+          console.warn(`[Chat Fallback] Key ${targetIndex} reportó error o límite de cuota.`);
         }
       }
 
-      if (!success) {
-        setChatHistorial(prev => [...prev, { remitente: 'ia', texto: `❌ Error al conectar con el Asistente Técnico: ${lastErrorMsg}` }]);
+      if (!activeKey) {
+        throw new Error("Todas las API Keys de Gemini han alcanzado su límite de cuota (RPM/RPD). Por favor, intenta de nuevo en un minuto.");
       }
+
+      // Procedemos a hacer la consulta real usando la key que pasó la verificación
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${activeKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          contents: formattedContents,
+          systemInstruction: {
+            parts: [{ text: contextPrompt }]
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+      }
+
+      const resJson = await response.json();
+      const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!textResponse) {
+        throw new Error('No se recibió respuesta en texto.');
+      }
+
+      setChatActiveKeyIndex(activeKeyIndex);
+      const horaResponse = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      setChatHistorial(prev => [...prev, { remitente: 'ia', texto: textResponse, hora: horaResponse }]);
+      success = true;
     } catch (err: any) {
       console.error(err);
-      setChatHistorial(prev => [...prev, { remitente: 'ia', texto: `❌ Error inesperado: ${err.message}` }]);
+      const horaError = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      setChatHistorial(prev => [...prev, { remitente: 'ia', texto: `❌ Error al conectar con el Asistente Técnico: ${err.message}`, hora: horaError }]);
     } finally {
       setChatCargando(false);
     }
@@ -1356,7 +1387,7 @@ Reglas de comportamiento:
               chatHistorial.map((msg, idx) => (
                 <div
                   key={idx}
-                  className={`flex ${msg.remitente === 'user' ? 'justify-end' : 'justify-start'}`}
+                  className={`flex flex-col ${msg.remitente === 'user' ? 'items-end' : 'items-start'}`}
                 >
                   <div
                     className={`max-w-[85%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed ${
@@ -1367,6 +1398,9 @@ Reglas de comportamiento:
                   >
                     {msg.texto}
                   </div>
+                  <span className="text-[9px] text-gray-400 mt-1 px-1.5 select-none">
+                    {msg.hora}
+                  </span>
                 </div>
               ))
             )}
