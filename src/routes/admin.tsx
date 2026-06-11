@@ -116,6 +116,127 @@ function getMaskedKey(key: string): string {
   return `${key.substring(0, 7)}••••••••••••${key.substring(key.length - 4)}`;
 }
 
+interface SearchableProductSelectProps {
+  productos: any[]
+  value: string
+  onChange: (value: string) => void
+  error?: boolean
+  inputStyle?: React.CSSProperties
+}
+
+function SearchableProductSelect({ productos, value, onChange, error, inputStyle }: SearchableProductSelectProps) {
+  const [query, setQuery] = useState('')
+  const [isOpen, setIsOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const selectedProduct = useMemo(() => {
+    return productos.find(p => p.id === value)
+  }, [productos, value])
+
+  useEffect(() => {
+    if (!isOpen) {
+      setQuery(selectedProduct ? selectedProduct.nombre : '')
+    }
+  }, [selectedProduct, isOpen])
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim()
+    if (!q) return productos
+    return productos.filter(p => p.nombre.toLowerCase().includes(q) || (p.nota && p.nota.toLowerCase().includes(q)))
+  }, [productos, query])
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
+      <input
+        type="text"
+        placeholder="Escribe para buscar..."
+        value={query}
+        onFocus={() => {
+          setIsOpen(true)
+          setQuery('')
+        }}
+        onChange={e => {
+          setQuery(e.target.value)
+          setIsOpen(true)
+        }}
+        style={{
+          ...inputStyle,
+          width: '100%',
+          borderColor: error ? '#dc2626' : (isOpen ? '#a78bfa' : '#c4b5fd'),
+          background: '#fcfaff',
+          cursor: 'text',
+          borderStyle: 'solid',
+          borderWidth: '1px',
+          borderRadius: '8px',
+          outline: 'none'
+        }}
+      />
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: '100%',
+          left: 0,
+          right: 0,
+          zIndex: 9999,
+          background: 'white',
+          border: '1px solid #e2e8f0',
+          borderRadius: '8px',
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+          maxHeight: '200px',
+          overflowY: 'auto',
+          marginTop: '4px'
+        }}>
+          {filtered.length === 0 ? (
+            <div style={{ padding: '8px 12px', color: '#64748b', fontSize: '12px', fontStyle: 'italic' }}>
+              No se encontraron productos
+            </div>
+          ) : (
+            <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+              {filtered.map(p => (
+                <li
+                  key={p.id}
+                  onClick={() => {
+                    onChange(p.id || '')
+                    setQuery(p.nombre)
+                    setIsOpen(false)
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '12px',
+                    color: '#1e293b',
+                    cursor: 'pointer',
+                    background: p.id === value ? '#f3e8ff' : 'white',
+                    borderBottom: '1px solid #f1f5f9',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '2px',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f5f3ff'}
+                  onMouseLeave={e => e.currentTarget.style.background = p.id === value ? '#f3e8ff' : 'white'}
+                >
+                  <div style={{ fontWeight: 600 }}>{p.nombre} ({p.unidad})</div>
+                  {p.nota && <div style={{ fontSize: '10px', color: '#64748b' }}>{p.nota}</div>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AdminPage() {
   const fileInputTdsRef = useRef<HTMLInputElement>(null)
   const fileInputSdsRef = useRef<HTMLInputElement>(null)
@@ -2692,19 +2813,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             <label style={{ fontSize: '11px', fontWeight: 600, color: '#6b21a8', display: 'block', marginBottom: '4px' }}>
                               Producto
                             </label>
-                            <select
-                              required
+                            <SearchableProductSelect
+                              productos={productos}
                               value={prodRow.producto_id}
-                              onChange={e => actualizarProductoEnSistema(idx, 'producto_id', e.target.value)}
-                              style={{ ...inputStyle, height: '34px', padding: '4px 8px', borderColor: prodRow.producto_id ? '#c4b5fd' : '#dc2626' }}
-                            >
-                              <option value="">-- Elige un producto --</option>
-                              {productos.map(p => (
-                                <option key={p.id} value={p.id}>
-                                  {p.nombre} ({p.unidad})
-                                </option>
-                              ))}
-                            </select>
+                              onChange={val => actualizarProductoEnSistema(idx, 'producto_id', val)}
+                              error={!prodRow.producto_id}
+                              inputStyle={inputStyle}
+                            />
                           </div>
 
                           <div style={{ width: '130px', flexShrink: 0 }}>
