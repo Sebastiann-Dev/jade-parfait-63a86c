@@ -166,7 +166,12 @@ export default function Cotizador() {
   const [chatCargando, setChatCargando] = useState(false)
   const [chatActiveKeyIndex, setChatActiveKeyIndex] = useState(0)
   const [mostrarClipMenu, setMostrarClipMenu] = useState(false)
-  const [citadoProducto, setCitadoProducto] = useState<Producto | null>(null)
+  const [clipMenuTab, setClipMenuTab] = useState<'productos' | 'sistemas'>('productos')
+  const [citadosProductos, setCitadosProductos] = useState<Producto[]>([])
+  const [citadoSistema, setCitadoSistema] = useState<Sistema | null>(null)
+  
+  // Systems visualization layer state
+  const [capaActivaIndex, setCapaActivaIndex] = useState<number | null>(null)
   
   const chatMessagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -230,17 +235,41 @@ ${productosDisponibles.map(p => `
 
 INFORMACIÓN DE SELECCIÓN Y CITACIÓN DE PRODUCTOS EN TIEMPO REAL:
 - Producto SELECCIONADO en el cotizador principal: ${productoSeleccionado ? productoSeleccionado.nombre : 'Ninguno'}
-- Producto CITADO en el chat (por el clip): ${citadoProducto ? citadoProducto.nombre : 'Ninguno'}
+- Productos CITADOS individualmente en el chat: ${citadosProductos.length > 0 ? citadosProductos.map(p => p.nombre).join(', ') : 'Ninguno'}
+- Sistema Multicapa CITADO en el chat: ${citadoSistema ? citadoSistema.nombre : 'Ninguno'}
+${citadoSistema && sistemaRels.length > 0 ? `
+Componentes del Sistema Multicapa Citado (orden de aplicación desde la base hacia arriba):
+${[...sistemaRels].sort((a, b) => a.orden - b.orden).map(rel => {
+  let rol = 'Cuerpo / Capa Intermedia';
+  if (rel.orden === 0) rol = 'Primario / Anclaje';
+  else if (rel.orden === sistemaRels.length - 1) rol = 'Sello / Acabado Final';
+  
+  let instructions = 'Aplicar uniformemente según ficha técnica.';
+  if (rel.orden === 0) instructions = 'Asegurar que el sustrato esté limpio y seco. Mezclar componentes A y B por 3 minutos. Aplicar con rodillo o jalador de goma.';
+  else if (rel.producto.nombre.toLowerCase().includes('autonivelante') || rel.producto.nombre.toLowerCase().includes('bucacrete')) {
+    instructions = 'Verter la mezcla homogénea directamente sobre el piso. Extender rápidamente a la altura deseada con rastrillo de nivel o llana dentada. Pasar inmediatamente rodillo de picos metálicos (spike roller) de forma cruzada para liberar burbujas de aire.';
+  } else if (rel.producto.nombre.toLowerCase().includes('saco') || rel.producto.nombre.toLowerCase().includes('arena')) {
+    instructions = 'Espolvorear de manera uniforme a saturación sobre la capa base húmeda anterior. Permitir curado y retirar el exceso de arena barriendo antes de aplicar el sello.';
+  }
+  
+  return `- Capa ${rel.orden + 1}: ${rel.producto.nombre} (${rel.producto.unidad})
+    * Papel/Rol: ${rol}
+    * Consumo: ${rel.consumo_por_m2} ${rel.producto.unidad}/m²
+    * Espesor: ${rel.producto.espesorRecomendado || 'N/A'}
+    * Instrucciones de aplicación: ${instructions}`;
+}).join('\n')}
+` : ''}
 
 REGLAS CRÍTICAS DE COMPORTAMIENTO:
 1. Sé conciso y técnico. Tus respuestas deben ser rápidas y al grano, ideales para un vendedor en medio de una llamada comercial.
 2. Tú TIENES acceso completo a todo el catálogo de productos detallado arriba. Por lo tanto, eres capaz de responder dudas, ventajas, limitantes, rendimientos y conversiones de cualquier producto directamente, incluso si no está seleccionado en el cotizador ni citado por el clip.
-3. NUNCA digas al usuario que no hay ningún producto seleccionado o que debe seleccionar/citar un producto de la lista para que puedas acceder a su ficha técnica. Si el usuario te saluda ("hola") o te hace una pregunta sin haber seleccionado o citado un producto, dale una bienvenida cordial, infórmale que tienes acceso completo a todas las fichas técnicas del catálogo y que puedes responder cualquier duda sobre ellos, y pregúntale sobre qué producto o cálculo desea consultar hoy.
-4. Si el usuario selecciona un producto en la cotización principal o lo cita mediante el botón de clip, y te hace una pregunta general de inicio, saludo o confirmación (ej: "listo", "ya", "que tal ahora", "hola", etc.), NUNCA debes recitar ni listar todas sus especificaciones técnicas de golpe. Limítate únicamente a confirmar amablemente que ya lo tienes leído (ej: "Entendido, ya tengo la información de [Producto].") y haz una PREGUNTA explícita sobre qué desea hacer el usuario con él (ej: "¿Quieres que calculemos el consumo para un área, o prefieres revisar su rendimiento o mezcla?").
-5. Si el usuario te hace preguntas sobre cualquier producto en el catálogo (incluso si no está seleccionado ni citado), búscalo en la sección "INFORMACIÓN DEL CATÁLOGO DE PRODUCTOS" arriba, léelo y responde detalladamente.
-6. Si el usuario te pregunta por consumos para un área específica (ej. "tengo 150 m2"), calcula el volumen necesario de forma precisa dividiendo el área entre el rendimiento del producto (Área / Rendimiento) si tiene rendimiento.
-7. NUNCA inventes especificaciones técnicas. Si un valor es "No especificado" o no existe en el catálogo, dile amablemente que no está registrado y sugíerele verificar la ficha física o soporte.
-8. Puedes hacer conversiones matemáticas estándar (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).`;
+3. Si el usuario selecciona o cita un sistema multicapa, y te hace una consulta general de inicio, saludo o confirmación, NUNCA listes todas sus especificaciones técnicas de golpe. Limítate a confirmar amablemente que tienes leída la estructura del sistema (ej: "Entendido, tengo cargada la estructura del sistema [Nombre].") y pregúntale qué desea hacer (ej: si desea calcular el consumo de material para cierta área, ver los pasos de aplicación o detallar alguna capa en particular).
+4. NUNCA digas al usuario que no hay ningún producto seleccionado o que debe seleccionar/citar un producto de la lista para que puedas acceder a su ficha técnica. Si el usuario te saluda ("hola") o te hace una pregunta sin haber seleccionado o citado un producto, dale una bienvenida cordial, infórmale que tienes acceso completo a todas las fichas técnicas del catálogo y que puedes responder cualquier duda sobre ellos, y pregúntale sobre qué producto o cálculo desea consultar hoy.
+5. Si el usuario selecciona un producto en la cotización principal o lo cita mediante el botón de clip, y te hace una pregunta general de inicio, saludo o confirmación (ej: "listo", "ya", "que tal ahora", "hola", etc.), NUNCA debes recitar ni listar todas sus especificaciones técnicas de golpe. Limítate únicamente a confirmar amablemente que ya lo tienes leído (ej: "Entendido, ya tengo la información de [Producto].") y haz una PREGUNTA explícita sobre qué desea hacer el usuario con él (ej: "¿Quieres que calculemos el consumo para un área, o prefieres revisar su rendimiento o mezcla?").
+6. Si el usuario te hace preguntas sobre cualquier producto en el catálogo (incluso si no está seleccionado ni citado), búscalo en la sección "INFORMACIÓN DEL CATÁLOGO DE PRODUCTOS" arriba, léelo y responde detalladamente.
+7. Si el usuario te pregunta por consumos para un área específica (ej. "tengo 150 m2"), calcula el volumen necesario de forma precisa dividiendo el área entre el rendimiento del producto (Área / Rendimiento) si tiene rendimiento.
+8. NUNCA inventes especificaciones técnicas. Si un valor es "No especificado" o no existe en el catálogo, dile amablemente que no está registrado y sugíerele verificar la ficha física o soporte.
+9. Puedes hacer conversiones matemáticas estándar (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).`;
 
       const formattedContents = [
         ...nuevoHistorial.map(h => ({
@@ -372,6 +401,23 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
       setLoadingSistemaRels(false)
     })
   }, [sistemaSeleccionado, productosDisponibles])
+
+  // Automatically cite system and its products when a system is selected in the cotizador
+  useEffect(() => {
+    if (sistemaSeleccionado && sistemaRels.length > 0) {
+      setCitadoSistema(sistemaSeleccionado)
+      const systemProds = sistemaRels.map(r => r.producto).filter(Boolean)
+      setCitadosProductos(prev => {
+        const merged = [...prev]
+        systemProds.forEach(sp => {
+          if (!merged.some(p => p.nombre === sp.nombre)) {
+            merged.push(sp)
+          }
+        })
+        return merged
+      })
+    }
+  }, [sistemaSeleccionado, sistemaRels])
 
   useEffect(() => {
     async function fetchExchangeRate() {
@@ -1069,32 +1115,181 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
 
               {/* Vista previa de componentes del sistema */}
               {sistemaSeleccionado && (
-                <div className="mt-4 bg-purple-50 border border-purple-100 rounded-xl p-4">
-                  <h3 className="text-xs font-bold text-purple-800 uppercase tracking-wide mb-3">
-                    Desglose de Componentes del Sistema ({sistemaMetros ? `${sistemaMetros} m²` : '0 m²'})
-                  </h3>
+                <div className="mt-4 bg-purple-50/50 border border-purple-100 rounded-2xl p-5 space-y-4">
+                  <div className="flex justify-between items-center border-b border-purple-100 pb-2.5">
+                    <h3 className="text-xs font-bold text-purple-800 uppercase tracking-wide">
+                      Desglose de Componentes del Sistema ({sistemaMetros ? `${sistemaMetros} m²` : '0 m²'})
+                    </h3>
+                    <span className="text-[10px] text-purple-500 bg-purple-100/50 px-2 py-0.5 rounded-full font-bold">
+                      {sistemaRels.length} Capas
+                    </span>
+                  </div>
+
                   {loadingSistemaRels ? (
-                    <p className="text-xs text-purple-600 animate-pulse">Cargando componentes...</p>
+                    <p className="text-xs text-purple-600 animate-pulse">Cargando componentes del sistema...</p>
                   ) : sistemaRels.length === 0 ? (
                     <p className="text-xs text-purple-600 italic">Este sistema no tiene componentes registrados en la base de datos.</p>
                   ) : (
-                    <div className="space-y-2.5">
-                      {sistemaRels.map(rel => {
-                        const quantity = (parseFloat(sistemaMetros) || 0) * rel.consumo_por_m2
-                        const isAccesorio = rel.producto.unidad.toLowerCase().includes('pza') || rel.producto.unidad.toLowerCase().includes('pieza')
-                        const finalQty = isAccesorio ? quantity : quantity * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1)
-                        return (
-                          <div key={rel.id} className="flex justify-between items-center text-xs text-purple-900 border-b border-purple-100 pb-1.5 last:border-0 last:pb-0">
-                            <div>
-                              <span className="font-semibold text-purple-950">{rel.producto.nombre}</span>
-                              <span className="text-purple-600"> (Consumo: {rel.consumo_por_m2} {rel.producto.unidad}/m² · Capa {rel.orden})</span>
+                    <div className="space-y-4">
+                      {/* Diagrama Visual de Capas Apiladas */}
+                      <div className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm">
+                        <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-1">
+                          <span>📊</span> Esquema Técnico de Capas (Haz clic para ver detalles)
+                        </h4>
+                        
+                        <div className="flex flex-col gap-2 max-w-lg mx-auto">
+                          {/* Stacking rendering in reverse order (Capa superior primero) */}
+                          {[...sistemaRels].sort((a, b) => b.orden - a.orden).map((rel, idx) => {
+                            const isExpanded = capaActivaIndex === rel.orden;
+                            const isFirst = rel.orden === 0;
+                            const isLast = rel.orden === sistemaRels.length - 1;
+                            
+                            // Color scheme based on layer type
+                            let blockColor = "from-purple-500 to-indigo-500 border-purple-600 shadow-purple-100";
+                            if (isFirst) blockColor = "from-blue-500 to-cyan-500 border-blue-600 shadow-blue-100";
+                            else if (isLast) blockColor = "from-violet-600 to-fuchsia-600 border-violet-700 shadow-violet-100";
+                            
+                            const quantity = (parseFloat(sistemaMetros) || 0) * rel.consumo_por_m2;
+                            const isAccesorio = rel.producto.unidad.toLowerCase().includes('pza') || rel.producto.unidad.toLowerCase().includes('pieza');
+                            const finalQty = isAccesorio ? quantity : quantity * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1);
+                            
+                            return (
+                              <div key={rel.id} className="w-full">
+                                {/* Layer Block */}
+                                <div 
+                                  onClick={() => setCapaActivaIndex(isExpanded ? null : rel.orden)}
+                                  className={`relative flex items-center justify-between px-4 py-2.5 bg-gradient-to-r ${blockColor} border text-white rounded-lg shadow-sm cursor-pointer select-none transition-all duration-200 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99]`}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                      {rel.orden + 1}
+                                    </span>
+                                    <span className="font-bold text-xs truncate">{rel.producto.nombre}</span>
+                                  </div>
+                                  
+                                  {/* Arrow indicator and thickness */}
+                                  <div className="flex items-center gap-2 text-[10px] font-semibold opacity-90 shrink-0">
+                                    <span>→ Espesor: {rel.producto.espesorRecomendado || 'N/A'}</span>
+                                    <span className="text-white/40">|</span>
+                                    <span className="bg-white/20 px-2 py-0.5 rounded-full font-bold text-[9px]">
+                                      {finalQty > 0 ? `${finalQty.toFixed(2)} ${rel.producto.unidad}` : `${rel.consumo_por_m2} ${rel.producto.unidad}/m²`}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Tree Decomposition (Details accordion below the block) */}
+                                {isExpanded && (
+                                  <div className="relative mt-2 ml-4 pl-4 border-l-2 border-dashed border-purple-300 py-3 space-y-3 animate-fade-in text-gray-700 bg-purple-50/30 rounded-r-lg">
+                                    {/* Connector node circle */}
+                                    <div className="absolute -left-[5px] top-4 w-2 h-2 rounded-full bg-purple-400" />
+                                    
+                                    <div>
+                                      <h5 className="text-[11px] font-bold text-purple-900 flex items-center gap-1.5">
+                                        <span>📝</span> Función de la Capa {rel.orden + 1}
+                                      </h5>
+                                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                        {rel.orden === 0 
+                                          ? "Primario / Anclaje: Sellador inicial que penetra los poros del concreto preparado, garantizando una adherencia perfecta para las capas del cuerpo del sistema y previniendo burbujas."
+                                          : rel.orden === sistemaRels.length - 1
+                                            ? "Sello / Acabado Final: Capa protectora resistente que provee la dureza final ante el tráfico, impermeabilidad, resistencia a químicos, agentes UV y acabado estético."
+                                            : "Cuerpo / Capa Intermedia: Aporta el espesor mecánico requerido, absorbe impactos, autonivela las imperfecciones del suelo y refuerza la estructura."}
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <h5 className="text-[11px] font-bold text-purple-900 flex items-center gap-1.5">
+                                        <span>🛠️</span> Método de Aplicación
+                                      </h5>
+                                      <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                        {rel.orden === 0 
+                                          ? "Asegurar un sustrato de concreto pulido/lijado y libre de polvo. Mezclar partes A y B por 3 minutos. Extender uniformemente con jalador de goma y repasar con rodillo de felpa de pelo corto."
+                                          : rel.producto.nombre.toLowerCase().includes('autonivelante') || rel.producto.nombre.toLowerCase().includes('bucacrete')
+                                            ? "Verter la mezcla homogénea directamente sobre el sustrato. Extender rápidamente a la altura deseada con rastrillo de nivel o llana dentada. Pasar inmediatamente rodillo de picos metálicos (spike roller) de forma cruzada para liberar burbujas de aire."
+                                            : rel.producto.nombre.toLowerCase().includes('saco') || rel.producto.nombre.toLowerCase().includes('arena')
+                                              ? "Espolvorear de manera uniforme a saturación sobre la capa base húmeda anterior. Permitir curado y retirar el exceso de arena barriendo antes de aplicar el sello."
+                                              : "Aplicar con rodillo de felpa, jalador de llana lisa o jalador dentado en pasadas cruzadas. Mantener control estricto del espesor y respetar el tiempo de secado al tacto antes de sellar."}
+                                      </p>
+                                    </div>
+
+                                    {/* Tech specs Grid */}
+                                    <div className="grid grid-cols-2 gap-3 bg-white border border-purple-100 rounded-lg p-2.5 text-[11px] leading-relaxed">
+                                      <div>
+                                        <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
+                                        <span className="text-gray-700 font-medium">{rel.producto.tieneRendimiento && rel.producto.rendimiento ? `${rel.producto.rendimiento} m²/${rel.producto.unidad}` : 'Cálculo dinámico/manual'}</span>
+                                      </div>
+                                      <div>
+                                        <span className="font-semibold text-gray-500">Proporciones Mezcla:</span><br />
+                                        <span className="text-gray-700 font-medium">{rel.producto.proporcionesMezcla || 'Monocomponente (No aplica)'}</span>
+                                      </div>
+                                      <div className="col-span-2">
+                                        <span className="font-semibold text-gray-500">Ventajas Clave:</span><br />
+                                        <span className="text-green-700 font-bold">{rel.producto.pros || 'Alta durabilidad, óptimo anclaje'}</span>
+                                      </div>
+                                    </div>
+
+                                    {/* Attached PDFs */}
+                                    {(rel.producto.ficha_tecnica_url || rel.producto.ficha_seguridad_url) && (
+                                      <div className="flex gap-2">
+                                        {rel.producto.ficha_tecnica_url && (
+                                          <a
+                                            href={rel.producto.ficha_tecnica_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-100 transition-all shrink-0"
+                                          >
+                                            📄 TDS (Ficha Técnica)
+                                          </a>
+                                        )}
+                                        {rel.producto.ficha_seguridad_url && (
+                                          <a
+                                            href={rel.producto.ficha_seguridad_url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-100 text-amber-700 hover:bg-amber-100 transition-all shrink-0"
+                                          >
+                                            🛡️ SDS (Seguridad)
+                                          </a>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+
+                          {/* Prepared Concrete Substrate (Base) */}
+                          <div className="relative flex items-center justify-between px-4 py-2 bg-slate-100 border border-slate-300 text-slate-500 rounded-lg shadow-sm">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0">
+                                🧱
+                              </span>
+                              <span className="font-bold text-xs truncate">Concreto / Sustrato Preparado</span>
                             </div>
-                            <span className="font-bold bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full">
-                              {finalQty.toFixed(2)} {rel.producto.unidad}
-                            </span>
+                            <span className="text-[9px] font-semibold italic text-slate-400">Base rígida del sistema</span>
                           </div>
-                        )
-                      })}
+                        </div>
+                      </div>
+
+                      {/* Text details for quantities */}
+                      <div className="space-y-2">
+                        {sistemaRels.map(rel => {
+                          const quantity = (parseFloat(sistemaMetros) || 0) * rel.consumo_por_m2;
+                          const isAccesorio = rel.producto.unidad.toLowerCase().includes('pza') || rel.producto.unidad.toLowerCase().includes('pieza');
+                          const finalQty = isAccesorio ? quantity : quantity * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1);
+                          return (
+                            <div key={rel.id} className="flex justify-between items-center text-xs text-purple-900 border-b border-purple-100 pb-1.5 last:border-0 last:pb-0">
+                              <div>
+                                <span className="font-semibold text-purple-950">{rel.producto.nombre}</span>
+                                <span className="text-purple-600"> (Consumo: {rel.consumo_por_m2} {rel.producto.unidad}/m² · Capa {rel.orden + 1})</span>
+                              </div>
+                              <span className="font-bold bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full">
+                                {finalQty.toFixed(2)} {rel.producto.unidad}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1358,11 +1553,13 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                 <span>🤖</span> Asistente Técnico BUCA
               </h3>
               <p className="text-[10px] text-blue-100 font-medium truncate max-w-[240px]">
-                {citadoProducto 
-                  ? `Citando: ${citadoProducto.nombre}`
-                  : productoSeleccionado 
-                    ? `Activo: ${productoSeleccionado.nombre}`
-                    : 'Sin producto seleccionado'}
+                {citadoSistema 
+                  ? `Sistema: ${citadoSistema.nombre}`
+                  : citadosProductos.length > 0 
+                    ? `Citando: ${citadosProductos.length} prod.`
+                    : productoSeleccionado 
+                      ? `Activo: ${productoSeleccionado.nombre}`
+                      : 'Sin selección'}
               </p>
             </div>
             <button
@@ -1386,12 +1583,12 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                 </div>
                 {/* Suggestions */}
                 <div className="w-full space-y-1.5 pt-2">
-                  {(citadoProducto || productoSeleccionado) ? (
+                  {(citadoSistema || citadosProductos.length > 0 || productoSeleccionado) ? (
                     <>
                       <button
                         type="button"
                         onClick={() => {
-                          const p = citadoProducto || productoSeleccionado;
+                          const p = citadosProductos[0] || productoSeleccionado;
                           if (p) setChatMensaje(`¿Cuál es el rendimiento de ${p.nombre}?`);
                         }}
                         className="w-full text-[10px] text-left text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-100 rounded-lg p-2 transition font-medium cursor-pointer"
@@ -1401,18 +1598,18 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                       <button
                         type="button"
                         onClick={() => {
-                          const p = citadoProducto || productoSeleccionado;
+                          const p = citadosProductos[0] || productoSeleccionado;
                           if (p) setChatMensaje(`Tengo un área de 100 m², ¿cuánto necesito comprar de ${p.nombre}?`);
                         }}
                         className="w-full text-[10px] text-left text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-100 rounded-lg p-2 transition font-medium cursor-pointer"
                       >
                         📐 Calcular consumo para 100 m²
                       </button>
-                      {((citadoProducto || productoSeleccionado)?.proporcionesMezcla) && (
+                      {((citadosProductos[0] || productoSeleccionado)?.proporcionesMezcla) && (
                         <button
                           type="button"
                           onClick={() => {
-                            const p = citadoProducto || productoSeleccionado;
+                            const p = citadosProductos[0] || productoSeleccionado;
                             if (p) setChatMensaje(`¿Cuál es la proporción de mezcla recomendada para ${p.nombre}?`);
                           }}
                           className="w-full text-[10px] text-left text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-100 rounded-lg p-2 transition font-medium cursor-pointer"
@@ -1473,28 +1670,79 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
             <div ref={chatMessagesEndRef} />
           </div>
 
-          {/* Dynamic Citation Badge */}
-          {citadoProducto && (
-            <div className="px-3 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between text-xs text-blue-700 animate-fade-in shrink-0">
-              <span className="flex items-center gap-1 font-medium truncate">
-                <span>📎</span> Citando: <strong>{citadoProducto.nombre}</strong>
-              </span>
+          {/* Dynamic Citation Badges */}
+          {(citadoSistema || citadosProductos.length > 0) && (
+            <div className="px-3 py-1.5 bg-blue-50 border-t border-blue-100 flex flex-wrap gap-1.5 items-center justify-between text-[11px] text-blue-700 animate-fade-in shrink-0">
+              <div className="flex flex-wrap gap-1.5 items-center flex-1 min-w-0">
+                {citadoSistema && (
+                  <span className="inline-flex items-center gap-1 bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full font-semibold max-w-full">
+                    <span className="shrink-0">🧪 Sistema:</span> <strong className="truncate">{citadoSistema.nombre}</strong>
+                    <button
+                      type="button"
+                      onClick={() => setCitadoSistema(null)}
+                      className="text-purple-500 hover:text-purple-700 font-bold ml-1 text-sm leading-none shrink-0"
+                      title="Quitar sistema"
+                    >
+                      ×
+                    </button>
+                  </span>
+                )}
+                {citadosProductos.map((p, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium max-w-full">
+                    <span className="shrink-0">📎</span> <span className="truncate">{p.nombre}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCitadosProductos(prev => prev.filter(item => item.nombre !== p.nombre))}
+                      className="text-blue-500 hover:text-blue-700 font-bold ml-1 text-sm leading-none shrink-0"
+                      title="Quitar producto"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
               <button
                 type="button"
-                onClick={() => setCitadoProducto(null)}
-                className="text-blue-500 hover:text-blue-700 font-bold ml-2 text-sm leading-none shrink-0"
-                title="Quitar citación"
+                onClick={() => {
+                  setCitadoSistema(null);
+                  setCitadosProductos([]);
+                }}
+                className="text-blue-600 hover:text-red-500 text-[10px] font-bold shrink-0 ml-2 border-l pl-2 border-gray-200"
+                title="Limpiar citaciones"
               >
-                ×
+                Limpiar
               </button>
             </div>
           )}
 
           {/* Paperclip product list dropdown (absolute positioned) */}
           {mostrarClipMenu && (
-            <div className="absolute left-3 right-3 max-h-48 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-50 flex flex-col animate-fade-in" style={{ bottom: citadoProducto ? '88px' : '57px' }}>
+            <div className="absolute left-3 right-3 max-h-48 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-50 flex flex-col animate-fade-in" style={{ bottom: (citadoSistema || citadosProductos.length > 0) ? '92px' : '57px' }}>
               <div className="p-2 border-b bg-gray-50 flex justify-between items-center shrink-0">
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Citar producto en chat</span>
+                <div className="flex gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setClipMenuTab('productos')}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition ${
+                      clipMenuTab === 'productos' 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm' 
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    📦 Productos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setClipMenuTab('sistemas')}
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border transition ${
+                      clipMenuTab === 'sistemas' 
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-sm' 
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    🧪 Sistemas
+                  </button>
+                </div>
                 <button 
                   type="button" 
                   onClick={() => setMostrarClipMenu(false)}
@@ -1504,18 +1752,69 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                 </button>
               </div>
               <ul className="overflow-y-auto divide-y divide-gray-100 flex-1">
-                {productosDisponibles.map((p, idx) => (
-                  <li 
-                    key={p.id || `${p.nombre}-${idx}`}
-                    onClick={() => {
-                      setCitadoProducto(p);
-                      setMostrarClipMenu(false);
-                    }}
-                    className="px-3 py-2 text-xs hover:bg-blue-50 cursor-pointer text-gray-700 font-medium truncate flex items-center gap-1.5"
-                  >
-                    <span>📎</span> {p.nombre}
-                  </li>
-                ))}
+                {clipMenuTab === 'productos' ? (
+                  productosDisponibles.map((p, idx) => {
+                    const isCited = citadosProductos.some(item => item.nombre === p.nombre);
+                    return (
+                      <li 
+                        key={p.id || `${p.nombre}-${idx}`}
+                        onClick={() => {
+                          if (isCited) {
+                            setCitadosProductos(prev => prev.filter(item => item.nombre !== p.nombre));
+                          } else {
+                            setCitadosProductos(prev => [...prev, p]);
+                          }
+                        }}
+                        className={`px-3 py-2 text-xs hover:bg-blue-50 cursor-pointer text-gray-700 font-medium truncate flex items-center justify-between gap-1.5 ${
+                          isCited ? 'bg-blue-50 text-blue-700 font-bold' : ''
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>📎</span> {p.nombre}
+                        </span>
+                        {isCited && <span className="text-blue-600 font-bold">✓</span>}
+                      </li>
+                    );
+                  })
+                ) : (
+                  sistemasDisponibles.map((sys, idx) => {
+                    const isCited = citadoSistema?.nombre === sys.nombre;
+                    return (
+                      <li 
+                        key={sys.id || `${sys.nombre}-${idx}`}
+                        onClick={() => {
+                          if (isCited) {
+                            setCitadoSistema(null);
+                          } else {
+                            setCitadoSistema(sys);
+                            // Also cite its products if loaded
+                            fetchSistemaProductosSupabase(sys.id).then(rels => {
+                              const resolvedProds = rels.map(r => productosDisponibles.find(prod => prod.id === r.producto_id)).filter(Boolean) as Producto[];
+                              setCitadosProductos(prev => {
+                                const merged = [...prev];
+                                resolvedProds.forEach(sp => {
+                                  if (!merged.some(p => p.nombre === sp.nombre)) {
+                                    merged.push(sp);
+                                  }
+                                });
+                                return merged;
+                              });
+                            });
+                          }
+                          setMostrarClipMenu(false);
+                        }}
+                        className={`px-3 py-2 text-xs hover:bg-purple-50 cursor-pointer text-gray-700 font-medium truncate flex items-center justify-between gap-1.5 ${
+                          isCited ? 'bg-purple-50 text-purple-700 font-bold' : ''
+                        }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span>🧪</span> {sys.nombre}
+                        </span>
+                        {isCited && <span className="text-purple-600 font-bold">✓</span>}
+                      </li>
+                    );
+                  })
+                )}
               </ul>
             </div>
           )}
