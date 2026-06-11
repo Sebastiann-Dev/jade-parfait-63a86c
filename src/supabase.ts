@@ -243,7 +243,7 @@ export async function deleteSistemaSupabase(id: string): Promise<void> {
 
 export async function uploadPdfProducto(
   productoId: string,
-  tipo: 'ficha_tecnica' | 'ficha_seguridad',
+  tipo: 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia',
   file: File
 ): Promise<string> {
   const ext = file.name.split('.').pop() || 'pdf'
@@ -263,7 +263,7 @@ export async function uploadPdfProducto(
 
 export async function deletePdfProducto(
   productoId: string,
-  tipo: 'ficha_tecnica' | 'ficha_seguridad'
+  tipo: 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia'
 ): Promise<void> {
   const paths = [`${productoId}/${tipo}.pdf`, `${productoId}/${tipo}.PDF`]
   await supabase.storage.from('product-docs').remove(paths)

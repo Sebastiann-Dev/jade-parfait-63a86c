@@ -104,7 +104,7 @@ def upload_pdf_to_storage(producto_id, tipo, file_path):
 
 def analyze_pdf_with_gemini(pdf_base64, api_key):
     """Envía el PDF en base64 a la API de Gemini para la extracción estructurada."""
-    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+    gemini_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key={api_key}"
     
     prompt = (
         "Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. "
@@ -157,8 +157,8 @@ def analyze_pdf_with_gemini(pdf_base64, api_key):
             res_json = json.loads(response.read().decode('utf-8'))
             text_response = res_json['candidates'][0]['content']['parts'][0]['text']
     except urllib.error.HTTPError as e:
-        print(f"⚠️ Error con gemini-2.5-flash (HTTP {e.code}). Intentando fallback a gemini-1.5-flash...")
-        fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        print(f"⚠️ Error con gemini-3.1-flash-lite (HTTP {e.code}). Intentando fallback a gemini-2.5-flash-lite...")
+        fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
         try:
             req_fallback = urllib.request.Request(
                 fallback_url, 
@@ -177,8 +177,8 @@ def analyze_pdf_with_gemini(pdf_base64, api_key):
         except Exception as e_fallback:
             raise Exception(f"Gemini Fallback API Error: {e_fallback}")
     except Exception as e:
-        print(f"⚠️ Error general con gemini-2.5-flash ({e}). Intentando fallback a gemini-1.5-flash...")
-        fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+        print(f"⚠️ Error general con gemini-3.1-flash-lite ({e}). Intentando fallback a gemini-2.5-flash-lite...")
+        fallback_url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={api_key}"
         try:
             req_fallback = urllib.request.Request(
                 fallback_url, 

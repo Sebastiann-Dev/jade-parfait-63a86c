@@ -107,7 +107,7 @@ function formatNum(value: number, decimals = 2) {
 
 async function testKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -267,7 +267,7 @@ Reglas de comportamiento:
       }
 
       // Procedemos a hacer la consulta real usando la key que pasó la verificación
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${activeKey}`, {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${activeKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -300,7 +300,7 @@ Reglas de comportamiento:
       const horaError = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
       setChatHistorial(prev => [...prev, { 
         remitente: 'ia', 
-        texto: `❌ Error al conectar con el Asistente Técnico: Todas las API Keys de Gemini han alcanzado su límite de cuota.`, 
+        texto: `❌ Error al conectar con el Asistente Técnico: ${err.message || 'Todas las API Keys de Gemini han alcanzado su límite de cuota.'}`, 
         hora: horaError 
       }]);
     } finally {

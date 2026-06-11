@@ -23,7 +23,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string } = {
+const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string; cotizacion_referencia_url?: string } = {
   nombre: '',
   cantRef: '',
   unidad: 'L',
@@ -43,6 +43,7 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   bitacora: '',
   ficha_tecnica_url: '',
   ficha_seguridad_url: '',
+  cotizacion_referencia_url: '',
   estado: 'borrador',
   motivo_incompleto: ''
 }
@@ -118,6 +119,7 @@ function getMaskedKey(key: string): string {
 function AdminPage() {
   const fileInputTdsRef = useRef<HTMLInputElement>(null)
   const fileInputSdsRef = useRef<HTMLInputElement>(null)
+  const fileInputRefQuoteRef = useRef<HTMLInputElement>(null)
   const [productos, setProductos] = useState<(Producto & { id: string })[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -149,6 +151,8 @@ function AdminPage() {
   // File upload state for PDFs
   const [fichaTecnicaFile, setFichaTecnicaFile] = useState<File | null>(null)
   const [fichaSeguridadFile, setFichaSeguridadFile] = useState<File | null>(null)
+  const [cotizacionReferenciaFile, setCotizacionReferenciaFile] = useState<File | null>(null)
+  const [useCotizacionReferencia, setUseCotizacionReferencia] = useState(false)
   const [activePdfPreview, setActivePdfPreview] = useState<'ficha_tecnica' | 'ficha_seguridad' | null>(null)
   const [activeKeyIndex, setActiveKeyIndex] = useState<number>(0)
   const [isExtracting, setIsExtracting] = useState(false)
@@ -257,7 +261,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
         try {
           console.log(`Intentando extracción con Gemini API Key (índice ${currentKeyIndex})...`)
-          let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
+          let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${currentKey}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -287,9 +291,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}))
             const errorMsg = errorData.error?.message || `HTTP ${response.status}`
-            console.warn(`Error con gemini-2.5-flash: ${errorMsg}. Intentando fallback a gemini-1.5-flash...`)
+            console.warn(`Error con gemini-3.1-flash-lite: ${errorMsg}. Intentando fallback a gemini-2.5-flash-lite...`)
 
-            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`, {
+            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${currentKey}`, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json'
@@ -538,7 +542,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       const currentKey = PRECONFIGURED_KEYS[targetIndex];
 
       try {
-        let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${currentKey}`, {
+        let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${currentKey}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -568,9 +572,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
           const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
-          console.warn(`Error con gemini-2.5-flash: ${errorMsg}. Intentando fallback a gemini-1.5-flash...`);
+          console.warn(`Error con gemini-3.1-flash-lite: ${errorMsg}. Intentando fallback a gemini-2.5-flash-lite...`);
 
-          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentKey}`, {
+          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${currentKey}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json'
@@ -992,8 +996,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     if (data.precio === '' || isNaN(Number(data.precio)) || Number(data.precio) <= 0) {
       missing.push("Precio válido")
     }
-    if (data.cantRef === '' || isNaN(Number(data.cantRef)) || Number(data.cantRef) <= 0) {
-      missing.push("Cantidad de referencia (envase)")
+    if (useCotizacionReferencia) {
+      if (data.cantRef === '' || isNaN(Number(data.cantRef)) || Number(data.cantRef) <= 0) {
+        missing.push("Cantidad de referencia (envase)")
+      }
     }
     if (data.tieneRendimiento) {
       if (data.rendimiento === '' || isNaN(Number(data.rendimiento)) || Number(data.rendimiento) <= 0) {
@@ -1014,7 +1020,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     return missing
   }
 
-  const validationIssues = useMemo(() => validarCamposProducto(formData), [formData, fichaTecnicaFile, fichaSeguridadFile])
+  const validationIssues = useMemo(() => validarCamposProducto(formData), [formData, fichaTecnicaFile, fichaSeguridadFile, useCotizacionReferencia])
   const isValidToPublish = validationIssues.length === 0
 
   async function handleSave(estadoDestino: 'borrador' | 'completo') {
@@ -1032,10 +1038,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     try {
       let finalFichaTecnica = formData.ficha_tecnica_url
       let finalFichaSeguridad = formData.ficha_seguridad_url
+      let finalCotizacionReferencia = formData.cotizacion_referencia_url
 
       const payload: any = {
         nombre: formData.nombre,
-        cantRef: formData.cantRef !== '' ? Number(formData.cantRef) : null,
+        cantRef: useCotizacionReferencia && formData.cantRef !== '' ? Number(formData.cantRef) : 1,
         unidad: formData.unidad,
         moneda: formData.moneda,
         precio: formData.precio !== '' ? Number(formData.precio) : null,
@@ -1063,7 +1070,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         proporcionesMezcla: formData.proporcionesMezcla || null,
         densidadRecomendada: formData.densidadRecomendada || null,
         densidad_conversion: formData.densidad_conversion !== '' && formData.densidad_conversion !== null && formData.densidad_conversion !== undefined ? Number(formData.densidad_conversion) : 1.0,
-        bitacora: formData.bitacora || null,
+        bitacora: useCotizacionReferencia ? (formData.bitacora || null) : null,
         estado: estadoDestino,
         motivo_incompleto: estadoDestino === 'borrador' ? formData.motivo_incompleto : null
       }
@@ -1075,9 +1082,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         if (fichaSeguridadFile) {
           finalFichaSeguridad = await uploadPdfProducto(editingId, 'ficha_seguridad', fichaSeguridadFile)
         }
+        if (cotizacionReferenciaFile) {
+          finalCotizacionReferencia = await uploadPdfProducto(editingId, 'cotizacion_referencia', cotizacionReferenciaFile)
+        }
 
         payload.ficha_tecnica_url = finalFichaTecnica || null
         payload.ficha_seguridad_url = finalFichaSeguridad || null
+        payload.cotizacion_referencia_url = finalCotizacionReferencia || null
 
         try {
           await updateProductoSupabase(editingId, payload, lastUpdatedAt)
@@ -1099,6 +1110,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       } else {
         payload.ficha_tecnica_url = null
         payload.ficha_seguridad_url = null
+        payload.cotizacion_referencia_url = null
 
         const newId = await saveProductoSupabase(payload)
 
@@ -1113,6 +1125,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         if (fichaSeguridadFile) {
           finalFichaSeguridad = await uploadPdfProducto(newId, 'ficha_seguridad', fichaSeguridadFile)
           updatePayload.ficha_seguridad_url = finalFichaSeguridad
+          updateNeeded = true
+        }
+        if (cotizacionReferenciaFile) {
+          finalCotizacionReferencia = await uploadPdfProducto(newId, 'cotizacion_referencia', cotizacionReferenciaFile)
+          updatePayload.cotizacion_referencia_url = finalCotizacionReferencia
           updateNeeded = true
         }
 
@@ -1142,6 +1159,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       setNumPresentacionesKit(1)
       setFichaTecnicaFile(null)
       setFichaSeguridadFile(null)
+      setCotizacionReferenciaFile(null)
+      setUseCotizacionReferencia(false)
       setActivePdfPreview(null)
       loadProductos()
     } catch (error) {
@@ -1167,10 +1186,12 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setNumPresentacionesKit(1)
     setFichaTecnicaFile(null)
     setFichaSeguridadFile(null)
+    setCotizacionReferenciaFile(null)
+    setUseCotizacionReferencia(false)
     setActivePdfPreview(null)
   }
 
-  function handleEdit(p: Producto & { id: string, updated_at?: string, estado?: string, motivo_incompleto?: string }) {
+  function handleEdit(p: Producto & { id: string, updated_at?: string, estado?: string, motivo_incompleto?: string, cotizacion_referencia_url?: string }) {
     setFormData({
       nombre: p.nombre,
       cantRef: p.cantRef ?? '',
@@ -1192,6 +1213,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       bitacora: p.bitacora || '',
       ficha_tecnica_url: p.ficha_tecnica_url || '',
       ficha_seguridad_url: p.ficha_seguridad_url || '',
+      cotizacion_referencia_url: p.cotizacion_referencia_url || '',
       estado: p.estado || 'borrador',
       motivo_incompleto: p.motivo_incompleto || ''
     })
@@ -1207,6 +1229,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setPartesLtrs(['', '', '', ''])
     setFichaTecnicaFile(null)
     setFichaSeguridadFile(null)
+    setCotizacionReferenciaFile(null)
+    setUseCotizacionReferencia(!!p.cotizacion_referencia_url)
 
     if (p.ficha_tecnica_url) {
       setActivePdfPreview('ficha_tecnica')
@@ -1542,33 +1566,161 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   <input type="number" step="0.01" required value={formData.precio} onChange={e => setFormData({ ...formData, precio: e.target.value })} style={inputStyle} placeholder="0.00" />
                 </div>
 
-                <div>
-                  <label style={labelStyle}>Cantidad de Referencia (tamaño del envase)</label>
-                  <input type="number" step="0.1" required value={formData.cantRef} onChange={e => setFormData({ ...formData, cantRef: e.target.value })} style={inputStyle} placeholder="Ej. 19 (litros)" />
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#1e40af' }}>
+                    <input
+                      type="checkbox"
+                      checked={useCotizacionReferencia}
+                      onChange={e => setUseCotizacionReferencia(e.target.checked)}
+                    />
+                    ¿Estás usando como referencia una cotización?
+                  </label>
                 </div>
 
-                <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
-                  <div>
-                    <label style={labelStyle}>Descripción</label>
-                    <input value={formData.nota} onChange={e => setFormData({ ...formData, nota: e.target.value })} style={inputStyle} placeholder="Ej. Tráfico vehicular" />
+                {useCotizacionReferencia && (
+                  <div style={{
+                    gridColumn: '1 / -1',
+                    background: '#f8fafc',
+                    border: '2px solid #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '20px',
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '20px',
+                    alignItems: 'start'
+                  }}>
+                    {/* Column 1: PDF Upload & manual URL */}
+                    <div>
+                      <label style={{ ...labelStyle, color: '#0369a1', fontWeight: 700, marginBottom: '8px' }}>📄 Cotización de Referencia (PDF)</label>
+
+                      {formData.cotizacion_referencia_url && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ecfdf5', padding: '6px 10px', borderRadius: '6px', border: '1px solid #a7f3d0', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', color: '#047857', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                            📄 Cotización cargada
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm("¿Seguro que deseas eliminar el archivo de cotización de referencia?")) {
+                                setFormData({ ...formData, cotizacion_referencia_url: '' })
+                                setCotizacionReferenciaFile(null)
+                              }
+                            }}
+                            style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => fileInputRefQuoteRef.current?.click()}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          background: '#f0fdf4',
+                          color: '#16a34a',
+                          border: '2px dashed #bbf7d0',
+                          borderRadius: '8px',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          transition: 'all 0.2s',
+                          marginBottom: '8px',
+                          outline: 'none'
+                        }}
+                        onMouseOver={(e) => {
+                          e.currentTarget.style.background = '#dcfce7';
+                          e.currentTarget.style.borderColor = '#86efac';
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.background = '#f0fdf4';
+                          e.currentTarget.style.borderColor = '#bbf7d0';
+                        }}
+                      >
+                        📁 Importar cotización (PDF)
+                      </button>
+                      <input
+                        ref={fileInputRefQuoteRef}
+                        type="file"
+                        accept=".pdf"
+                        onChange={e => {
+                          const file = e.target.files?.[0] || null
+                          setCotizacionReferenciaFile(file)
+                        }}
+                        style={{ display: 'none' }}
+                      />
+
+                      {cotizacionReferenciaFile && (
+                        <div style={{ fontSize: '11px', color: '#16a34a', marginTop: '4px', display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span>📎 Nuevo archivo: {cotizacionReferenciaFile.name}</span>
+                          <button type="button" onClick={() => setCotizacionReferenciaFile(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}>Quitar</button>
+                        </div>
+                      )}
+
+                      <div>
+                        <label style={{ fontSize: '11px', color: '#64748b', display: 'block', marginBottom: '2px' }}>O introduce URL manual:</label>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={formData.cotizacion_referencia_url || ''}
+                          onChange={e => {
+                            setFormData({ ...formData, cotizacion_referencia_url: e.target.value })
+                          }}
+                          style={{ ...inputStyle, height: '30px', fontSize: '12px', borderColor: '#bbf7d0' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Column 2: Reference inputs */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <label style={labelStyle}>Cantidad de Referencia (tamaño del envase) *</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          required={useCotizacionReferencia}
+                          value={formData.cantRef}
+                          onChange={e => setFormData({ ...formData, cantRef: e.target.value })}
+                          style={inputStyle}
+                          placeholder="Ej. 19 (litros)"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={labelStyle}>Descripción</label>
+                        <input
+                          value={formData.nota}
+                          onChange={e => setFormData({ ...formData, nota: e.target.value })}
+                          style={inputStyle}
+                          placeholder="Ej. Tráfico vehicular"
+                        />
+                      </div>
+
+                      <div>
+                        <label style={labelStyle}>Bitácora</label>
+                        <textarea
+                          rows={3}
+                          value={formData.bitacora || ''}
+                          onChange={e => setFormData({ ...formData, bitacora: e.target.value })}
+                          style={{
+                            ...inputStyle,
+                            height: 'auto',
+                            minHeight: '60px',
+                            resize: 'vertical',
+                            fontFamily: 'inherit'
+                          }}
+                          placeholder="Notas internas, registro de cambios, etc."
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <label style={labelStyle}>Bitácora</label>
-                    <textarea
-                      rows={3}
-                      value={formData.bitacora || ''}
-                      onChange={e => setFormData({ ...formData, bitacora: e.target.value })}
-                      style={{
-                        ...inputStyle,
-                        height: 'auto',
-                        minHeight: '80px',
-                        resize: 'vertical',
-                        fontFamily: 'inherit'
-                      }}
-                      placeholder="Notas internas, registro de cambios, etc."
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Rendimiento */}
                 <div style={{ gridColumn: '1 / -1', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>

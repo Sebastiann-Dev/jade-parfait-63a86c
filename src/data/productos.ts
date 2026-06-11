@@ -26,6 +26,7 @@ export interface Producto {
   // Documentación técnica
   ficha_tecnica_url?: string
   ficha_seguridad_url?: string
+  cotizacion_referencia_url?: string
   // Estado de publicación y auditoría
   estado?: string
   motivo_incompleto?: string
