@@ -28,6 +28,7 @@ export interface Producto {
   ficha_seguridad_url?: string
   cotizacion_referencia_url?: string
   // Estado de publicación y auditoría
+  id?: string
   estado?: string
   motivo_incompleto?: string
   updated_at?: string

@@ -165,6 +165,8 @@ export default function Cotizador() {
   const [chatHistorial, setChatHistorial] = useState<{ remitente: 'user' | 'ia'; texto: string; hora: string }[]>([])
   const [chatCargando, setChatCargando] = useState(false)
   const [chatActiveKeyIndex, setChatActiveKeyIndex] = useState(0)
+  const [mostrarClipMenu, setMostrarClipMenu] = useState(false)
+  const [citadoProducto, setCitadoProducto] = useState<Producto | null>(null)
   
   const chatMessagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -209,26 +211,36 @@ export default function Cotizador() {
     try {
       const contextPrompt = `Eres el Asistente Técnico experto de BUCA MX. Tu objetivo es ayudar a los vendedores a resolver dudas sobre fichas técnicas, realizar conversiones (como mils a micras, litros a galones) y hacer cálculos de consumo de material.
 
-Información del producto actualmente seleccionado en el cotizador por el usuario:
-${productoSeleccionado ? `
-- Nombre: ${productoSeleccionado.nombre}
-- Descripción: ${productoSeleccionado.nota || 'No disponible'}
-- Rendimiento: ${productoSeleccionado.tieneRendimiento && productoSeleccionado.rendimiento ? `${productoSeleccionado.rendimiento} m²/${productoSeleccionado.unidad}` : 'No aplica o requiere cálculo dinámico'}
-- Espesor recomendado: ${productoSeleccionado.espesorRecomendado || 'No especificado'}
-- Manos/Capas recomendadas: ${productoSeleccionado.manosRecomendadas || 'No especificado'}
-- Densidad: ${productoSeleccionado.densidadRecomendada || 'No especificado'}
-- Proporciones de mezcla: ${productoSeleccionado.proporcionesMezcla || 'No aplica (monocomponente)'}
-- Ventajas (Pros): ${productoSeleccionado.pros || 'No especificados'}
-- Limitantes (Cons): ${productoSeleccionado.cons || 'No especificadas'}
-- Precauciones (Cuidado con): ${productoSeleccionado.cuidadoCon || 'No especificadas'}
-` : 'Ningún producto está seleccionado actualmente en la pantalla. Sugiérele al usuario seleccionar un producto de la lista para poder asesorarle con precisión técnica.'}
+INFORMACIÓN DEL CATÁLOGO DE PRODUCTOS:
+Puedes buscar y leer entre los siguientes productos registrados en BUCA Recubrimientos. Si el usuario te pregunta por alguno de ellos o te cita uno de ellos, usa estas especificaciones técnicas:
+${productosDisponibles.map(p => `
+* Nombre: ${p.nombre}
+  - Descripción: ${p.nota || 'No disponible'}
+  - Unidad: ${p.unidad}
+  - Moneda: ${p.moneda}
+  - Precio unitario: $${p.precio}
+  - Rendimiento: ${p.tieneRendimiento && p.rendimiento ? `${p.rendimiento} m²/${p.unidad}` : 'No aplica o requiere cálculo dinámico'}
+  - Espesor recomendado: ${p.espesorRecomendado || 'No especificado'}
+  - Manos recomendadas: ${p.manosRecomendadas || 'No especificado'}
+  - Densidad: ${p.densidadRecomendada || 'No especificado'}
+  - Proporción de mezcla: ${p.proporcionesMezcla || 'No aplica'}
+  - Ventajas: ${p.pros || 'No especificados'}
+  - Limitantes: ${p.cons || 'No especificadas'}
+  - Precauciones: ${p.cuidadoCon || 'No especificadas'}`).join('\n')}
 
-Reglas de comportamiento:
+INFORMACIÓN DE SELECCIÓN Y CITACIÓN DE PRODUCTOS EN TIEMPO REAL:
+- Producto SELECCIONADO en el cotizador principal: ${productoSeleccionado ? productoSeleccionado.nombre : 'Ninguno'}
+- Producto CITADO en el chat (por el clip): ${citadoProducto ? citadoProducto.nombre : 'Ninguno'}
+
+REGLAS CRÍTICAS DE COMPORTAMIENTO:
 1. Sé conciso y técnico. Tus respuestas deben ser rápidas y al grano, ideales para un vendedor en medio de una llamada comercial.
-2. Si el usuario te pregunta por consumos para un área específica (ej. "tengo 150 m2"), calcula el volumen necesario de forma precisa dividiendo el área entre el rendimiento del producto (Área / Rendimiento) si tiene rendimiento. Si no tiene rendimiento especificado, dile amablemente cómo estimarlo o que depende de la aplicación.
-3. Si el usuario te hace preguntas sobre otros productos, pídeles amablemente que seleccionen el producto en el cotizador para poder leer su ficha técnica.
-4. NUNCA inventes especificaciones técnicas que no estén listadas arriba. Si un valor es "No especificado" o null, dile amablemente que no está registrado en la ficha actual y sugiérele verificar el documento físico o consultarlo con soporte técnico.
-5. Puedes hacer conversiones matemáticas estándar si es necesario (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).`;
+2. Tú TIENES acceso completo a todo el catálogo de productos detallado arriba. Por lo tanto, eres capaz de responder dudas, ventajas, limitantes, rendimientos y conversiones de cualquier producto directamente, incluso si no está seleccionado en el cotizador ni citado por el clip.
+3. NUNCA digas al usuario que no hay ningún producto seleccionado o que debe seleccionar/citar un producto de la lista para que puedas acceder a su ficha técnica. Si el usuario te saluda ("hola") o te hace una pregunta sin haber seleccionado o citado un producto, dale una bienvenida cordial, infórmale que tienes acceso completo a todas las fichas técnicas del catálogo y que puedes responder cualquier duda sobre ellos, y pregúntale sobre qué producto o cálculo desea consultar hoy.
+4. Si el usuario selecciona un producto en la cotización principal o lo cita mediante el botón de clip, y te hace una pregunta general de inicio, saludo o confirmación (ej: "listo", "ya", "que tal ahora", "hola", etc.), NUNCA debes recitar ni listar todas sus especificaciones técnicas de golpe. Limítate únicamente a confirmar amablemente que ya lo tienes leído (ej: "Entendido, ya tengo la información de [Producto].") y haz una PREGUNTA explícita sobre qué desea hacer el usuario con él (ej: "¿Quieres que calculemos el consumo para un área, o prefieres revisar su rendimiento o mezcla?").
+5. Si el usuario te hace preguntas sobre cualquier producto en el catálogo (incluso si no está seleccionado ni citado), búscalo en la sección "INFORMACIÓN DEL CATÁLOGO DE PRODUCTOS" arriba, léelo y responde detalladamente.
+6. Si el usuario te pregunta por consumos para un área específica (ej. "tengo 150 m2"), calcula el volumen necesario de forma precisa dividiendo el área entre el rendimiento del producto (Área / Rendimiento) si tiene rendimiento.
+7. NUNCA inventes especificaciones técnicas. Si un valor es "No especificado" o no existe en el catálogo, dile amablemente que no está registrado y sugíerele verificar la ficha física o soporte.
+8. Puedes hacer conversiones matemáticas estándar (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).`;
 
       const formattedContents = [
         ...nuevoHistorial.map(h => ({
@@ -1345,15 +1357,17 @@ Reglas de comportamiento:
               <h3 className="font-bold text-sm flex items-center gap-1.5">
                 <span>🤖</span> Asistente Técnico BUCA
               </h3>
-              <p className="text-[10px] text-blue-100 font-medium">
-                {productoSeleccionado 
-                  ? `Producto activo: ${productoSeleccionado.nombre}`
-                  : 'Sin producto seleccionado'}
+              <p className="text-[10px] text-blue-100 font-medium truncate max-w-[240px]">
+                {citadoProducto 
+                  ? `Citando: ${citadoProducto.nombre}`
+                  : productoSeleccionado 
+                    ? `Activo: ${productoSeleccionado.nombre}`
+                    : 'Sin producto seleccionado'}
               </p>
             </div>
             <button
               onClick={() => setChatAbierto(false)}
-              className="text-white/80 hover:text-white font-bold text-xl leading-none cursor-pointer"
+              className="text-white/80 hover:text-white font-bold text-xl leading-none cursor-pointer animate-fade-in"
             >
               ×
             </button>
@@ -1372,12 +1386,13 @@ Reglas de comportamiento:
                 </div>
                 {/* Suggestions */}
                 <div className="w-full space-y-1.5 pt-2">
-                  {productoSeleccionado ? (
+                  {(citadoProducto || productoSeleccionado) ? (
                     <>
                       <button
                         type="button"
                         onClick={() => {
-                          setChatMensaje(`¿Cuál es el rendimiento de ${productoSeleccionado.nombre}?`);
+                          const p = citadoProducto || productoSeleccionado;
+                          if (p) setChatMensaje(`¿Cuál es el rendimiento de ${p.nombre}?`);
                         }}
                         className="w-full text-[10px] text-left text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-100 rounded-lg p-2 transition font-medium cursor-pointer"
                       >
@@ -1386,17 +1401,19 @@ Reglas de comportamiento:
                       <button
                         type="button"
                         onClick={() => {
-                          setChatMensaje(`Tengo un área de 100 m², ¿cuánto necesito comprar de ${productoSeleccionado.nombre}?`);
+                          const p = citadoProducto || productoSeleccionado;
+                          if (p) setChatMensaje(`Tengo un área de 100 m², ¿cuánto necesito comprar de ${p.nombre}?`);
                         }}
                         className="w-full text-[10px] text-left text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-100 rounded-lg p-2 transition font-medium cursor-pointer"
                       >
                         📐 Calcular consumo para 100 m²
                       </button>
-                      {productoSeleccionado.proporcionesMezcla && (
+                      {((citadoProducto || productoSeleccionado)?.proporcionesMezcla) && (
                         <button
                           type="button"
                           onClick={() => {
-                            setChatMensaje(`¿Cuál es la proporción de mezcla recomendada para ${productoSeleccionado.nombre}?`);
+                            const p = citadoProducto || productoSeleccionado;
+                            if (p) setChatMensaje(`¿Cuál es la proporción de mezcla recomendada para ${p.nombre}?`);
                           }}
                           className="w-full text-[10px] text-left text-blue-700 bg-blue-50/70 hover:bg-blue-100/70 border border-blue-100 rounded-lg p-2 transition font-medium cursor-pointer"
                         >
@@ -1406,7 +1423,7 @@ Reglas de comportamiento:
                     </>
                   ) : (
                     <p className="text-[10px] text-amber-600 font-semibold italic bg-amber-50 border border-amber-100 rounded-lg p-2">
-                      💡 Selecciona un producto en el cotizador para desbloquear preguntas contextuales rápidas sobre su ficha técnica.
+                      💡 Selecciona un producto en el cotizador o usa el clip para citar uno y desbloquear preguntas contextuales.
                     </p>
                   )}
                   <button
@@ -1456,11 +1473,74 @@ Reglas de comportamiento:
             <div ref={chatMessagesEndRef} />
           </div>
 
+          {/* Dynamic Citation Badge */}
+          {citadoProducto && (
+            <div className="px-3 py-1.5 bg-blue-50 border-t border-blue-100 flex items-center justify-between text-xs text-blue-700 animate-fade-in shrink-0">
+              <span className="flex items-center gap-1 font-medium truncate">
+                <span>📎</span> Citando: <strong>{citadoProducto.nombre}</strong>
+              </span>
+              <button
+                type="button"
+                onClick={() => setCitadoProducto(null)}
+                className="text-blue-500 hover:text-blue-700 font-bold ml-2 text-sm leading-none shrink-0"
+                title="Quitar citación"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
+          {/* Paperclip product list dropdown (absolute positioned) */}
+          {mostrarClipMenu && (
+            <div className="absolute left-3 right-3 max-h-48 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden z-50 flex flex-col animate-fade-in" style={{ bottom: citadoProducto ? '88px' : '57px' }}>
+              <div className="p-2 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Citar producto en chat</span>
+                <button 
+                  type="button" 
+                  onClick={() => setMostrarClipMenu(false)}
+                  className="text-gray-400 hover:text-gray-600 text-xs font-bold px-1.5 py-0.5 rounded hover:bg-gray-200"
+                >
+                  Cerrar
+                </button>
+              </div>
+              <ul className="overflow-y-auto divide-y divide-gray-100 flex-1">
+                {productosDisponibles.map((p, idx) => (
+                  <li 
+                    key={p.id || `${p.nombre}-${idx}`}
+                    onClick={() => {
+                      setCitadoProducto(p);
+                      setMostrarClipMenu(false);
+                    }}
+                    className="px-3 py-2 text-xs hover:bg-blue-50 cursor-pointer text-gray-700 font-medium truncate flex items-center gap-1.5"
+                  >
+                    <span>📎</span> {p.nombre}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Footer Input */}
           <form
             onSubmit={enviarMensajeChat}
-            className="p-3 bg-white border-t border-gray-150 flex gap-2 items-center"
+            className="p-3 bg-white border-t border-gray-150 flex gap-2 items-center shrink-0"
           >
+            {/* Paperclip Button */}
+            <button
+              type="button"
+              onClick={() => setMostrarClipMenu(!mostrarClipMenu)}
+              className={`p-2 rounded-xl transition cursor-pointer flex items-center justify-center border shrink-0 ${
+                mostrarClipMenu 
+                  ? 'bg-blue-50 border-blue-200 text-blue-600' 
+                  : 'bg-gray-50 border-gray-200 text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+              title="Citar producto"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+
             <input
               type="text"
               className="flex-1 text-xs px-3.5 py-2 border border-gray-200 rounded-xl outline-none focus:border-blue-400 bg-gray-50/50"
