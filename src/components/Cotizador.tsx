@@ -423,10 +423,25 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
       const dbProducts = await fetchProductosSupabase(false)
       if (dbProducts && dbProducts.length > 0) {
         setProductosDisponibles(dbProducts)
-        // Keep productoSeleccionado as null initially so the user has to select a material explicitly.
       }
       const dbSistemas = await fetchSistemasSupabase()
       setSistemasDisponibles(dbSistemas)
+      
+      const params = new URLSearchParams(window.location.search)
+      const targetSysId = params.get('sistemaId')
+      if (targetSysId && dbSistemas && dbSistemas.length > 0) {
+        const found = dbSistemas.find(s => s.id === targetSysId)
+        if (found) {
+          setSistemaSeleccionado(found)
+          setCotizarTipo('sistema')
+          setTimeout(() => {
+            const el = document.getElementById('seccion-sistema-multicapa')
+            if (el) el.scrollIntoView({ behavior: 'smooth' })
+          }, 300)
+          return
+        }
+      }
+      
       if (dbSistemas && dbSistemas.length > 0) {
         setSistemaSeleccionado(dbSistemas[0])
       }
@@ -672,7 +687,10 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                 <p className="text-blue-200 text-xs">Monterrey, N.L. · México</p>
                 <p className="text-blue-100 text-xs">{fechaHoy}</p>
               </div>
-              <Link to="/admin" className="ml-4 px-3 py-1.5 bg-blue-800 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition">
+              <Link to="/sistemas" className="ml-4 px-3 py-1.5 bg-purple-700 text-white text-xs font-medium rounded-lg hover:bg-purple-600 transition">
+                🧪 Sistemas Multicapa
+              </Link>
+              <Link to="/admin" className="ml-2 px-3 py-1.5 bg-blue-800 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition">
                 ⚙️ Admin
               </Link>
             </div>
@@ -801,7 +819,7 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
         </div>
 
         {/* Selector de producto / sistema */}
-        <div className="buca-card print:hidden">
+        <div id="seccion-sistema-multicapa" className="buca-card print:hidden">
           <div className="flex items-center justify-between border-b border-gray-100 pb-3 mb-4">
             <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide">
               Agregar Concepto a Cotización

@@ -10,6 +10,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as AdminImport } from './routes/admin'
+import { Route as SistemasImport } from './routes/sistemas'
 import { Route as IndexImport } from './routes/index'
 
 // Create/Update Routes
@@ -17,6 +18,12 @@ import { Route as IndexImport } from './routes/index'
 const AdminRoute = AdminImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const SistemasRoute = SistemasImport.update({
+  id: '/sistemas',
+  path: '/sistemas',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -44,6 +51,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminImport
       parentRoute: typeof rootRoute
     }
+    '/sistemas': {
+      id: '/sistemas'
+      path: '/sistemas'
+      fullPath: '/sistemas'
+      preLoaderRoute: typeof SistemasImport
+      parentRoute: typeof rootRoute
+    }
   }
 }
 
@@ -52,36 +66,41 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/sistemas': typeof SistemasRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/sistemas': typeof SistemasRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
+  '/sistemas': typeof SistemasRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/admin'
+  fullPaths: '/' | '/admin' | '/sistemas'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/admin'
-  id: '__root__' | '/' | '/admin'
-  fileRoutesById: FileRoutesById
+  to: '/' | '/admin' | '/sistemas'
+  id: '__root__' | '/' | '/admin' | '/sistemas'
+  fileRoutesById: FileRouteTypes['fileRoutesById'] // or simply keep type consistent
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
+  SistemasRoute: typeof SistemasRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
+  SistemasRoute: SistemasRoute,
 }
 
 export const routeTree = rootRoute

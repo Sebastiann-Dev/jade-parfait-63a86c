@@ -1534,6 +1534,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 + Nuevo Sistema
               </button>
             )}
+            <Link to="/sistemas" style={{ padding: '8px 16px', border: '1px solid #c4b5fd', borderRadius: '8px', fontSize: '14px', color: '#6d28d9', textDecoration: 'none', background: '#f5f3ff', fontWeight: 600 }}>
+              🧪 Catálogo Sistemas
+            </Link>
             <Link to="/" style={{ padding: '8px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '14px', color: '#374151', textDecoration: 'none', background: 'white' }}>
               ← Cotizador
             </Link>
