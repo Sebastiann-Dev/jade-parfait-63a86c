@@ -304,36 +304,29 @@ function SistemasCatalogPage() {
                                 {/* Attached PDFs */}
                                 {(capa.partA.producto.ficha_tecnica_url || capa.partA.producto.ficha_seguridad_url || (capa.partB && (capa.partB.producto.ficha_tecnica_url || capa.partB.producto.ficha_seguridad_url))) && (
                                   <div className="flex flex-wrap gap-2 mb-1">
-                                    {capa.partA.producto.ficha_tecnica_url && (
+                                    {/* Unified TDS Ficha Técnica */}
+                                    {(capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)) && (
                                       <a
-                                        href={capa.partA.producto.ficha_tecnica_url}
+                                        href={capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url) || '#'}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
                                       >
-                                        📄 {capa.isGrouped ? 'Ficha Técnica A (TDS)' : 'Ficha Técnica (TDS)'}
+                                        📄 Ficha Técnica (TDS)
                                       </a>
                                     )}
-                                    {capa.partA.producto.ficha_seguridad_url && (
-                                      <a
-                                        href={capa.partA.producto.ficha_seguridad_url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
-                                      >
-                                        🛡️ {capa.isGrouped ? 'Ficha Seguridad A (SDS)' : 'Ficha de Seguridad (SDS)'}
-                                      </a>
-                                    )}
-                                    {capa.isGrouped && capa.partB && (
+
+                                    {/* SDS Ficha de Seguridad (Can be independent for Part A and Part B) */}
+                                    {capa.isGrouped && capa.partB ? (
                                       <>
-                                        {capa.partB.producto.ficha_tecnica_url && (
+                                        {capa.partA.producto.ficha_seguridad_url && (
                                           <a
-                                            href={capa.partB.producto.ficha_tecnica_url}
+                                            href={capa.partA.producto.ficha_seguridad_url}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
+                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
                                           >
-                                            📄 Ficha Técnica B (TDS)
+                                            🛡️ Ficha Seguridad A (SDS)
                                           </a>
                                         )}
                                         {capa.partB.producto.ficha_seguridad_url && (
@@ -347,6 +340,17 @@ function SistemasCatalogPage() {
                                           </a>
                                         )}
                                       </>
+                                    ) : (
+                                      capa.partA.producto.ficha_seguridad_url && (
+                                        <a
+                                          href={capa.partA.producto.ficha_seguridad_url}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                        >
+                                          🛡️ Ficha de Seguridad (SDS)
+                                        </a>
+                                      )
                                     )}
                                   </div>
                                 )}
