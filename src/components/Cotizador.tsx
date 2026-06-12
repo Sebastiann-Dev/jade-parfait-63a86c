@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
 import { PRODUCTOS, type Producto } from '../data/productos'
 import { fetchProductosSupabase, fetchSistemasSupabase, fetchSistemaProductosSupabase, type Sistema } from '../supabase'
@@ -127,6 +127,104 @@ async function testKey(apiKey: string): Promise<{ success: boolean; error?: stri
   } catch (e: any) {
     return { success: false, error: e.message || 'Error de conexión' };
   }
+}
+
+function parseMarkdown(text: string) {
+  if (!text) return null;
+  const parts: React.ReactNode[] = [];
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+  let lastIndex = 0;
+  let match;
+
+  const parseBold = (str: string, segmentKeyPrefix: string) => {
+    const boldParts: React.ReactNode[] = [];
+    const boldRegex = /\*\*([^*]+)\*\*/g;
+    let boldLastIdx = 0;
+    let boldMatch;
+    while ((boldMatch = boldRegex.exec(str)) !== null) {
+      const normalText = str.substring(boldLastIdx, boldMatch.index);
+      if (normalText) {
+        boldParts.push(normalText);
+      }
+      boldParts.push(<strong key={`${segmentKeyPrefix}-bold-${boldMatch.index}`} className="font-bold text-gray-950">{boldMatch[1]}</strong>);
+      boldLastIdx = boldRegex.lastIndex;
+    }
+    const remainingText = str.substring(boldLastIdx);
+    if (remainingText) {
+      boldParts.push(remainingText);
+    }
+    return boldParts;
+  };
+
+  while ((match = regex.exec(text)) !== null) {
+    const textBefore = text.substring(lastIndex, match.index);
+    if (textBefore) {
+      parts.push(...parseBold(textBefore, `pre-${match.index}`));
+    }
+    const linkText = match[1];
+    const linkUrl = match[2];
+    parts.push(
+      <a
+        key={`link-${match.index}`}
+        href={linkUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-0.5 mx-0.5"
+      >
+        {linkText}
+      </a>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  const textAfter = text.substring(lastIndex);
+  if (textAfter) {
+    parts.push(...parseBold(textAfter, 'post'));
+  }
+
+  return parts;
+}
+
+function renderParsedMessage(text: string) {
+  if (!text) return null;
+  const lines = text.split('\n');
+  return lines.map((line, idx) => {
+    const parsedLine = parseMarkdown(line);
+    return (
+      <div key={idx} className={idx > 0 ? "mt-1" : ""}>
+        {parsedLine}
+      </div>
+    );
+  });
+}
+
+function detectProductsInMessage(msgText: string, catalog: Producto[]) {
+  if (!msgText || !catalog || catalog.length === 0) return [];
+  const detected: Producto[] = [];
+  const textLower = msgText.toLowerCase();
+  
+  catalog.forEach(p => {
+    if (!p.nombre) return;
+    const nameLower = p.nombre.toLowerCase();
+    
+    // Ignore short words to avoid false positive triggers (unless exact boundaries match)
+    if (nameLower.length < 4) {
+      const escapedName = p.nombre.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      const regex = new RegExp(`\\b${escapedName}\\b`, 'i');
+      if (regex.test(msgText) && (p.ficha_tecnica_url || p.ficha_seguridad_url)) {
+        if (!detected.some(d => d.id === p.id)) {
+          detected.push(p);
+        }
+      }
+    } else {
+      if (textLower.includes(nameLower) && (p.ficha_tecnica_url || p.ficha_seguridad_url)) {
+        if (!detected.some(d => d.id === p.id)) {
+          detected.push(p);
+        }
+      }
+    }
+  });
+  return detected;
 }
 
 export default function Cotizador() {
@@ -1869,7 +1967,47 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                         : 'bg-white border border-gray-150 text-gray-800 rounded-tl-none shadow-sm'
                     }`}
                   >
-                    {msg.texto}
+                    {msg.remitente === 'ia' ? renderParsedMessage(msg.texto) : msg.texto}
+
+                    {/* Detected PDFs widget */}
+                    {msg.remitente === 'ia' && (() => {
+                      const detectedProds = detectProductsInMessage(msg.texto, productosDisponibles);
+                      if (detectedProds.length === 0) return null;
+                      return (
+                        <div className="mt-2 pt-2 border-t border-gray-100 w-full flex flex-col gap-1">
+                          <span className="text-[9px] font-bold text-gray-500 uppercase tracking-wider block">📄 Documentos:</span>
+                          <div className="flex flex-col gap-1">
+                            {detectedProds.map(p => (
+                              <div key={p.id} className="flex justify-between items-center bg-gray-50 border border-gray-150 rounded px-1.5 py-0.5">
+                                <span className="font-semibold text-[9px] text-gray-600 truncate max-w-[120px]">{p.nombre}</span>
+                                <div className="flex gap-1 shrink-0">
+                                  {p.ficha_tecnica_url && (
+                                    <a
+                                      href={p.ficha_tecnica_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition"
+                                    >
+                                      TDS
+                                    </a>
+                                  )}
+                                  {p.ficha_seguridad_url && (
+                                    <a
+                                      href={p.ficha_seguridad_url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-0.5 text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition"
+                                    >
+                                      SDS
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                   <span className="text-[9px] text-gray-400 mt-1 px-1.5 select-none">
                     {msg.hora}
