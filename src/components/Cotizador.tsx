@@ -284,7 +284,9 @@ ${productosDisponibles.map(p => `
   - Proporción de mezcla: ${p.proporcionesMezcla || 'No aplica'}
   - Ventajas: ${p.pros || 'No especificados'}
   - Limitantes: ${p.cons || 'No especificadas'}
-  - Precauciones: ${p.cuidadoCon || 'No especificadas'}`).join('\n')}
+  - Precauciones: ${p.cuidadoCon || 'No especificadas'}
+  - Ficha Técnica (TDS) URL: ${p.ficha_tecnica_url || 'No disponible'}
+  - Ficha de Seguridad (SDS) URL: ${p.ficha_seguridad_url || 'No disponible'}`).join('\n')}
 
 INFORMACIÓN DE SELECCIÓN Y CITACIÓN DE PRODUCTOS EN TIEMPO REAL:
 - Producto SELECCIONADO en el cotizador principal: ${productoSeleccionado ? productoSeleccionado.nombre : 'Ninguno'}
@@ -309,6 +311,8 @@ ${[...sistemaRels].sort((a, b) => a.orden - b.orden).map(rel => {
     * Papel/Rol: ${rol}
     * Consumo: ${rel.consumo_por_m2} ${rel.producto.unidad}/m²
     * Espesor: ${rel.producto.espesorRecomendado || 'N/A'}
+    * Ficha Técnica (TDS) URL: ${rel.producto.ficha_tecnica_url || 'No disponible'}
+    * Ficha de Seguridad (SDS) URL: ${rel.producto.ficha_seguridad_url || 'No disponible'}
     * Instrucciones de aplicación: ${instructions}`;
 }).join('\n')}
 ` : ''}
@@ -322,7 +326,8 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
 6. Si el usuario te hace preguntas sobre cualquier producto en el catálogo (incluso si no está seleccionado ni citado), búscalo en la sección "INFORMACIÓN DEL CATÁLOGO DE PRODUCTOS" arriba, léelo y responde detalladamente.
 7. Si el usuario te pregunta por consumos para un área específica (ej. "tengo 150 m2"), calcula el volumen necesario de forma precisa dividiendo el área entre el rendimiento del producto (Área / Rendimiento) si tiene rendimiento.
 8. NUNCA inventes especificaciones técnicas. Si un valor es "No especificado" o no existe en el catálogo, dile amablemente que no está registrado y sugíerele verificar la ficha física o soporte.
-9. Puedes hacer conversiones matemáticas estándar (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).`;
+9. Puedes hacer conversiones matemáticas estándar (ej: 1 galón = 3.785 L, 1 mil = 25.4 micras).
+10. Siempre que respondas sobre un producto o sistema, o cuando un producto esté citado/seleccionado en el chat, si en su información del catálogo tiene disponible una Ficha Técnica (TDS) o Ficha de Seguridad (SDS) con una URL válida, debes anexar/citar obligatoriamente dichos enlaces al final de tu respuesta en formato Markdown para que el usuario pueda descargarlos directamente (ej. "[📄 Descargar Ficha Técnica (TDS)](URL_AQUÍ)" o "[🛡️ Descargar Ficha de Seguridad (SDS)](URL_AQUÍ)"). Si no tiene URL disponible, indícalo brevemente.`;
 
       const formattedContents = [
         ...nuevoHistorial.map(h => ({
