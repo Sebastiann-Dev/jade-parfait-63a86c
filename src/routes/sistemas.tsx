@@ -301,13 +301,12 @@ function SistemasCatalogPage() {
                                 {/* Connector node circle */}
                                 <div className="absolute -left-[5px] top-4 w-2 h-2 rounded-full bg-purple-400" />
 
-                                {/* Attached PDFs */}
-                                {(capa.partA.producto.ficha_tecnica_url || capa.partA.producto.ficha_seguridad_url || (capa.partB && (capa.partB.producto.ficha_tecnica_url || capa.partB.producto.ficha_seguridad_url))) && (
+                                {/* Attached PDFs (Moved to top, only for non-grouped layers) */}
+                                {!capa.isGrouped && (capa.partA.producto.ficha_tecnica_url || capa.partA.producto.ficha_seguridad_url) && (
                                   <div className="flex flex-wrap gap-2 mb-1">
-                                    {/* Unified TDS Ficha Técnica */}
-                                    {(capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)) && (
+                                    {capa.partA.producto.ficha_tecnica_url && (
                                       <a
-                                        href={capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url) || '#'}
+                                        href={capa.partA.producto.ficha_tecnica_url}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
@@ -315,42 +314,15 @@ function SistemasCatalogPage() {
                                         📄 Ficha Técnica (TDS)
                                       </a>
                                     )}
-
-                                    {/* SDS Ficha de Seguridad (Can be independent for Part A and Part B) */}
-                                    {capa.isGrouped && capa.partB ? (
-                                      <>
-                                        {capa.partA.producto.ficha_seguridad_url && (
-                                          <a
-                                            href={capa.partA.producto.ficha_seguridad_url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
-                                          >
-                                            🛡️ Ficha Seguridad A (SDS)
-                                          </a>
-                                        )}
-                                        {capa.partB.producto.ficha_seguridad_url && (
-                                          <a
-                                            href={capa.partB.producto.ficha_seguridad_url}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
-                                          >
-                                            🛡️ Ficha Seguridad B (SDS)
-                                          </a>
-                                        )}
-                                      </>
-                                    ) : (
-                                      capa.partA.producto.ficha_seguridad_url && (
-                                        <a
-                                          href={capa.partA.producto.ficha_seguridad_url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
-                                        >
-                                          🛡️ Ficha de Seguridad (SDS)
-                                        </a>
-                                      )
+                                    {capa.partA.producto.ficha_seguridad_url && (
+                                      <a
+                                        href={capa.partA.producto.ficha_seguridad_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                      >
+                                        🛡️ Ficha de Seguridad (SDS)
+                                      </a>
                                     )}
                                   </div>
                                 )}
@@ -358,54 +330,96 @@ function SistemasCatalogPage() {
                                 {/* Detailed Breakdown (2-Column comparative or 1-Column) */}
                                 {capa.isGrouped && capa.partB ? (
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Part A */}
-                                    <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
-                                      <div className="flex justify-between items-center border-b border-purple-50 pb-2">
-                                        <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partA.producto.nombre}</span>
-                                        <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">Parte A</span>
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2 text-[11px] leading-relaxed">
-                                        <div>
-                                          <span className="font-semibold text-gray-500">Dosificación:</span><br />
-                                          <span className="text-gray-700 font-medium">{capa.partA.consumo_por_m2} {capa.partA.producto.unidad}/m²</span>
+                                    {/* Column 1: Parte A */}
+                                    <div className="flex flex-col gap-2.5">
+                                      {/* Centered TDS Ficha Técnica */}
+                                      {(capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)) && (
+                                        <div className="flex justify-center">
+                                          <a
+                                            href={capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
+                                          >
+                                            📄 Ficha Técnica (TDS)
+                                          </a>
                                         </div>
-                                        <div>
-                                          <span className="font-semibold text-gray-500">Unidad:</span><br />
-                                          <span className="text-purple-800 font-bold">{capa.partA.producto.unidad}</span>
+                                      )}
+                                      <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
+                                        <div className="flex justify-between items-center border-b border-purple-50 pb-2">
+                                          <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partA.producto.nombre}</span>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">Parte A</span>
                                         </div>
-                                        <div className="col-span-2 border-t border-purple-50 pt-1.5">
-                                          <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
-                                          <span className="text-gray-700 font-medium">
-                                            {capa.partA.producto.tieneRendimiento && capa.partA.producto.rendimiento 
-                                              ? `${capa.partA.producto.rendimiento} m²/unidad` 
-                                              : 'Cálculo dinámico/manual'}
-                                          </span>
+                                        <div className="grid grid-cols-2 gap-2 text-[11px] leading-relaxed">
+                                          <div>
+                                            <span className="font-semibold text-gray-500">Dosificación:</span><br />
+                                            <span className="text-gray-700 font-medium">{capa.partA.consumo_por_m2} {capa.partA.producto.unidad}/m²</span>
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold text-gray-500">Unidad:</span><br />
+                                            <span className="text-purple-800 font-bold">{capa.partA.producto.unidad}</span>
+                                          </div>
+                                          <div className="col-span-2 border-t border-purple-50 pt-1.5">
+                                            <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
+                                            <span className="text-gray-700 font-medium">
+                                              {capa.partA.producto.tieneRendimiento && capa.partA.producto.rendimiento 
+                                                ? `${capa.partA.producto.rendimiento} m²/unidad` 
+                                                : 'Cálculo dinámico/manual'}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
 
-                                    {/* Part B */}
-                                    <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
-                                      <div className="flex justify-between items-center border-b border-purple-50 pb-2">
-                                        <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partB.producto.nombre}</span>
-                                        <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">Parte B</span>
-                                      </div>
-                                      <div className="grid grid-cols-2 gap-2 text-[11px] leading-relaxed">
-                                        <div>
-                                          <span className="font-semibold text-gray-500">Dosificación:</span><br />
-                                          <span className="text-gray-700 font-medium">{capa.partB.consumo_por_m2} {capa.partB.producto.unidad}/m²</span>
+                                    {/* Column 2: Parte B */}
+                                    <div className="flex flex-col gap-2.5">
+                                      {/* Centered SDS Hojas de Seguridad */}
+                                      {(capa.partA.producto.ficha_seguridad_url || capa.partB.producto.ficha_seguridad_url) && (
+                                        <div className="flex flex-wrap justify-center gap-2">
+                                          {capa.partA.producto.ficha_seguridad_url && (
+                                            <a
+                                              href={capa.partA.producto.ficha_seguridad_url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                            >
+                                              🛡️ Ficha Seguridad A (SDS)
+                                            </a>
+                                          )}
+                                          {capa.partB.producto.ficha_seguridad_url && (
+                                            <a
+                                              href={capa.partB.producto.ficha_seguridad_url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                            >
+                                              🛡️ Ficha Seguridad B (SDS)
+                                            </a>
+                                          )}
                                         </div>
-                                        <div>
-                                          <span className="font-semibold text-gray-500">Unidad:</span><br />
-                                          <span className="text-purple-800 font-bold">{capa.partB.producto.unidad}</span>
+                                      )}
+                                      <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
+                                        <div className="flex justify-between items-center border-b border-purple-50 pb-2">
+                                          <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partB.producto.nombre}</span>
+                                          <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">Parte B</span>
                                         </div>
-                                        <div className="col-span-2 border-t border-purple-50 pt-1.5">
-                                          <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
-                                          <span className="text-gray-700 font-medium">
-                                            {capa.partB.producto.tieneRendimiento && capa.partB.producto.rendimiento 
-                                              ? `${capa.partB.producto.rendimiento} m²/unidad` 
-                                              : 'Cálculo dinámico/manual'}
-                                          </span>
+                                        <div className="grid grid-cols-2 gap-2 text-[11px] leading-relaxed">
+                                          <div>
+                                            <span className="font-semibold text-gray-500">Dosificación:</span><br />
+                                            <span className="text-gray-700 font-medium">{capa.partB.consumo_por_m2} {capa.partB.producto.unidad}/m²</span>
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold text-gray-500">Unidad:</span><br />
+                                            <span className="text-purple-800 font-bold">{capa.partB.producto.unidad}</span>
+                                          </div>
+                                          <div className="col-span-2 border-t border-purple-50 pt-1.5">
+                                            <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
+                                            <span className="text-gray-700 font-medium">
+                                              {capa.partB.producto.tieneRendimiento && capa.partB.producto.rendimiento 
+                                                ? `${capa.partB.producto.rendimiento} m²/unidad` 
+                                                : 'Cálculo dinámico/manual'}
+                                            </span>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
