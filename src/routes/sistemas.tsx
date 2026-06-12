@@ -38,7 +38,7 @@ function SistemasCatalogPage() {
     async function loadCatalogData() {
       try {
         setLoading(true)
-        const allProducts = await fetchProductosSupabase(false)
+        const allProducts = await fetchProductosSupabase(true)
         const allSystems = await fetchSistemasSupabase()
 
         const detailedSystems = await Promise.all(

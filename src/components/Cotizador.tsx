@@ -420,7 +420,7 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
 
   useEffect(() => {
     async function loadDatabase() {
-      const dbProducts = await fetchProductosSupabase(false)
+      const dbProducts = await fetchProductosSupabase(true)
       if (dbProducts && dbProducts.length > 0) {
         setProductosDisponibles(dbProducts)
       }
@@ -522,10 +522,11 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
   }, [])
 
   const productosFiltrados = useMemo(() => {
-    if (!busqueda) return productosDisponibles
+    const publicProducts = productosDisponibles.filter(p => p.estado !== 'borrador')
+    if (!busqueda) return publicProducts
     const q = busqueda.toLowerCase()
-    return productosDisponibles.filter(p =>
-      p.nombre.toLowerCase().includes(q) || p.nota.toLowerCase().includes(q)
+    return publicProducts.filter(p =>
+      p.nombre.toLowerCase().includes(q) || (p.nota ? p.nota.toLowerCase().includes(q) : false)
     )
   }, [busqueda, productosDisponibles])
 
@@ -1969,7 +1970,7 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
               </div>
               <ul className="overflow-y-auto divide-y divide-gray-100 flex-1">
                 {clipMenuTab === 'productos' ? (
-                  productosDisponibles.map((p, idx) => {
+                  productosDisponibles.filter(p => p.estado !== 'borrador').map((p, idx) => {
                     const isCited = citadosProductos.some(item => item.nombre === p.nombre);
                     return (
                       <li 
