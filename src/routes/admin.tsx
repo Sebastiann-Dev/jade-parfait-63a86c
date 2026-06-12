@@ -1151,8 +1151,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     }
 
     if (estadoDestino === 'borrador' && !formData.motivo_incompleto?.trim()) {
-      showMsg('❌ Para guardar como borrador debes describir el motivo pendiente', 'error')
-      return
+      formData.motivo_incompleto = "Información pendiente de complementar"
     }
 
     setSaving(true)
