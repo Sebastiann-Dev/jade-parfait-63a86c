@@ -1448,23 +1448,54 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
 
                                       {/* Detailed Breakdown */}
                                       {capa.isGrouped && capa.partB ? (
-                                        /* 2-Column comparative layout for Part A and Part B */
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                          {/* Column 1: Parte A */}
-                                          <div className="flex flex-col gap-2.5">
-                                            {/* Centered TDS Ficha Técnica */}
-                                            {(capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)) && (
-                                              <div className="flex justify-center">
-                                                <a
-                                                  href={capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)}
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
-                                                >
-                                                  📄 Ficha Técnica (TDS)
-                                                </a>
+                                        /* 2-Column layout with separate grids for buttons and cards */
+                                        <div className="space-y-3">
+                                          {/* Centered PDF buttons above columns */}
+                                          {(capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url) || capa.partA.producto.ficha_seguridad_url || capa.partB.producto.ficha_seguridad_url) && (
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                              {/* Left column: TDS Ficha Técnica */}
+                                              <div className="flex justify-center items-center">
+                                                {(capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)) && (
+                                                  <a
+                                                    href={capa.partA.producto.ficha_tecnica_url || (capa.partB && capa.partB.producto.ficha_tecnica_url)}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
+                                                  >
+                                                    📄 Ficha Técnica (TDS)
+                                                  </a>
+                                                )}
                                               </div>
-                                            )}
+
+                                              {/* Right column: SDS Hojas de Seguridad (stacked vertically to guarantee centering) */}
+                                              <div className="flex flex-col items-center justify-center gap-1.5">
+                                                {capa.partA.producto.ficha_seguridad_url && (
+                                                  <a
+                                                    href={capa.partA.producto.ficha_seguridad_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                                  >
+                                                    🛡️ Ficha Seguridad A (SDS)
+                                                  </a>
+                                                )}
+                                                {capa.partB.producto.ficha_seguridad_url && (
+                                                  <a
+                                                    href={capa.partB.producto.ficha_seguridad_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                                  >
+                                                    🛡️ Ficha Seguridad B (SDS)
+                                                  </a>
+                                                )}
+                                              </div>
+                                            </div>
+                                          )}
+
+                                          {/* Comparative cards grid */}
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {/* Column 1: Parte A */}
                                             <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
                                               <div className="flex justify-between items-center border-b border-purple-50 pb-2">
                                                 <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partA.producto.nombre}</span>
@@ -1489,35 +1520,8 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                                                 </div>
                                               </div>
                                             </div>
-                                          </div>
 
-                                          {/* Column 2: Parte B */}
-                                          <div className="flex flex-col gap-2.5">
-                                            {/* Centered SDS Hojas de Seguridad */}
-                                            {(capa.partA.producto.ficha_seguridad_url || capa.partB.producto.ficha_seguridad_url) && (
-                                              <div className="flex flex-wrap justify-center gap-2">
-                                                {capa.partA.producto.ficha_seguridad_url && (
-                                                  <a
-                                                    href={capa.partA.producto.ficha_seguridad_url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
-                                                  >
-                                                    🛡️ Ficha Seguridad A (SDS)
-                                                  </a>
-                                                )}
-                                                {capa.partB.producto.ficha_seguridad_url && (
-                                                  <a
-                                                    href={capa.partB.producto.ficha_seguridad_url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
-                                                  >
-                                                    🛡️ Ficha Seguridad B (SDS)
-                                                  </a>
-                                                )}
-                                              </div>
-                                            )}
+                                            {/* Column 2: Parte B */}
                                             <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
                                               <div className="flex justify-between items-center border-b border-purple-50 pb-2">
                                                 <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partB.producto.nombre}</span>
