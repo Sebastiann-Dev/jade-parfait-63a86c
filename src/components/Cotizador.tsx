@@ -173,6 +173,58 @@ export default function Cotizador() {
   // Systems visualization layer state
   const [capaActivaIndex, setCapaActivaIndex] = useState<number | null>(null)
   const [desgloseTab, setDesgloseTab] = useState<'consumos' | 'capas'>('consumos')
+
+  // Group adjacent Part A and Part B products of the same material into a single visual layer
+  const groupedCapas = useMemo(() => {
+    const sortedRels = [...sistemaRels].sort((a, b) => a.orden - b.orden);
+    const result: {
+      id: string;
+      baseName: string;
+      orden: number;
+      partA: typeof sortedRels[0];
+      partB?: typeof sortedRels[0];
+      isGrouped: boolean;
+    }[] = [];
+    
+    let i = 0;
+    while (i < sortedRels.length) {
+      const current = sortedRels[i];
+      const currentName = current.producto.nombre;
+      const partAMatch = currentName.match(/^(.*?)\s*[-–(]?\s*(?:Pte|Parte|Part)\s*A\s*\)?$/i);
+      
+      if (partAMatch) {
+        const baseName = partAMatch[1].trim();
+        if (i + 1 < sortedRels.length) {
+          const next = sortedRels[i+1];
+          const nextName = next.producto.nombre;
+          const partBMatch = nextName.match(/^(.*?)\s*[-–(]?\s*(?:Pte|Parte|Part)\s*B\s*\)?$/i);
+          
+          if (partBMatch && partBMatch[1].trim().toLowerCase() === baseName.toLowerCase()) {
+            result.push({
+              id: `${current.id}_grouped_${next.id}`,
+              baseName,
+              orden: current.orden,
+              partA: current,
+              partB: next,
+              isGrouped: true
+            });
+            i += 2;
+            continue;
+          }
+        }
+      }
+      
+      result.push({
+        id: current.id,
+        baseName: currentName,
+        orden: current.orden,
+        partA: current,
+        isGrouped: false
+      });
+      i += 1;
+    }
+    return result;
+  }, [sistemaRels]);
   
   const chatMessagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -1167,40 +1219,75 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                           
                           <div className="flex flex-col gap-2 max-w-lg mx-auto">
                             {/* Stacking rendering in reverse order (Capa superior primero) */}
-                            {[...sistemaRels].sort((a, b) => b.orden - a.orden).map((rel, idx) => {
-                              const isExpanded = capaActivaIndex === rel.orden;
-                              const isFirst = rel.orden === 0;
-                              const isLast = rel.orden === sistemaRels.length - 1;
+                             {[...groupedCapas].sort((a, b) => b.orden - a.orden).map((capa, idx) => {
+                              const isExpanded = capaActivaIndex === capa.orden;
+                              const isFirst = capa.orden === 0;
+                              const isLast = capa.orden === groupedCapas[groupedCapas.length - 1].orden;
                               
                               // Color scheme based on layer type
                               let blockColor = "from-purple-500 to-indigo-500 border-purple-600 shadow-purple-100";
                               if (isFirst) blockColor = "from-blue-500 to-cyan-500 border-blue-600 shadow-blue-100";
                               else if (isLast) blockColor = "from-violet-600 to-fuchsia-600 border-violet-700 shadow-violet-100";
                               
-                              const quantity = (parseFloat(sistemaMetros) || 0) * rel.consumo_por_m2;
-                              const isAccesorio = rel.producto.unidad.toLowerCase().includes('pza') || rel.producto.unidad.toLowerCase().includes('pieza');
-                              const finalQty = isAccesorio ? quantity : quantity * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1);
+                              // Quantities calculations
+                              const qtyA = (parseFloat(sistemaMetros) || 0) * capa.partA.consumo_por_m2;
+                              const isAAccesorio = capa.partA.producto.unidad.toLowerCase().includes('pza') || capa.partA.producto.unidad.toLowerCase().includes('pieza');
+                              const finalQtyA = isAAccesorio ? qtyA : qtyA * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1);
+
+                              const qtyB = capa.partB ? (parseFloat(sistemaMetros) || 0) * capa.partB.consumo_por_m2 : 0;
+                              const finalQtyB = capa.partB 
+                                ? (capa.partB.producto.unidad.toLowerCase().includes('pza') || capa.partB.producto.unidad.toLowerCase().includes('pieza') 
+                                    ? qtyB 
+                                    : qtyB * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1))
+                                : 0;
                               
+                              // Dynamic Justifications and Mix instructions
+                              const functionText = isFirst 
+                                ? "Primario / Anclaje: Sellador inicial que penetra los poros del concreto preparado, garantizando una adherencia perfecta para las capas del cuerpo del sistema y previniendo burbujas."
+                                : isLast
+                                  ? "Sello / Acabado Final: Capa protectora resistente que provee la dureza final ante el tráfico, impermeabilidad, resistencia a químicos, agentes UV y acabado estético."
+                                  : "Cuerpo / Capa Intermedia: Aporta el espesor mecánico requerido, absorbe impactos, autonivela las imperfecciones del suelo y refuerza la estructura.";
+
+                              const justificationText = isFirst
+                                ? "Se coloca en la base (en contacto directo con el concreto) porque actúa como el puente de adherencia principal. Al penetrar el sustrato poroso de concreto preparado, evita que los recubrimientos posteriores se desprendan o se delaminen por tensiones mecánicas y previene que el aire atrapado en los poros ascienda creando burbujas (ojos de pescado)."
+                                : isLast
+                                  ? "Se posiciona en la capa superior externa para servir de barrera protectora de todo el sistema. Debe recibir directamente la abrasión por tráfico (peatonal o montacargas), resistir derrames químicos, bloquear la radiación UV (evitando amarillamiento) y proporcionar el acabado de color o brillo especificado por el cliente."
+                                  : "Se sitúa en la parte intermedia para conformar el núcleo de soporte. Al combinarse con cargas de arena de sílice o autonivelantes, proporciona el espesor necesario para soportar cargas pesadas de impacto, amortigua las vibraciones mecánicas y disipa las tensiones entre el acabado y la base de concreto.";
+
+                              const mixInstruction = capa.isGrouped
+                                ? "Mezclar mecánicamente la Parte A por 2 minutos para homogeneizar. Incorporar la Parte B respetando la proporción y continuar mezclando con taladro a bajas revoluciones (300-400 RPM) durante 3 minutos adicionales para evitar la inclusión de aire. Verter de inmediato y extender con llana o jalador según el espesor requerido. Respete los tiempos de vida útil de la mezcla (pot life)."
+                                : (capa.partA.producto.nombre.toLowerCase().includes('autonivelante') || capa.partA.producto.nombre.toLowerCase().includes('bucacrete')
+                                  ? "Verter la mezcla homogénea directamente sobre el sustrato. Extender rápidamente a la altura deseada con rastrillo de nivel o llana dentada. Pasar inmediatamente rodillo de picos metálicos (spike roller) de forma cruzada para liberar burbujas de aire."
+                                  : capa.partA.producto.nombre.toLowerCase().includes('saco') || capa.partA.producto.nombre.toLowerCase().includes('arena')
+                                    ? "Espolvorear de manera uniforme a saturación sobre la capa base húmeda anterior. Permitir curado y retirar el exceso de arena barriendo antes de aplicar el sello."
+                                    : "Aplicar con rodillo de felpa, jalador de llana lisa o jalador dentado en pasadas cruzadas. Mantener control estricto del espesor y respetar el tiempo de secado al tacto antes de sellar.");
+
                               return (
-                                <div key={rel.id} className="w-full">
+                                <div key={capa.id} className="w-full">
                                   {/* Layer Block */}
                                   <div 
-                                    onClick={() => setCapaActivaIndex(isExpanded ? null : rel.orden)}
+                                    onClick={() => setCapaActivaIndex(isExpanded ? null : capa.orden)}
                                     className={`relative flex items-center justify-between px-4 py-2.5 bg-gradient-to-r ${blockColor} border text-white rounded-lg shadow-sm cursor-pointer select-none transition-all duration-200 hover:brightness-110 hover:scale-[1.01] active:scale-[0.99]`}
                                   >
                                     <div className="flex items-center gap-2 min-w-0">
                                       <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold shrink-0">
-                                        {rel.orden + 1}
+                                        {idx + 1}
                                       </span>
-                                      <span className="font-bold text-xs truncate">{rel.producto.nombre}</span>
+                                      <span className="font-bold text-xs truncate">{capa.baseName}</span>
+                                      {capa.isGrouped && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white border border-white/10 shadow-sm shrink-0">🧪 2-Ptes</span>
+                                      )}
                                     </div>
                                     
                                     {/* Arrow indicator and thickness */}
                                     <div className="flex items-center gap-2 text-[10px] font-semibold opacity-90 shrink-0">
-                                      <span>→ Espesor: {rel.producto.espesorRecomendado || 'N/A'}</span>
+                                      <span>→ Espesor: {capa.partA.producto.espesorRecomendado || (capa.partB && capa.partB.producto.espesorRecomendado) || 'N/A'}</span>
                                       <span className="text-white/40">|</span>
                                       <span className="bg-white/20 px-2 py-0.5 rounded-full font-bold text-[9px]">
-                                        {finalQty > 0 ? `${finalQty.toFixed(2)} ${rel.producto.unidad}` : `${rel.consumo_por_m2} ${rel.producto.unidad}/m²`}
+                                        {capa.isGrouped && capa.partB
+                                          ? `${finalQtyA.toFixed(1)} + ${finalQtyB.toFixed(1)} ${capa.partA.producto.unidad}`
+                                          : finalQtyA > 0 ? `${finalQtyA.toFixed(2)} ${capa.partA.producto.unidad}` : `${capa.partA.consumo_por_m2} ${capa.partA.producto.unidad}/m²`
+                                        }
                                       </span>
                                     </div>
                                   </div>
@@ -1211,74 +1298,156 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                                       {/* Connector node circle */}
                                       <div className="absolute -left-[5px] top-4 w-2 h-2 rounded-full bg-purple-400" />
                                       
-                                      {/* Attached PDFs (Moved to top) */}
-                                      {(rel.producto.ficha_tecnica_url || rel.producto.ficha_seguridad_url) && (
+                                      {/* Attached PDFs (Moved to top, unifies A and B PDFs) */}
+                                      {(capa.partA.producto.ficha_tecnica_url || capa.partA.producto.ficha_seguridad_url || (capa.partB && (capa.partB.producto.ficha_tecnica_url || capa.partB.producto.ficha_seguridad_url))) && (
                                         <div className="flex flex-wrap gap-2 mb-1">
-                                          {rel.producto.ficha_tecnica_url && (
+                                          {capa.partA.producto.ficha_tecnica_url && (
                                             <a
-                                              href={rel.producto.ficha_tecnica_url}
+                                              href={capa.partA.producto.ficha_tecnica_url}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
                                             >
-                                              📄 Ficha Técnica (TDS)
+                                              📄 {capa.isGrouped ? 'Ficha Técnica A (TDS)' : 'Ficha Técnica (TDS)'}
                                             </a>
                                           )}
-                                          {rel.producto.ficha_seguridad_url && (
+                                          {capa.partA.producto.ficha_seguridad_url && (
                                             <a
-                                              href={rel.producto.ficha_seguridad_url}
+                                              href={capa.partA.producto.ficha_seguridad_url}
                                               target="_blank"
                                               rel="noreferrer"
                                               className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
                                             >
-                                              🛡️ Ficha de Seguridad (SDS)
+                                              🛡️ {capa.isGrouped ? 'Ficha Seguridad A (SDS)' : 'Ficha de Seguridad (SDS)'}
                                             </a>
+                                          )}
+                                          {capa.isGrouped && capa.partB && (
+                                            <>
+                                              {capa.partB.producto.ficha_tecnica_url && (
+                                                <a
+                                                  href={capa.partB.producto.ficha_tecnica_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 hover:text-blue-800 transition-all shadow-sm shrink-0"
+                                                >
+                                                  📄 Ficha Técnica B (TDS)
+                                                </a>
+                                              )}
+                                              {capa.partB.producto.ficha_seguridad_url && (
+                                                <a
+                                                  href={capa.partB.producto.ficha_seguridad_url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="inline-flex items-center gap-1.5 text-[10px] font-bold px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900 transition-all shadow-sm shrink-0"
+                                                >
+                                                  🛡️ Ficha Seguridad B (SDS)
+                                                </a>
+                                              )}
+                                            </>
                                           )}
                                         </div>
                                       )}
 
+                                      {/* Detailed Breakdown */}
+                                      {capa.isGrouped && capa.partB ? (
+                                        /* 2-Column comparative layout for Part A and Part B */
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
+                                            <div className="flex justify-between items-center border-b border-purple-50 pb-2">
+                                              <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partA.producto.nombre}</span>
+                                              <span className="text-[9px] font-bold px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full">Parte A</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[11px] leading-relaxed">
+                                              <div>
+                                                <span className="font-semibold text-gray-500">Consumo Base:</span><br />
+                                                <span className="text-gray-700 font-medium">{capa.partA.consumo_por_m2} {capa.partA.producto.unidad}/m²</span>
+                                              </div>
+                                              <div>
+                                                <span className="font-semibold text-gray-500">Cantidad Total:</span><br />
+                                                <span className="text-purple-800 font-bold">{finalQtyA.toFixed(2)} {capa.partA.producto.unidad}</span>
+                                              </div>
+                                              <div className="col-span-2 border-t border-purple-50 pt-1.5">
+                                                <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
+                                                <span className="text-gray-700 font-medium">
+                                                  {capa.partA.producto.tieneRendimiento && capa.partA.producto.rendimiento 
+                                                    ? `${capa.partA.producto.rendimiento} m²/${capa.partA.producto.unidad}` 
+                                                    : 'Cálculo dinámico/manual'}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+
+                                          <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-sm space-y-2">
+                                            <div className="flex justify-between items-center border-b border-purple-50 pb-2">
+                                              <span className="font-bold text-xs text-purple-950 truncate max-w-[170px]">{capa.partB.producto.nombre}</span>
+                                              <span className="text-[9px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full">Parte B</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[11px] leading-relaxed">
+                                              <div>
+                                                <span className="font-semibold text-gray-500">Consumo Base:</span><br />
+                                                <span className="text-gray-700 font-medium">{capa.partB.consumo_por_m2} {capa.partB.producto.unidad}/m²</span>
+                                              </div>
+                                              <div>
+                                                <span className="font-semibold text-gray-500">Cantidad Total:</span><br />
+                                                <span className="text-purple-800 font-bold">{finalQtyB.toFixed(2)} {capa.partB.producto.unidad}</span>
+                                              </div>
+                                              <div className="col-span-2 border-t border-purple-50 pt-1.5">
+                                                <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
+                                                <span className="text-gray-700 font-medium">
+                                                  {capa.partB.producto.tieneRendimiento && capa.partB.producto.rendimiento 
+                                                    ? `${capa.partB.producto.rendimiento} m²/${capa.partB.producto.unidad}` 
+                                                    : 'Cálculo dinámico/manual'}
+                                                </span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        /* 1-Column simple layout for single components */
+                                        <div className="grid grid-cols-2 gap-3 bg-white border border-purple-100 rounded-lg p-2.5 text-[11px] leading-relaxed">
+                                          <div>
+                                            <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
+                                            <span className="text-gray-700 font-medium">{capa.partA.producto.tieneRendimiento && capa.partA.producto.rendimiento ? `${capa.partA.producto.rendimiento} m²/${capa.partA.producto.unidad}` : 'Cálculo dinámico/manual'}</span>
+                                          </div>
+                                          <div>
+                                            <span className="font-semibold text-gray-500">Proporciones Mezcla:</span><br />
+                                            <span className="text-gray-700 font-medium">{capa.partA.producto.proporcionesMezcla || 'Monocomponente (No aplica)'}</span>
+                                          </div>
+                                          <div className="col-span-2">
+                                            <span className="font-semibold text-gray-500">Ventajas Clave:</span><br />
+                                            <span className="text-green-700 font-bold">{capa.partA.producto.pros || 'Alta durabilidad, óptimo anclaje'}</span>
+                                          </div>
+                                        </div>
+                                      )}
+
+                                      {/* Función de la capa */}
                                       <div>
                                         <h5 className="text-[11px] font-bold text-purple-900 flex items-center gap-1.5">
-                                          <span>📝</span> Función de la Capa {rel.orden + 1}
+                                          <span>📝</span> Función de la Capa
                                         </h5>
                                         <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                                          {rel.orden === 0 
-                                            ? "Primario / Anclaje: Sellador inicial que penetra los poros del concreto preparado, garantizando una adherencia perfecta para las capas del cuerpo del sistema y previniendo burbujas."
-                                            : rel.orden === sistemaRels.length - 1
-                                              ? "Sello / Acabado Final: Capa protectora resistente que provee la dureza final ante el tráfico, impermeabilidad, resistencia a químicos, agentes UV y acabado estético."
-                                              : "Cuerpo / Capa Intermedia: Aporta el espesor mecánico requerido, absorbe impactos, autonivela las imperfecciones del suelo y refuerza la estructura."}
+                                          {functionText}
                                         </p>
                                       </div>
 
+                                      {/* Justificación de la posición en el sistema */}
+                                      <div>
+                                        <h5 className="text-[11px] font-bold text-purple-900 flex items-center gap-1.5">
+                                          <span>💡</span> ¿Por qué esta posición en el sistema?
+                                        </h5>
+                                        <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                                          {justificationText}
+                                        </p>
+                                      </div>
+
+                                      {/* Método de mezcla / Aplicación */}
                                       <div>
                                         <h5 className="text-[11px] font-bold text-purple-900 flex items-center gap-1.5">
                                           <span>🛠️</span> Método de Aplicación
                                         </h5>
                                         <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                                          {rel.orden === 0 
-                                            ? "Asegurar un sustrato de concreto pulido/lijado y libre de polvo. Mezclar partes A y B por 3 minutos. Extender uniformemente con jalador de goma y repasar con rodillo de felpa de pelo corto."
-                                            : rel.producto.nombre.toLowerCase().includes('autonivelante') || rel.producto.nombre.toLowerCase().includes('bucacrete')
-                                              ? "Verter la mezcla homogénea directamente sobre el sustrato. Extender rápidamente a la altura deseada con rastrillo de nivel o llana dentada. Pasar inmediatamente rodillo de picos metálicos (spike roller) de forma cruzada para liberar burbujas de aire."
-                                              : rel.producto.nombre.toLowerCase().includes('saco') || rel.producto.nombre.toLowerCase().includes('arena')
-                                                ? "Espolvorear de manera uniforme a saturación sobre la capa base húmeda anterior. Permitir curado y retirar el exceso de arena barriendo antes de aplicar el sello."
-                                                : "Aplicar con rodillo de felpa, jalador de llana lisa o jalador dentado en pasadas cruzadas. Mantener control estricto del espesor y respetar el tiempo de secado al tacto antes de sellar."}
+                                          {mixInstruction}
                                         </p>
-                                      </div>
-
-                                      {/* Tech specs Grid */}
-                                      <div className="grid grid-cols-2 gap-3 bg-white border border-purple-100 rounded-lg p-2.5 text-[11px] leading-relaxed">
-                                        <div>
-                                          <span className="font-semibold text-gray-500">Rendimiento Ficha:</span><br />
-                                          <span className="text-gray-700 font-medium">{rel.producto.tieneRendimiento && rel.producto.rendimiento ? `${rel.producto.rendimiento} m²/${rel.producto.unidad}` : 'Cálculo dinámico/manual'}</span>
-                                        </div>
-                                        <div>
-                                          <span className="font-semibold text-gray-500">Proporciones Mezcla:</span><br />
-                                          <span className="text-gray-700 font-medium">{rel.producto.proporcionesMezcla || 'Monocomponente (No aplica)'}</span>
-                                        </div>
-                                        <div className="col-span-2">
-                                          <span className="font-semibold text-gray-500">Ventajas Clave:</span><br />
-                                          <span className="text-green-700 font-bold">{rel.producto.pros || 'Alta durabilidad, óptimo anclaje'}</span>
-                                        </div>
                                       </div>
                                     </div>
                                   )}
