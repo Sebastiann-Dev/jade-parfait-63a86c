@@ -1109,7 +1109,12 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
                       value={sistemaMetros}
                       onChange={e => setSistemaMetros(e.target.value)}
                     />
-                     {/* Vista previa de componentes del sistema */}
+                    <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>m²</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vista previa de componentes del sistema */}
               {sistemaSeleccionado && (
                 <div className="mt-4 bg-purple-50/50 border border-purple-100 rounded-2xl p-5 space-y-4">
                   <div className="flex justify-between items-center border-b border-purple-100 pb-2.5">
