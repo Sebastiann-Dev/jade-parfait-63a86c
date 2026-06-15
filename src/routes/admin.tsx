@@ -19,6 +19,7 @@ import {
 } from '../supabase'
 import { Producto } from '../data/productos'
 import { GEMINI_KEYS, getMaskedKey } from '../utils/geminiKeys'
+import { LeadPortal } from '../components/LeadPortal'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: (search: Record<string, unknown>) => {
@@ -548,8 +549,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   // Systems state variables and migration
   const { tab, action } = Route.useSearch()
-  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion'>(
-    tab === 'sistemas' || tab === 'migracion' ? tab : 'productos'
+  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion' | 'prospectos'>(
+    tab === 'sistemas' || tab === 'migracion' || tab === 'prospectos' ? tab : 'productos'
   )
   const [colaMigracion, setColaMigracion] = useState<FilaMigracion[]>([])
   const [procesandoCola, setProcesandoCola] = useState(false)
@@ -1460,7 +1461,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>
               {currentTab === 'productos'
                 ? (loading ? 'Cargando productos...' : `${productos.length} productos en la base de datos`)
-                : (loadingSistemas ? 'Cargando sistemas...' : `${sistemas.length} sistemas en la base de datos`)}
+                : currentTab === 'sistemas'
+                  ? (loadingSistemas ? 'Cargando sistemas...' : `${sistemas.length} sistemas en la base de datos`)
+                  : currentTab === 'prospectos'
+                    ? 'Seguimiento y perfilamiento de cotizaciones'
+                    : 'Importación masiva de fichas técnicas'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1579,6 +1584,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             }}
           >
             📥 Importación Masiva (Drag & Drop)
+          </button>
+          <button
+            onClick={() => setCurrentTab('prospectos')}
+            style={{
+              padding: '8px 16px',
+              background: currentTab === 'prospectos' ? '#10b981' : 'transparent',
+              color: currentTab === 'prospectos' ? 'white' : '#475569',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            📋 Prospectos y Necesidades
           </button>
         </div>
 
@@ -3715,6 +3735,15 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               </div>
             )}
 
+          </div>
+        )}
+
+        {currentTab === 'prospectos' && (
+          <div style={{ animation: 'fadeIn 0.3s ease', background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📋 Bandeja de Prospectos y Perfilamiento de Proyectos
+            </h2>
+            <LeadPortal />
           </div>
         )}
 

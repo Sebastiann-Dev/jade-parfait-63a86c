@@ -269,3 +269,85 @@ export async function deletePdfProducto(
   const paths = [`${productoId}/${tipo}.pdf`, `${productoId}/${tipo}.PDF`]
   await supabase.storage.from('product-docs').remove(paths)
 }
+
+export interface Prospecto {
+  id: string;
+  codigo_seguimiento: string;
+  cliente_nombre: string;
+  proyecto_nombre: string;
+  telefono?: string;
+  email?: string;
+  respuestas: Record<string, any>;
+  recomendaciones: any[];
+  campos_vendedor: Record<string, any>;
+  estado: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export async function fetchProspectosSupabase(): Promise<Prospecto[]> {
+  try {
+    const { data, error } = await supabase
+      .from('prospectos_diagnostico')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error("Error fetching prospects from Supabase:", error);
+    return [];
+  }
+}
+
+export async function fetchProspectoByCodigoSupabase(codigo: string): Promise<Prospecto | null> {
+  try {
+    const { data, error } = await supabase
+      .from('prospectos_diagnostico')
+      .select('*')
+      .eq('codigo_seguimiento', codigo.toUpperCase().trim())
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error("Error fetching prospect by code from Supabase:", error);
+    return null;
+  }
+}
+
+export async function saveProspectoSupabase(
+  prospecto: Omit<Prospecto, 'id' | 'created_at' | 'updated_at'>
+): Promise<string> {
+  try {
+    const { data, error } = await supabase
+      .from('prospectos_diagnostico')
+      .insert([prospecto])
+      .select();
+    if (error) throw error;
+    const insertedId = data[0]?.id;
+    if (!insertedId) throw new Error("Could not retrieve inserted prospect ID");
+    return insertedId;
+  } catch (error) {
+    console.error("Error saving prospect:", error);
+    throw error;
+  }
+}
+
+export async function updateProspectoSupabase(
+  id: string,
+  data: Partial<Omit<Prospecto, 'id' | 'created_at' | 'updated_at'>>
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('prospectos_diagnostico')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+    if (error) throw error;
+  } catch (error) {
+    console.error("Error updating prospect:", error);
+    throw error;
+  }
+}
+

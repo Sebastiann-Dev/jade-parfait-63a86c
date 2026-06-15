@@ -215,7 +215,20 @@ export default function Cotizador() {
       setSistemasDisponibles(dbSistemas)
       
       const params = new URLSearchParams(window.location.search)
+      
+      const paramCliente = params.get('cliente')
+      if (paramCliente) {
+        setClienteNombre(decodeURIComponent(paramCliente))
+      }
+      
+      const paramProyecto = params.get('proyecto')
+      if (paramProyecto) {
+        setProyectoNombre(decodeURIComponent(paramProyecto))
+      }
+
       const targetSysId = params.get('sistemaId')
+      const targetProdNombre = params.get('productoNombre')
+
       if (targetSysId && dbSistemas && dbSistemas.length > 0) {
         const found = dbSistemas.find(s => s.id === targetSysId)
         if (found) {
@@ -227,9 +240,16 @@ export default function Cotizador() {
           }, 300)
           return
         }
+      } else if (targetProdNombre && dbProducts && dbProducts.length > 0) {
+        const decodedProd = decodeURIComponent(targetProdNombre).toLowerCase().trim()
+        const found = dbProducts.find(p => p.nombre.toLowerCase().trim() === decodedProd)
+        if (found) {
+          setProductoSeleccionado(found)
+          setCotizarTipo('producto')
+        }
       }
       
-      if (dbSistemas && dbSistemas.length > 0) {
+      if (dbSistemas && dbSistemas.length > 0 && !targetSysId) {
         setSistemaSeleccionado(dbSistemas[0])
       }
     }
@@ -466,7 +486,10 @@ export default function Cotizador() {
               <p className="text-blue-200 text-xs">Monterrey, N.L. · México</p>
               <p className="text-blue-100 text-xs">{fechaHoy}</p>
             </div>
-            <Link to="/sistemas" className="ml-4 px-3 py-1.5 bg-purple-700 text-white text-xs font-medium rounded-lg hover:bg-purple-600 transition">
+            <Link to="/diagnostico" className="ml-4 px-3 py-1.5 bg-emerald-700 text-white text-xs font-medium rounded-lg hover:bg-emerald-600 transition">
+              📋 Diagnóstico Técnico
+            </Link>
+            <Link to="/sistemas" className="ml-2 px-3 py-1.5 bg-purple-700 text-white text-xs font-medium rounded-lg hover:bg-purple-600 transition">
               🧪 Catálogo de Sistemas
             </Link>
             <Link to="/admin" className="ml-2 px-3 py-1.5 bg-blue-800 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition">
