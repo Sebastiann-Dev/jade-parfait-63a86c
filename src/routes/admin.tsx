@@ -2699,9 +2699,18 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             border: '2px solid #a78bfa',
             marginBottom: '20px'
           }}>
-            <h2 style={{ marginTop: 0, fontSize: '18px', fontWeight: 700, color: '#6d28d9', borderBottom: '1px solid #f3e8ff', paddingBottom: '12px', marginBottom: '16px' }}>
-              {editingSistemaId ? '📝 Editar Sistema Multicapa' : '🧪 Crear Nuevo Sistema Multicapa'}
-            </h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f3e8ff', paddingBottom: '12px', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#6d28d9' }}>
+                {editingSistemaId ? '📝 Editar Sistema Multicapa' : '🧪 Crear Nuevo Sistema Multicapa'}
+              </h2>
+              <button
+                type="button"
+                onClick={handleSistemaCancel}
+                style={{ padding: '6px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                ✕ Cancelar
+              </button>
+            </div>
 
             <form onSubmit={handleSistemaSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '16px' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 260px', gap: '16px' }}>
