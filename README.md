@@ -9,7 +9,7 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
 - **Inteligencia Artificial:** API de Google Gemini (`gemini-2.5-flash`) con rotación automática multiclave
 - **Estilos:** Tailwind CSS v4 con clases custom
 - **Contenedores (Sandbox):** Docker y Dev Containers (Codespaces)
-- **Despliegue:** Netlify (build automático desde GitHub)
+- **Despliegue:** Cloudflare (build automático desde GitHub)
 
 ## Funcionalidades
 

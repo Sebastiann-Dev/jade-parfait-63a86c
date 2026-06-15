@@ -17,7 +17,7 @@ Cotizador comercial interno para BUCA Recubrimientos (Monterrey, N.L., México).
 | Build | Vite 7 |
 | Estilos | Tailwind CSS v4 + clases custom `buca-*` |
 | Lenguaje | TypeScript 5 (strict) |
-| Despliegue | Netlify |
+| Despliegue | Cloudflare |
 
 ## Estructura de directorios
 
@@ -59,5 +59,5 @@ Dockerfile                  # Definición del entorno Node 20 en contenedor
 ## Escalabilidad futura
 
 - **Historial de cotizaciones:** Guardar las cotizaciones creadas en Supabase asociando un identificador de cliente.
-- **Autenticación completa:** Netlify Identity o Supabase Auth para restringir la sección `/admin` a administradores validados.
+- **Autenticación completa:** Supabase Auth para restringir la sección `/admin` a administradores validados.
 - **PDFs de cotización personalizados:** Implementación de generación de PDF con branding de la empresa usando librerías del servidor o cliente.
