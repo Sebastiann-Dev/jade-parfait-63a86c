@@ -36,6 +36,7 @@ export const FormularioDiagnostico: React.FC = () => {
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
   const [telefonoError, setTelefonoError] = useState('')
+  const [mostrarErroresContacto, setMostrarErroresContacto] = useState(false)
 
   // Scoping Answers
   const [queRecubrir, setQueRecubrir] = useState<string>('')
@@ -124,6 +125,34 @@ export const FormularioDiagnostico: React.FC = () => {
   const totalPasos = pasosActivos.length
 
   const handleSiguiente = () => {
+    const pasoActual = pasosActivos[paso]
+    if (pasoActual.id === 'contacto') {
+      const cleanDigits = telefono.replace(/\D/g, '')
+      const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
+      const esTelefonoValido = !telefono.trim() || (isOnlyDigits && cleanDigits.length === 10)
+      const esEmailValido = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+
+      let hasError = false
+      if (telefono.trim() && !esTelefonoValido) {
+        setTelefonoError('El teléfono debe tener exactamente 10 dígitos.')
+        hasError = true
+      } else {
+        setTelefonoError('')
+      }
+      if (email.trim() && !esEmailValido) {
+        setEmailError('Por favor ingresa un correo electrónico válido.')
+        hasError = true
+      } else {
+        setEmailError('')
+      }
+
+      setMostrarErroresContacto(true)
+
+      if (hasError) {
+        return // Block navigation
+      }
+    }
+
     if (paso < totalPasos - 1) {
       setPaso(paso + 1)
     } else {
@@ -316,14 +345,12 @@ export const FormularioDiagnostico: React.FC = () => {
                   onChange={e => setProyectoNombre(e.target.value)}
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Teléfono de Contacto</label>
                 <input
                   type="tel"
                   className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-100 ${
-                    telefonoError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                    mostrarErroresContacto && telefonoError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                   }`}
                   placeholder=""
                   value={telefono}
@@ -345,14 +372,14 @@ export const FormularioDiagnostico: React.FC = () => {
                     }
                   }}
                 />
-                {telefonoError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{telefonoError}</p>}
+                {mostrarErroresContacto && telefonoError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{telefonoError}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Correo Electrónico</label>
                 <input
                   type="email"
                   className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-100 ${
-                    emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                    mostrarErroresContacto && emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                   }`}
                   placeholder=""
                   value={email}
@@ -371,7 +398,7 @@ export const FormularioDiagnostico: React.FC = () => {
                     }
                   }}
                 />
-                {emailError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{emailError}</p>}
+                {mostrarErroresContacto && emailError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{emailError}</p>}
               </div>
             </div>
           </div>
@@ -784,11 +811,7 @@ export const FormularioDiagnostico: React.FC = () => {
     if (!pasoActual) return true
     switch (pasoActual.id) {
       case 'contacto': {
-        const cleanDigits = telefono.replace(/\D/g, '')
-        const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
-        const esTelefonoValido = !telefono.trim() || (isOnlyDigits && cleanDigits.length === 10)
-        const esEmailValido = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-        return !!clienteNombre.trim() && !!proyectoNombre.trim() && esTelefonoValido && esEmailValido && !emailError && !telefonoError
+        return !!clienteNombre.trim() && !!proyectoNombre.trim()
       }
       case 'que_recubrir':
         return !!queRecubrir && (queRecubrir !== 'other' || !!queRecubrirDetalle.trim())
@@ -822,17 +845,19 @@ export const FormularioDiagnostico: React.FC = () => {
     if (!pasoActual) return ''
     switch (pasoActual.id) {
       case 'contacto':
-        if (telefono.trim()) {
-          const cleanDigits = telefono.replace(/\D/g, '')
-          const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
-          if (!isOnlyDigits || cleanDigits.length !== 10 || telefonoError) {
-            return 'El teléfono debe tener exactamente 10 dígitos numéricos.'
+        if (mostrarErroresContacto) {
+          if (telefono.trim()) {
+            const cleanDigits = telefono.replace(/\D/g, '')
+            const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
+            if (!isOnlyDigits || cleanDigits.length !== 10 || telefonoError) {
+              return 'El teléfono debe tener exactamente 10 dígitos numéricos.'
+            }
           }
-        }
-        if (email.trim()) {
-          const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-          if (!isValid || emailError) {
-            return 'El correo electrónico no es válido.'
+          if (email.trim()) {
+            const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+            if (!isValid || emailError) {
+              return 'El correo electrónico no es válido.'
+            }
           }
         }
         return ''
@@ -1029,6 +1054,7 @@ export const FormularioDiagnostico: React.FC = () => {
                   setRecProductos([])
                   setRecSistemas([])
                   setCodigoGenerado('')
+                  setMostrarErroresContacto(false)
                 }}
                 className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-sm text-center"
               >
