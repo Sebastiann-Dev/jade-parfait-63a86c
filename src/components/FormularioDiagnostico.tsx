@@ -130,7 +130,12 @@ export const FormularioDiagnostico: React.FC = () => {
       const cleanDigits = telefono.replace(/\D/g, '')
       const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
       const esTelefonoValido = !telefono.trim() || (isOnlyDigits && cleanDigits.length === 10)
-      const esEmailValido = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+      const esEmailValido = !email.trim() || (
+        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim()) &&
+        !email.trim().toLowerCase().endsWith('@gmail.co') &&
+        !email.trim().toLowerCase().endsWith('@hotmail.co') &&
+        !email.trim().toLowerCase().endsWith('@outlook.co')
+      )
 
       let hasError = false
       if (telefono.trim() && !esTelefonoValido) {
@@ -140,7 +145,11 @@ export const FormularioDiagnostico: React.FC = () => {
         setTelefonoError('')
       }
       if (email.trim() && !esEmailValido) {
-        setEmailError('Por favor ingresa un correo electrónico válido.')
+        if (email.trim().toLowerCase().endsWith('@gmail.co') || email.trim().toLowerCase().endsWith('@hotmail.co') || email.trim().toLowerCase().endsWith('@outlook.co')) {
+          setEmailError(`¿Quisiste decir ${email.trim().split('@')[0]}@${email.trim().split('@')[1]}m?`)
+        } else {
+          setEmailError('Por favor ingresa un correo electrónico válido.')
+        }
         hasError = true
       } else {
         setEmailError('')
@@ -386,15 +395,22 @@ export const FormularioDiagnostico: React.FC = () => {
                   onChange={e => {
                     const val = e.target.value
                     setEmail(val)
-                    if (val.trim()) {
-                      const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
-                      if (!isValid) {
-                        setEmailError('Por favor ingresa un correo electrónico válido.')
+                    if (mostrarErroresContacto) {
+                      if (val.trim()) {
+                        const lower = val.trim().toLowerCase()
+                        const isValidRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(val.trim())
+                        const isTypo = lower.endsWith('@gmail.co') || lower.endsWith('@hotmail.co') || lower.endsWith('@outlook.co')
+                        
+                        if (isTypo) {
+                          setEmailError(`¿Quisiste decir ${val.trim().split('@')[0]}@${val.trim().split('@')[1]}m?`)
+                        } else if (!isValidRegex) {
+                          setEmailError('Por favor ingresa un correo electrónico válido.')
+                        } else {
+                          setEmailError('')
+                        }
                       } else {
                         setEmailError('')
                       }
-                    } else {
-                      setEmailError('')
                     }
                   }}
                 />
@@ -854,9 +870,10 @@ export const FormularioDiagnostico: React.FC = () => {
             }
           }
           if (email.trim()) {
-            const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-            if (!isValid || emailError) {
-              return 'El correo electrónico no es válido.'
+            const isValidRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim())
+            const isTypo = email.trim().toLowerCase().endsWith('@gmail.co') || email.trim().toLowerCase().endsWith('@hotmail.co') || email.trim().toLowerCase().endsWith('@outlook.co')
+            if (!isValidRegex || isTypo || emailError) {
+              return 'El correo electrónico no es válido (por ejemplo: .com).'
             }
           }
         }
