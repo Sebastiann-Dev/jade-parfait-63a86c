@@ -20,6 +20,51 @@ function generarCodigoSeguimiento(): string {
   return `BUCA-${year}-${randomPart}`
 }
 
+const FALLBACK_DOMINIOS = [
+  'yopmail.com', 'mailinator.com', 'tempmail.com', '10minutemail.com',
+  'guerrillamail.com', 'trashmail.com', 'getairmail.com', 'sharklasers.com',
+  'dispostable.com', 'generator.email', 'maildrop.cc', 'temp-mail.org',
+  'boun.cr', '33mail.com', 'mailnesia.com', 'bugmenot.com', 'mail.com',
+  'throwawaymail.com', 'tempmailaddress.com', 'jetable.org'
+]
+
+const FALLBACK_PROFANIAS = [
+  // Spam & Placeholder indicators
+  'test', 'prueba', 'falso', 'falsa', 'dummy', 'spam', 'ninguno', 'ninguna',
+  'nadie', 'vacio', 'vacío', 'inventado', 'inventada', 'cualquiera', 'asdf',
+  'qwerty', 'zxcv', 'qweqwe', 'asdgasd', 'hola', 'admin', 'usuario', 'user',
+  'no se', 'no sé', 'ejemplo', 'example', 'nada', 'ninguno',
+  // Common insults / vulgar words in Spanish
+  'puto', 'puta', 'pendejo', 'pendeja', 'mierda', 'culero', 'culera', 'cabron',
+  'cabrón', 'chinga', 'verga', 'maricon', 'maricón', 'joto', 'orto', 'concha',
+  'mamada', 'mamón', 'mamon', 'pito', 'pija', 'forro', 'tarado', 'estupido',
+  'estúpido', 'baboso', 'pajero', 'hijo de puta', 'chinguen', 'chingas', 'mierdas'
+]
+
+const normalizarTexto = (str: string): string => {
+  return str
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove accents
+    .trim()
+}
+
+const esKeyboardMash = (texto: string): boolean => {
+  const normalized = normalizarTexto(texto)
+  const words = normalized.split(/[^a-z0-9ñü]/i).filter(Boolean)
+  for (const word of words) {
+    // If it's a long word (length >= 5) and contains no vowels
+    if (word.length >= 5 && !/[aeiouy]/i.test(word)) {
+      return true
+    }
+    // If it has 5 consecutive consonants
+    if (/[bcdfghjklmnñpqrstvwxz]{5,}/i.test(word)) {
+      return true
+    }
+  }
+  return false
+}
+
 export const FormularioDiagnostico: React.FC = () => {
   const [paso, setPaso] = useState<number>(0) // 0: Contact info, 1..N: Questions, N+1: Result
   const [productos, setProductos] = useState<Producto[]>([])
@@ -36,8 +81,51 @@ export const FormularioDiagnostico: React.FC = () => {
   const [email, setEmail] = useState('')
   const [emailError, setEmailError] = useState('')
   const [telefonoError, setTelefonoError] = useState('')
+  const [clienteNombreError, setClienteNombreError] = useState('')
+  const [proyectoNombreError, setProyectoNombreError] = useState('')
   const [mostrarErroresContacto, setMostrarErroresContacto] = useState(false)
   const [intentoAvanzar, setIntentoAvanzar] = useState(false)
+
+  const [spamFilters, setSpamFilters] = useState<{ disposableDomains: string[], profanities: string[] } | null>(null)
+
+  useEffect(() => {
+    // Lazy load the filters dynamically in the background
+    import('../data/spamFilters.json')
+      .then(data => {
+        setSpamFilters(data.default)
+      })
+      .catch(err => {
+        console.error("Failed to load spam filters:", err)
+      })
+  }, [])
+
+  const esCorreoTemporal = (emailStr: string): boolean => {
+    const parts = emailStr.trim().toLowerCase().split('@')
+    if (parts.length !== 2) return false
+    const domain = parts[1]
+    const list = spamFilters ? spamFilters.disposableDomains : FALLBACK_DOMINIOS
+    return list.includes(domain)
+  }
+
+  const contienePalabrasProhibidas = (texto: string): boolean => {
+    const normalizedText = normalizarTexto(texto)
+    const words = normalizedText.split(/[^a-z0-9ñü]/i).filter(Boolean)
+    const list = spamFilters ? spamFilters.profanities : FALLBACK_PROFANIAS
+    const normalizedList = list.map(normalizarTexto)
+    
+    for (const word of words) {
+      if (normalizedList.includes(word)) {
+        return true
+      }
+    }
+
+    // Also check for consecutive repeated letters (e.g. "aaaa", "zzzz")
+    if (/(.)\1{3,}/.test(normalizedText)) {
+      return true
+    }
+
+    return false
+  }
 
   // Scoping Answers
   const [queRecubrir, setQueRecubrir] = useState<string>('')
@@ -139,19 +227,70 @@ export const FormularioDiagnostico: React.FC = () => {
       )
 
       let hasError = false
+
+      // Validar Cliente Nombre
+      const nombreLimpio = clienteNombre.trim()
+      if (!nombreLimpio) {
+        setClienteNombreError('El nombre del cliente es obligatorio.')
+        hasError = true
+      } else if (nombreLimpio.length < 3) {
+        setClienteNombreError('El nombre del cliente debe tener al menos 3 caracteres.')
+        hasError = true
+      } else if (/^\d+$/.test(nombreLimpio)) {
+        setClienteNombreError('El nombre del cliente no puede consistir únicamente de números.')
+        hasError = true
+      } else if (contienePalabrasProhibidas(nombreLimpio)) {
+        setClienteNombreError('El nombre contiene palabras no permitidas o de prueba.')
+        hasError = true
+      } else if (esKeyboardMash(nombreLimpio)) {
+        setClienteNombreError('El nombre parece ser inválido o aleatorio.')
+        hasError = true
+      } else {
+        setClienteNombreError('')
+      }
+
+      // Validar Proyecto Nombre
+      const proyectoLimpio = proyectoNombre.trim()
+      if (!proyectoLimpio) {
+        setProyectoNombreError('El nombre del proyecto es obligatorio.')
+        hasError = true
+      } else if (proyectoLimpio.length < 3) {
+        setProyectoNombreError('El nombre del proyecto debe tener al menos 3 caracteres.')
+        hasError = true
+      } else if (/^\d+$/.test(proyectoLimpio)) {
+        setProyectoNombreError('El nombre del proyecto no puede consistir únicamente de números.')
+        hasError = true
+      } else if (contienePalabrasProhibidas(proyectoLimpio)) {
+        setProyectoNombreError('El nombre del proyecto contiene palabras no permitidas o de prueba.')
+        hasError = true
+      } else if (esKeyboardMash(proyectoLimpio)) {
+        setProyectoNombreError('El nombre del proyecto parece ser ficticio o aleatorio.')
+        hasError = true
+      } else {
+        setProyectoNombreError('')
+      }
+
       if (telefono.trim() && !esTelefonoValido) {
         setTelefonoError('El teléfono debe tener exactamente 10 dígitos.')
         hasError = true
       } else {
         setTelefonoError('')
       }
-      if (email.trim() && !esEmailValido) {
-        if (email.trim().toLowerCase().endsWith('@gmail.co') || email.trim().toLowerCase().endsWith('@hotmail.co') || email.trim().toLowerCase().endsWith('@outlook.co')) {
-          setEmailError(`¿Quisiste decir ${email.trim().split('@')[0]}@${email.trim().split('@')[1]}m?`)
+
+      if (email.trim()) {
+        if (!esEmailValido) {
+          if (email.trim().toLowerCase().endsWith('@gmail.co') || email.trim().toLowerCase().endsWith('@hotmail.co') || email.trim().toLowerCase().endsWith('@outlook.co')) {
+            setEmailError(`¿Quisiste decir ${email.trim().split('@')[0]}@${email.trim().split('@')[1]}m?`)
+          } else {
+            setEmailError('Por favor ingresa un correo electrónico válido.')
+          }
+          hasError = true
+        } else if (esCorreoTemporal(email)) {
+          setEmailError('No se permiten correos de proveedores temporales o sospechosos de spam.')
+          hasError = true
         } else {
-          setEmailError('Por favor ingresa un correo electrónico válido.')
+          setEmailError('')
         }
-        hasError = true
       } else {
         setEmailError('')
       }
@@ -347,22 +486,66 @@ export const FormularioDiagnostico: React.FC = () => {
                 <input
                   type="text"
                   required
-                  className="w-full text-sm px-3.5 py-2.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-100"
+                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-100 ${
+                    mostrarErroresContacto && clienteNombreError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder=""
                   value={clienteNombre}
-                  onChange={e => setClienteNombre(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value
+                    setClienteNombre(val)
+                    if (mostrarErroresContacto) {
+                      const valTrim = val.trim()
+                      if (!valTrim) {
+                        setClienteNombreError('El nombre del cliente es obligatorio.')
+                      } else if (valTrim.length < 3) {
+                        setClienteNombreError('El nombre del cliente debe tener al menos 3 caracteres.')
+                      } else if (/^\d+$/.test(valTrim)) {
+                        setClienteNombreError('El nombre del cliente no puede consistir únicamente de números.')
+                      } else if (contienePalabrasProhibidas(valTrim)) {
+                        setClienteNombreError('El nombre contiene palabras no permitidas o de prueba.')
+                      } else if (esKeyboardMash(valTrim)) {
+                        setClienteNombreError('El nombre parece ser inválido o aleatorio.')
+                      } else {
+                        setClienteNombreError('')
+                      }
+                    }
+                  }}
                 />
+                {mostrarErroresContacto && clienteNombreError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{clienteNombreError}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Nombre del Proyecto *</label>
                 <input
                   type="text"
                   required
-                  className="w-full text-sm px-3.5 py-2.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-100"
+                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-100 ${
+                    mostrarErroresContacto && proyectoNombreError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder=""
                   value={proyectoNombre}
-                  onChange={e => setProyectoNombre(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value
+                    setProyectoNombre(val)
+                    if (mostrarErroresContacto) {
+                      const valTrim = val.trim()
+                      if (!valTrim) {
+                        setProyectoNombreError('El nombre del proyecto es obligatorio.')
+                      } else if (valTrim.length < 3) {
+                        setProyectoNombreError('El nombre del proyecto debe tener al menos 3 caracteres.')
+                      } else if (/^\d+$/.test(valTrim)) {
+                        setProyectoNombreError('El nombre del proyecto no puede consistir únicamente de números.')
+                      } else if (contienePalabrasProhibidas(valTrim)) {
+                        setProyectoNombreError('El nombre del proyecto contiene palabras no permitidas o de prueba.')
+                      } else if (esKeyboardMash(valTrim)) {
+                        setProyectoNombreError('El nombre del proyecto parece ser ficticio o aleatorio.')
+                      } else {
+                        setProyectoNombreError('')
+                      }
+                    }
+                  }}
                 />
+                {mostrarErroresContacto && proyectoNombreError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{proyectoNombreError}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Teléfono de Contacto</label>
@@ -837,7 +1020,31 @@ export const FormularioDiagnostico: React.FC = () => {
     if (!pasoActual) return true
     switch (pasoActual.id) {
       case 'contacto': {
-        return !!clienteNombre.trim() && !!proyectoNombre.trim()
+        const cleanDigits = telefono.replace(/\D/g, '')
+        const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
+        const esTelefonoValido = !telefono.trim() || (isOnlyDigits && cleanDigits.length === 10)
+        const esEmailValido = !email.trim() || (
+          /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim()) &&
+          !email.trim().toLowerCase().endsWith('@gmail.co') &&
+          !email.trim().toLowerCase().endsWith('@hotmail.co') &&
+          !email.trim().toLowerCase().endsWith('@outlook.co') &&
+          !esCorreoTemporal(email)
+        )
+
+        const cLimpio = clienteNombre.trim()
+        const pLimpio = proyectoNombre.trim()
+
+        const esClienteValido = cLimpio.length >= 3 &&
+          !/^\d+$/.test(cLimpio) &&
+          !contienePalabrasProhibidas(cLimpio) &&
+          !esKeyboardMash(cLimpio)
+
+        const esProyectoValido = pLimpio.length >= 3 &&
+          !/^\d+$/.test(pLimpio) &&
+          !contienePalabrasProhibidas(pLimpio) &&
+          !esKeyboardMash(pLimpio)
+
+        return esClienteValido && esProyectoValido && esTelefonoValido && esEmailValido
       }
       case 'que_recubrir':
         return !!queRecubrir && (queRecubrir !== 'other' || !!queRecubrirDetalle.trim())
@@ -872,6 +1079,40 @@ export const FormularioDiagnostico: React.FC = () => {
     switch (pasoActual.id) {
       case 'contacto':
         if (mostrarErroresContacto) {
+          const cLimpio = clienteNombre.trim()
+          if (!cLimpio) {
+            return 'El nombre del cliente/empresa es obligatorio.'
+          }
+          if (cLimpio.length < 3) {
+            return 'El nombre del cliente debe tener al menos 3 caracteres.'
+          }
+          if (/^\d+$/.test(cLimpio)) {
+            return 'El nombre del cliente no puede consistir únicamente de números.'
+          }
+          if (contienePalabrasProhibidas(cLimpio)) {
+            return 'El nombre del cliente contiene palabras no permitidas o de prueba.'
+          }
+          if (esKeyboardMash(cLimpio)) {
+            return 'El nombre del cliente parece ser inválido o aleatorio.'
+          }
+
+          const pLimpio = proyectoNombre.trim()
+          if (!pLimpio) {
+            return 'El nombre del proyecto es obligatorio.'
+          }
+          if (pLimpio.length < 3) {
+            return 'El nombre del proyecto debe tener al menos 3 caracteres.'
+          }
+          if (/^\d+$/.test(pLimpio)) {
+            return 'El nombre del proyecto no puede consistir únicamente de números.'
+          }
+          if (contienePalabrasProhibidas(pLimpio)) {
+            return 'El nombre del proyecto contiene palabras no permitidas o de prueba.'
+          }
+          if (esKeyboardMash(pLimpio)) {
+            return 'El nombre del proyecto parece ser ficticio o aleatorio.'
+          }
+
           if (telefono.trim()) {
             const cleanDigits = telefono.replace(/\D/g, '')
             const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
@@ -883,7 +1124,13 @@ export const FormularioDiagnostico: React.FC = () => {
             const isValidRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim())
             const isTypo = email.trim().toLowerCase().endsWith('@gmail.co') || email.trim().toLowerCase().endsWith('@hotmail.co') || email.trim().toLowerCase().endsWith('@outlook.co')
             if (!isValidRegex || isTypo || emailError) {
+              if (isTypo) {
+                return `¿Quisiste decir ${email.trim().split('@')[0]}@${email.trim().split('@')[1]}m?`
+              }
               return 'El correo electrónico no es válido (por ejemplo: .com).'
+            }
+            if (esCorreoTemporal(email)) {
+              return 'No se permiten correos de proveedores temporales o sospechosos de spam.'
             }
           }
         }
@@ -1062,6 +1309,8 @@ export const FormularioDiagnostico: React.FC = () => {
                   setProyectoNombre('')
                   setTelefono('')
                   setEmail('')
+                  setClienteNombreError('')
+                  setProyectoNombreError('')
                   setQueRecubrir('')
                   setQueRecubrirDetalle('')
                   setUbicacion('')
