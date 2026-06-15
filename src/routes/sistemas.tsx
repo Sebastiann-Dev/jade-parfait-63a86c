@@ -170,9 +170,18 @@ function SistemasCatalogPage() {
             <h2 className="text-2xl font-bold text-gray-800 tracking-tight">Sistemas Multicapa Disponibles</h2>
             <p className="text-sm text-gray-500 mt-1">Explora la composición técnica, las fichas y el orden de aplicación de los sistemas de recubrimientos industriales.</p>
           </div>
-          <span className="self-start px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full uppercase tracking-wider shrink-0">
-            {sistemas.length} {sistemas.length === 1 ? 'Sistema Registrado' : 'Sistemas Registrados'}
-          </span>
+          <div className="flex items-center gap-2 self-start shrink-0">
+            <Link
+              to="/admin"
+              search={{ tab: 'sistemas', action: 'new' }}
+              className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-full transition shadow-sm flex items-center gap-1 uppercase tracking-wider text-center"
+            >
+              + Nuevo Sistema
+            </Link>
+            <span className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-bold rounded-full uppercase tracking-wider">
+              {sistemas.length} {sistemas.length === 1 ? 'Sistema Registrado' : 'Sistemas Registrados'}
+            </span>
+          </div>
         </div>
 
         {loading ? (
