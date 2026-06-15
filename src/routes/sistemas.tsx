@@ -148,6 +148,7 @@ function SistemasCatalogPage() {
             </div>
             <Link
               to="/admin"
+              search={{ tab: 'sistemas' }}
               className="px-3 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-1.5"
             >
               ⚙️ Admin

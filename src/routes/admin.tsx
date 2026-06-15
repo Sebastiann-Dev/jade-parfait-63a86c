@@ -20,6 +20,11 @@ import {
 import { Producto } from '../data/productos'
 
 export const Route = createFileRoute('/admin')({
+  validateSearch: (search: Record<string, unknown>) => {
+    return {
+      tab: (search.tab as string) || undefined
+    }
+  },
   component: AdminPage,
 })
 
@@ -571,7 +576,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   }
 
   // Systems state variables and migration
-  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion'>('productos')
+  const { tab } = Route.useSearch()
+  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion'>(
+    tab === 'sistemas' || tab === 'migracion' ? tab : 'productos'
+  )
   const [colaMigracion, setColaMigracion] = useState<FilaMigracion[]>([])
   const [procesandoCola, setProcesandoCola] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -1479,60 +1487,59 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-            {currentTab === 'productos' ? (
-              <button
-                disabled={showForm}
-                onClick={() => {
-                  if (!showForm) {
-                    setEditingId(null)
-                    setFormData(DEFAULT_PRODUCTO)
-                    setEsKitProduct(false)
-                    setKitPresentaciones([])
-                    setNewKitNombre('')
-                    setNewKitPrecio('')
-                    setNewKitMoneda('MXN')
-                    setShowForm(true)
-                  }
-                }}
-                style={{
-                  padding: '8px 16px',
-                  background: showForm ? '#cbd5e1' : '#2563eb',
-                  color: showForm ? '#64748b' : 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: showForm ? 'not-allowed' : 'pointer',
-                  opacity: showForm ? 0.7 : 1
-                }}
-              >
-                + Nuevo Producto
-              </button>
-            ) : (
-              <button
-                disabled={showSistemaForm}
-                onClick={() => {
-                  if (!showSistemaForm) {
-                    setEditingSistemaId(null)
-                    setSistemaFormData(DEFAULT_SISTEMA)
-                    setShowSistemaForm(true)
-                  }
-                }}
-                style={{
-                  padding: '8px 16px',
-                  background: showSistemaForm ? '#cbd5e1' : '#7c3aed',
-                  color: showSistemaForm ? '#64748b' : 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  cursor: showSistemaForm ? 'not-allowed' : 'pointer',
-                  opacity: showSistemaForm ? 0.7 : 1
-                }}
-              >
-                + Nuevo Sistema
-              </button>
-            )}
+            <button
+              disabled={showForm}
+              onClick={() => {
+                if (!showForm) {
+                  setEditingId(null)
+                  setFormData(DEFAULT_PRODUCTO)
+                  setEsKitProduct(false)
+                  setKitPresentaciones([])
+                  setNewKitNombre('')
+                  setNewKitPrecio('')
+                  setNewKitMoneda('MXN')
+                  setShowForm(true)
+                  setCurrentTab('productos')
+                }
+              }}
+              style={{
+                padding: '8px 16px',
+                background: showForm ? '#cbd5e1' : '#2563eb',
+                color: showForm ? '#64748b' : 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: showForm ? 'not-allowed' : 'pointer',
+                opacity: showForm ? 0.7 : 1
+              }}
+            >
+              + Nuevo Producto
+            </button>
+            <button
+              disabled={showSistemaForm}
+              onClick={() => {
+                if (!showSistemaForm) {
+                  setEditingSistemaId(null)
+                  setSistemaFormData(DEFAULT_SISTEMA)
+                  setShowSistemaForm(true)
+                  setCurrentTab('sistemas')
+                }
+              }}
+              style={{
+                padding: '8px 16px',
+                background: showSistemaForm ? '#cbd5e1' : '#7c3aed',
+                color: showSistemaForm ? '#64748b' : 'white',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: showSistemaForm ? 'not-allowed' : 'pointer',
+                opacity: showSistemaForm ? 0.7 : 1
+              }}
+            >
+              + Nuevo Sistema
+            </button>
             <Link to="/sistemas" style={{ padding: '8px 16px', border: '1px solid #c4b5fd', borderRadius: '8px', fontSize: '14px', color: '#6d28d9', textDecoration: 'none', background: '#f5f3ff', fontWeight: 600 }}>
               🧪 Catálogo Sistemas
             </Link>
