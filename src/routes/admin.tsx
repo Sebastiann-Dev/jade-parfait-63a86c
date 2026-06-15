@@ -2667,6 +2667,46 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           )}
                         </td>
                         <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {p.ficha_tecnica_url ? (
+                            <a
+                              href={p.ficha_tecnica_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              style={{
+                                padding: '4px 12px',
+                                background: '#e0f2fe',
+                                color: '#0369a1',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                marginRight: '8px',
+                                textDecoration: 'none',
+                                display: 'inline-block'
+                              }}
+                            >
+                              👁️ Ver
+                            </a>
+                          ) : (
+                            <button
+                              disabled
+                              title="Sin Ficha Técnica cargada"
+                              style={{
+                                padding: '4px 12px',
+                                background: '#f1f5f9',
+                                color: '#94a3b8',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'not-allowed',
+                                marginRight: '8px'
+                              }}
+                            >
+                              👁️ Ver
+                            </button>
+                          )}
                           <button
                             onClick={() => handleEdit(p)}
                             style={{ padding: '4px 12px', background: '#dbeafe', color: '#1d4ed8', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 700, cursor: 'pointer', marginRight: '8px' }}
