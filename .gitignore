@@ -7,7 +7,9 @@ dist/
 .vinxi/
 
 # Variables de entorno — NUNCA versionar
+.env
 .env.local
+.env.*
 .env.*.local
 
 # Logs
