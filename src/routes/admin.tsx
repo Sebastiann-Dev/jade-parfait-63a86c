@@ -1575,7 +1575,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               transition: 'all 0.2s'
             }}
           >
-            📦 Productos ({productos.length})
+            Productos ({productos.length})
           </button>
           <button
             onClick={() => {
@@ -1593,7 +1593,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               transition: 'all 0.2s'
             }}
           >
-            🧪 Sistemas Multicapa ({sistemas.length})
+            Sistemas Multicapa ({sistemas.length})
           </button>
           <button
             onClick={() => setCurrentTab('migracion')}
