@@ -141,14 +141,20 @@ function SistemasCatalogPage() {
               <p className="text-blue-200 text-xs">Catálogo de Sistemas Multicapa</p>
             </div>
           </div>
-          <div className="text-right flex items-center gap-4">
-            <div className="text-right hidden sm:block">
+          <div className="text-right flex items-center gap-2">
+            <div className="text-right hidden sm:block mr-2">
               <p className="text-blue-200 text-xs">Monterrey, N.L. · México</p>
               <p className="text-blue-100 text-xs">{fechaHoy}</p>
             </div>
             <Link
+              to="/admin"
+              className="px-3 py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded-xl transition shadow-sm flex items-center gap-1.5"
+            >
+              ⚙️ Admin
+            </Link>
+            <Link
               to="/"
-              className="px-4 py-2 border border-blue-400/30 text-white hover:bg-white/10 text-xs font-semibold rounded-xl transition shadow-sm"
+              className="px-3 py-2 border border-blue-400/30 text-white hover:bg-white/10 text-xs font-semibold rounded-xl transition shadow-sm"
             >
               ← Volver al Cotizador
             </Link>
