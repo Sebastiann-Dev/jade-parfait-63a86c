@@ -1,3 +1,4 @@
+// Trigger build: Clean concrete details bullet points layout
 import React from 'react'
 import { type Producto } from '../data/productos'
 import { formatNum, getMermaFactor, type EstadoPiso } from '../utils/format'
@@ -330,38 +331,19 @@ export const DiagramaCapas: React.FC<DiagramaCapasProps> = ({
           </div>
 
           {capaActivaIndex === -1 && (
-            <div className="relative mt-2 ml-4 pl-4 border-l-2 border-dashed border-slate-300 py-3 space-y-3 animate-fade-in text-gray-700 bg-slate-50 rounded-r-lg text-left">
+            <div className="relative mt-2 ml-4 pl-4 border-l-2 border-dashed border-slate-300 py-3 space-y-2 animate-fade-in text-gray-700 bg-slate-50 rounded-r-lg text-left">
               {/* Connector node circle */}
               <div className="absolute -left-[5px] top-4 w-2 h-2 rounded-full bg-slate-400" />
               
-              <div className="space-y-3">
-                <div>
-                  <h5 className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                    <span>📋</span> Estado Ideal del Sustrato
-                  </h5>
-                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                    Concreto estructural sano con resistencia a la compresión mínima de <strong>f'c = 250 kg/cm²</strong>, con un periodo de curado mínimo de <strong>28 días</strong>. Debe ser una superficie firme, estable y libre de movimientos estructurales.
-                  </p>
-                </div>
-
-                <div>
-                  <h5 className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                    <span>🔬</span> Humedad y Contaminación
-                  </h5>
-                  <ul className="text-xs text-gray-600 mt-1 list-disc pl-4 space-y-1 leading-relaxed">
-                    <li><strong>Humedad interna máxima:</strong> &lt; 4% de humedad relativa (o usar barrera de vapor).</li>
-                    <li><strong>Libre de contaminantes:</strong> Cero aceites, grasas, ceras, agentes de curado químico, pinturas previas o lechada de cemento superficial que bloquee la adherencia.</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h5 className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                    <span>⚙️</span> Preparación de Superficie Requerida
-                  </h5>
-                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                    Es indispensable realizar una preparación mecánica de la superficie (<strong>desbaste diamantado, granallado o escarificado</strong>) para abrir el poro del concreto y lograr un perfil de anclaje tipo <strong>CSP 2 a CSP 5</strong> (según especificación del sistema). Toda oquedad, grieta o junta de control debe ser reparada con resina epóxica antes del primario.
-                  </p>
-                </div>
+              <div className="text-xs text-gray-600 leading-relaxed">
+                <p className="font-bold text-slate-700 text-[11px] uppercase tracking-wider mb-2">Requisitos y Preparación del Concreto:</p>
+                <ul className="list-disc pl-4 space-y-1.5">
+                  <li><strong>Estado del Sustrato:</strong> Concreto estructural sano con resistencia mínima de <strong>f'c = 250 kg/cm²</strong> y un curado mínimo de <strong>28 días</strong>. Debe ser una superficie firme y libre de movimientos.</li>
+                  <li><strong>Humedad Interna:</strong> Máxima del <strong>4%</strong> (de lo contrario, requiere la aplicación de una barrera de vapor epóxica).</li>
+                  <li><strong>Limpieza:</strong> Libre de agentes contaminantes como grasas, aceites, desmoldantes, membranas de curado o lechada superficial.</li>
+                  <li><strong>Preparación Mecánica:</strong> Requiere desbaste diamantado, granallado o escarificado para abrir el poro y generar un perfil de anclaje de <strong>CSP 2 a CSP 5</strong> según el espesor del sistema.</li>
+                  <li><strong>Reparaciones Previas:</strong> Fisuras, grietas u oquedades deben sellarse y nivelarse con mortero epóxico de alta resistencia antes de colocar el primario.</li>
+                </ul>
               </div>
             </div>
           )}
