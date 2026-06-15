@@ -299,8 +299,8 @@ export const FormularioDiagnostico: React.FC = () => {
                 <input
                   type="text"
                   required
-                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-50/50"
-                  placeholder="Ej. Distribuidora Monterrey S.A."
+                  className="w-full text-sm px-3.5 py-2.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-100"
+                  placeholder=""
                   value={clienteNombre}
                   onChange={e => setClienteNombre(e.target.value)}
                 />
@@ -310,8 +310,8 @@ export const FormularioDiagnostico: React.FC = () => {
                 <input
                   type="text"
                   required
-                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-50/50"
-                  placeholder="Ej. Nave Industrial Apodaca"
+                  className="w-full text-sm px-3.5 py-2.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-100"
+                  placeholder=""
                   value={proyectoNombre}
                   onChange={e => setProyectoNombre(e.target.value)}
                 />
@@ -322,8 +322,8 @@ export const FormularioDiagnostico: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Teléfono de Contacto</label>
                 <input
                   type="tel"
-                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-50/50 ${
-                    telefonoError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500'
+                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-100 ${
+                    telefonoError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                   }`}
                   placeholder=""
                   value={telefono}
@@ -351,8 +351,8 @@ export const FormularioDiagnostico: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Correo Electrónico</label>
                 <input
                   type="email"
-                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-50/50 ${
-                    emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500'
+                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-100 ${
+                    emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-300 focus:border-blue-500 focus:ring-blue-500'
                   }`}
                   placeholder=""
                   value={email}
