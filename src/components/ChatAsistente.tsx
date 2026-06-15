@@ -363,7 +363,11 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
       {chatAbierto && (
         <div className="fixed bottom-20 right-6 w-[340px] max-w-[calc(100vw-2rem)] h-[480px] bg-white border border-gray-150 rounded-2xl shadow-2xl z-50 flex flex-col overflow-hidden transition-all duration-300 print:hidden">
           {/* Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white flex justify-between items-center shadow-md">
+          <div
+            onClick={() => setChatAbierto(false)}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 text-white flex justify-between items-center shadow-md cursor-pointer select-none"
+            title="Minimizar asistente"
+          >
             <div>
               <h3 className="font-bold text-sm flex items-center gap-1.5">
                 <span>🤖</span> Asistente Técnico BUCA
@@ -379,8 +383,8 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
               </p>
             </div>
             <button
-              onClick={() => setChatAbierto(false)}
-              className="text-white/80 hover:text-white font-bold text-xl leading-none cursor-pointer animate-fade-in"
+              type="button"
+              className="text-white/80 hover:text-white font-bold text-xl leading-none animate-fade-in pointer-events-none"
             >
               ×
             </button>
