@@ -340,24 +340,17 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
   return (
     <>
       {/* Floating Chat Button */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden">
-        <button
-          onClick={() => setChatAbierto(!chatAbierto)}
-          className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 font-semibold text-sm cursor-pointer select-none"
-        >
-          {chatAbierto ? (
-            <>
-              <span className="text-base">❌</span>
-              <span>Cerrar Asistente</span>
-            </>
-          ) : (
-            <>
-              <span className="text-base">💬</span>
-              <span>Asistente Técnico</span>
-            </>
-          )}
-        </button>
-      </div>
+      {!chatAbierto && (
+        <div className="fixed bottom-6 right-6 z-50 print:hidden">
+          <button
+            onClick={() => setChatAbierto(true)}
+            className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 font-semibold text-sm cursor-pointer select-none"
+          >
+            <span className="text-base">💬</span>
+            <span>Asistente Técnico</span>
+          </button>
+        </div>
+      )}
 
       {/* Chat Window Panel */}
       {chatAbierto && (
@@ -372,15 +365,6 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
               <h3 className="font-bold text-sm flex items-center gap-1.5">
                 <span>🤖</span> Asistente Técnico BUCA
               </h3>
-              <p className="text-[10px] text-blue-100 font-medium truncate max-w-[240px]">
-                {citadoSistema 
-                  ? `Sistema: ${citadoSistema.nombre}`
-                  : citadosProductos.length > 0 
-                    ? `Citando: ${citadosProductos.length} prod.`
-                    : productoSeleccionado 
-                      ? `Activo: ${productoSeleccionado.nombre}`
-                      : 'Sin selección'}
-              </p>
             </div>
             <button
               type="button"
