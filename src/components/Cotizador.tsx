@@ -91,6 +91,35 @@ export default function Cotizador() {
   const [sistemaMetros, setSistemaMetros] = useState<string>('')
   const [sistemaRels, setSistemaRels] = useState<{ id: string; producto: Producto; consumo_por_m2: number; orden: number }[]>([])
   const [loadingSistemaRels, setLoadingSistemaRels] = useState(false)
+  const [personalizarSistema, setPersonalizarSistema] = useState(false)
+
+  const handleUpdateSistemaRel = (
+    id: string,
+    updates: Partial<{ consumo_por_m2: number; espesorRecomendado: string; nombre: string; nota: string }>
+  ) => {
+    setSistemaRels(prev =>
+      prev.map(rel => {
+        if (rel.id === id) {
+          const updatedProduct = { ...rel.producto }
+          if (updates.espesorRecomendado !== undefined) {
+            updatedProduct.espesorRecomendado = updates.espesorRecomendado
+          }
+          if (updates.nombre !== undefined) {
+            updatedProduct.nombre = updates.nombre
+          }
+          if (updates.nota !== undefined) {
+            updatedProduct.nota = updates.nota
+          }
+          return {
+            ...rel,
+            producto: updatedProduct,
+            consumo_por_m2: updates.consumo_por_m2 !== undefined ? updates.consumo_por_m2 : rel.consumo_por_m2
+          }
+        }
+        return rel
+      })
+    )
+  }
 
   // Systems visualization layer state
   const [capaActivaIndex, setCapaActivaIndex] = useState<number | null>(null)
@@ -213,6 +242,7 @@ export default function Cotizador() {
       return
     }
     setLoadingSistemaRels(true)
+    setPersonalizarSistema(false)
     fetchSistemaProductosSupabase(sistemaSeleccionado.id).then(rels => {
       const resolved = rels.map(r => {
         const p = productosDisponibles.find(prod => prod.id === r.producto_id)
@@ -323,15 +353,26 @@ export default function Cotizador() {
       const precioUnitario = precioBase * descuento
       const totalMXN = cantidad * precioUnitario
 
+      // Build the detailed note with custom edits
+      const finalNota = [
+        rel.producto.nota,
+        rel.producto.espesorRecomendado ? `Espesor: ${rel.producto.espesorRecomendado}` : '',
+        `Consumo: ${rel.consumo_por_m2} ${rel.producto.unidad}/m² (Capa ${rel.orden + 1})`
+      ].filter(Boolean).join(' | ');
+
       const linea: LineaProducto = {
         id: crypto.randomUUID(),
-        producto: rel.producto,
+        producto: {
+          ...rel.producto,
+          nota: finalNota
+        },
         metros: metrosArea,
+        amount: undefined, // ensure compatibility
         cantidad,
         precioUnitario,
         totalMXN,
         esMinorista
-      }
+      } as any as LineaProducto
       return linea
     })
 
@@ -426,7 +467,7 @@ export default function Cotizador() {
               <p className="text-blue-100 text-xs">{fechaHoy}</p>
             </div>
             <Link to="/sistemas" className="ml-4 px-3 py-1.5 bg-purple-700 text-white text-xs font-medium rounded-lg hover:bg-purple-600 transition">
-              🧪 Catalog
+              🧪 Catálogo de Sistemas
             </Link>
             <Link to="/admin" className="ml-2 px-3 py-1.5 bg-blue-800 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition">
               ⚙️ Admin
@@ -928,43 +969,136 @@ export default function Cotizador() {
                     <h3 className="text-xs font-bold text-purple-800 uppercase tracking-wide">
                       Desglose de Componentes del Sistema ({sistemaMetros ? `${sistemaMetros} m²` : '0 m²'})
                     </h3>
-                    <span className="text-[10px] text-purple-500 bg-purple-100/50 px-2 py-0.5 rounded-full font-bold">
-                      {sistemaRels.length} Capas
-                    </span>
-                  </div>
-
-                  {/* Tabs de navegación para el desglose */}
-                  <div className="flex bg-purple-100/40 p-1 rounded-xl border border-purple-100/50 gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setDesgloseTab('consumos')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                        desgloseTab === 'consumos'
-                          ? 'bg-white text-purple-900 shadow-sm border border-purple-100'
-                          : 'text-purple-600 hover:text-purple-800 hover:bg-white/30'
-                      }`}
-                    >
-                      <span>📋</span> Consumos y Cantidades
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDesgloseTab('capas')}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
-                        desgloseTab === 'capas'
-                          ? 'bg-white text-purple-900 shadow-sm border border-purple-100'
-                          : 'text-purple-600 hover:text-purple-800 hover:bg-white/30'
-                      }`}
-                    >
-                      <span>🔬</span> Estructura y Capas
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPersonalizarSistema(!personalizarSistema)}
+                        className={`text-[10px] px-2.5 py-1.5 rounded-lg border font-bold transition-all flex items-center gap-1 ${
+                          personalizarSistema
+                            ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700 shadow-sm'
+                            : 'bg-white text-purple-700 border-purple-200 hover:bg-purple-50'
+                        }`}
+                      >
+                        {personalizarSistema ? '✅ Ver Consumos' : '✏️ Personalizar Capas'}
+                      </button>
+                      <span className="text-[10px] text-purple-500 bg-purple-100/50 px-2 py-0.5 rounded-full font-bold">
+                        {sistemaRels.length} Capas
+                      </span>
+                    </div>
                   </div>
 
                   {loadingSistemaRels ? (
                     <p className="text-xs text-purple-600 animate-pulse">Cargando componentes del sistema...</p>
                   ) : sistemaRels.length === 0 ? (
                     <p className="text-xs text-purple-600 italic">Este sistema no tiene componentes registrados en la base de datos.</p>
+                  ) : personalizarSistema ? (
+                    <div className="bg-white border border-purple-150 rounded-xl p-4 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-purple-50 pb-2">
+                        <h4 className="text-[11px] font-bold text-purple-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <span>⚙️</span> Personalizar Composición del Sistema
+                        </h4>
+                        <span className="text-[10px] text-gray-400 italic">Los cambios solo aplican a esta cotización</span>
+                      </div>
+                      
+                      <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1">
+                        {sistemaRels.map((rel, index) => {
+                          const quantity = (parseFloat(sistemaMetros) || 0) * rel.consumo_por_m2;
+                          const isAccesorio = rel.producto.unidad.toLowerCase().includes('pza') || rel.producto.unidad.toLowerCase().includes('pieza');
+                          const finalQty = isAccesorio ? quantity : quantity * getMermaFactor(estadoPiso);
+                          
+                          return (
+                            <div key={rel.id} className="bg-purple-50/20 border border-purple-100/70 rounded-xl p-3.5 space-y-3 transition-all hover:bg-purple-50/40">
+                              {/* Capa Header */}
+                              <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2.5 py-0.5 rounded-full">
+                                  Capa {index + 1}
+                                </span>
+                                <span className="text-[10px] font-semibold text-purple-900 bg-purple-100/40 px-2 py-0.5 rounded-md">
+                                  Cantidad: <strong className="text-purple-950 font-extrabold">{finalQty.toFixed(2)} {rel.producto.unidad}</strong>
+                                </span>
+                              </div>
+
+                              {/* Grid Inputs */}
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                                {/* Nombre */}
+                                <div className="sm:col-span-2">
+                                  <label className="text-[10px] font-bold text-gray-500 block mb-1">Nombre</label>
+                                  <input
+                                    type="text"
+                                    className="w-full text-xs px-2.5 py-1.5 border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white font-semibold"
+                                    value={rel.producto.nombre}
+                                    onChange={e => handleUpdateSistemaRel(rel.id, { nombre: e.target.value })}
+                                  />
+                                </div>
+                                {/* Consumo */}
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-500 block mb-1">Consumo ({rel.producto.unidad}/m²)</label>
+                                  <input
+                                    type="number"
+                                    step="any"
+                                    min="0"
+                                    className="w-full text-xs px-2.5 py-1.5 border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white font-bold"
+                                    value={rel.consumo_por_m2}
+                                    onChange={e => handleUpdateSistemaRel(rel.id, { consumo_por_m2: parseFloat(e.target.value) || 0 })}
+                                  />
+                                </div>
+                                {/* Espesor */}
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-500 block mb-1">Espesor</label>
+                                  <input
+                                    type="text"
+                                    className="w-full text-xs px-2.5 py-1.5 border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white"
+                                    value={rel.producto.espesorRecomendado || ''}
+                                    placeholder="Ej: 1.5 mm o N/A"
+                                    onChange={e => handleUpdateSistemaRel(rel.id, { espesorRecomendado: e.target.value })}
+                                  />
+                                </div>
+                              </div>
+
+                              {/* Nota del Producto */}
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-500 block mb-1">Nota / Función Técnica</label>
+                                <input
+                                  type="text"
+                                  className="w-full text-xs px-2.5 py-1.5 border border-purple-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white text-gray-600"
+                                  value={rel.producto.nota || ''}
+                                  placeholder="Ej: Primario antidesplave"
+                                  onChange={e => handleUpdateSistemaRel(rel.id, { nota: e.target.value })}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-4">
+                      {/* Tabs de navegación para el desglose */}
+                      <div className="flex bg-purple-100/40 p-1 rounded-xl border border-purple-100/50 gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setDesgloseTab('consumos')}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
+                            desgloseTab === 'consumos'
+                              ? 'bg-white text-purple-900 shadow-sm border border-purple-100'
+                              : 'text-purple-600 hover:text-purple-800 hover:bg-white/30'
+                          }`}
+                        >
+                          <span>📋</span> Consumos y Cantidades
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDesgloseTab('capas')}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold transition-all duration-200 ${
+                            desgloseTab === 'capas'
+                              ? 'bg-white text-purple-900 shadow-sm border border-purple-100'
+                              : 'text-purple-600 hover:text-purple-800 hover:bg-white/30'
+                          }`}
+                        >
+                          <span>🔬</span> Estructura y Capas
+                        </button>
+                      </div>
+
                       {desgloseTab === 'capas' ? (
                         <DiagramaCapas
                           groupedCapas={groupedCapas}
