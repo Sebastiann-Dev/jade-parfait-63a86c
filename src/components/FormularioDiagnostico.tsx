@@ -822,15 +822,6 @@ export const FormularioDiagnostico: React.FC = () => {
     if (!pasoActual) return ''
     switch (pasoActual.id) {
       case 'contacto':
-        if (!clienteNombre.trim() && !proyectoNombre.trim()) {
-          return 'El nombre del cliente y del proyecto son obligatorios.'
-        }
-        if (!clienteNombre.trim()) {
-          return 'El nombre del cliente o empresa es obligatorio.'
-        }
-        if (!proyectoNombre.trim()) {
-          return 'El nombre del proyecto es obligatorio.'
-        }
         if (telefono.trim()) {
           const cleanDigits = telefono.replace(/\D/g, '')
           const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
