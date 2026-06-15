@@ -102,7 +102,7 @@ export const DiagramaCapas: React.FC<DiagramaCapasProps> = ({
                   </span>
                   <span className="font-bold text-xs truncate">{capa.baseName}</span>
                   {capa.isGrouped && (
-                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white border border-white/10 shadow-sm shrink-0">🧪 2-Ptes</span>
+                    <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/20 text-white border border-white/10 shadow-sm shrink-0">2-Ptes</span>
                   )}
                 </div>
 
@@ -317,6 +317,9 @@ export const DiagramaCapas: React.FC<DiagramaCapasProps> = ({
         {/* Prepared Concrete Substrate (Base) */}
         <div className="relative flex items-center justify-between px-4 py-2 bg-slate-100 border border-slate-300 text-slate-500 rounded-lg shadow-sm">
           <div className="flex items-center gap-2 min-w-0">
+            <span className="w-5 h-5 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold shrink-0 text-slate-500">
+              0
+            </span>
             <span className="font-bold text-xs truncate">Concreto / Sustrato Preparado</span>
           </div>
           <span className="text-[9px] font-semibold italic text-slate-400">Base rígida del sistema</span>
