@@ -5,6 +5,7 @@ import { fetchProductosSupabase, fetchSistemasSupabase, fetchSistemaProductosSup
 import { DiagramaCapas } from './DiagramaCapas'
 import { ChatAsistente } from './ChatAsistente'
 import { ResumenCotizacion, type LineaProducto } from './ResumenCotizacion'
+import { formatMXN, formatNum, getMermaFactor, type EstadoPiso } from '../utils/format'
 
 function calcularLinea(
   producto: Producto,
@@ -14,7 +15,7 @@ function calcularLinea(
   tipoCambio: number,
   descuentoPorcentaje: number,
   presentacionSeleccionada?: any,
-  estadoPiso: 'liso' | 'estandar' | 'rugoso' | 'ninguno' = 'ninguno'
+  estadoPiso: EstadoPiso = 'ninguno'
 ): { cantidad: number; precioUnitario: number; totalMXN: number } {
   const descuento = esMinorista ? 1 : (1 - descuentoPorcentaje / 100)
   const dens = producto.densidad_conversion || 1.0
@@ -26,7 +27,7 @@ function calcularLinea(
       const rendimientoKg = producto.rendimiento / dens
       cantidad = metros / rendimientoKg
     } else {
-      number: cantidad = metros / producto.rendimiento
+      cantidad = metros / producto.rendimiento
     }
   } else {
     cantidad = cantidadManual
@@ -35,8 +36,7 @@ function calcularLinea(
   // Apply waste factor (Mermas) only to non-accessories
   const esAccesorio = producto.unidad.toLowerCase().includes('pza') || producto.unidad.toLowerCase().includes('pieza');
   if (!esAccesorio) {
-    const factorMerma = estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1.00;
-    cantidad = cantidad * factorMerma;
+    cantidad = cantidad * getMermaFactor(estadoPiso)
   }
 
   let precioBase = 0
@@ -60,13 +60,7 @@ function calcularLinea(
   return { cantidad, precioUnitario, totalMXN }
 }
 
-function formatMXN(value: number) {
-  return value.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
-}
-
-function formatNum(value: number, decimals = 2) {
-  return value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: decimals })
-}
+// formatMXN y formatNum importados desde '../utils/format'
 
 export default function Cotizador() {
   const [productosDisponibles, setProductosDisponibles] = useState<Producto[]>(PRODUCTOS)
@@ -87,7 +81,7 @@ export default function Cotizador() {
   const [notasProyecto, setNotasProyecto] = useState('')
   const busquedaRef = useRef<HTMLDivElement>(null)
 
-  const [estadoPiso, setEstadoPiso] = useState<'liso' | 'estandar' | 'rugoso' | 'ninguno'>('ninguno')
+  const [estadoPiso, setEstadoPiso] = useState<EstadoPiso>('ninguno')
   const [espesorMm, setEspesorMm] = useState<string>('')
 
   // Systems state variables
@@ -312,8 +306,7 @@ export default function Cotizador() {
       let cantidad = metrosArea * rel.consumo_por_m2
       const esAccesorio = rel.producto.unidad.toLowerCase().includes('pza') || rel.producto.unidad.toLowerCase().includes('pieza')
       if (!esAccesorio) {
-        const factorMerma = estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1.00;
-        cantidad = cantidad * factorMerma;
+        cantidad = cantidad * getMermaFactor(estadoPiso)
       }
 
       let precioBase = 0

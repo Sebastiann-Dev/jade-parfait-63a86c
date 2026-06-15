@@ -1,5 +1,6 @@
 import React from 'react'
 import { type Producto } from '../data/productos'
+import { formatNum, getMermaFactor, type EstadoPiso } from '../utils/format'
 
 export interface CapaGrouped {
   id: string
@@ -25,12 +26,10 @@ interface DiagramaCapasProps {
   capaActivaIndex: number | null
   onToggleLayer: (orden: number) => void
   metros?: number
-  estadoPiso?: 'liso' | 'estandar' | 'rugoso' | 'ninguno'
+  estadoPiso?: EstadoPiso
 }
 
-function formatNum(value: number, decimals = 2) {
-  return value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: decimals })
-}
+// formatNum importado desde '../utils/format'
 
 export const DiagramaCapas: React.FC<DiagramaCapasProps> = ({
   groupedCapas,
@@ -60,13 +59,13 @@ export const DiagramaCapas: React.FC<DiagramaCapasProps> = ({
           // Quantities calculations if metros > 0
           const qtyA = metros * capa.partA.consumo_por_m2
           const isAAccesorio = capa.partA.producto.unidad.toLowerCase().includes('pza') || capa.partA.producto.unidad.toLowerCase().includes('pieza')
-          const finalQtyA = isAAccesorio ? qtyA : qtyA * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1)
+          const finalQtyA = isAAccesorio ? qtyA : qtyA * getMermaFactor(estadoPiso)
 
           const qtyB = capa.partB ? metros * capa.partB.consumo_por_m2 : 0
           const finalQtyB = capa.partB
             ? (capa.partB.producto.unidad.toLowerCase().includes('pza') || capa.partB.producto.unidad.toLowerCase().includes('pieza')
                 ? qtyB
-                : qtyB * (estadoPiso === 'liso' ? 1.05 : estadoPiso === 'rugoso' ? 1.15 : estadoPiso === 'estandar' ? 1.10 : 1))
+                : qtyB * getMermaFactor(estadoPiso))
             : 0
 
           // Dynamic Justifications and Mix instructions

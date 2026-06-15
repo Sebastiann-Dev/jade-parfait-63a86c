@@ -1,33 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { type Producto } from '../data/productos'
 import { fetchSistemaProductosSupabase, type Sistema } from '../supabase'
+import { GEMINI_KEYS } from '../utils/geminiKeys'
 
-// Helper to decrypt preconfigured Gemini API keys
-function decryptApiKey(encryptedStr: string): string {
-  try {
-    const encryptedBytes = atob(encryptedStr);
-    const xorKey = "antigravity";
-    const decryptedChars: string[] = [];
-    for (let i = 0; i < encryptedBytes.length; i++) {
-      const byte = encryptedBytes.charCodeAt(i);
-      const keyChar = xorKey.charCodeAt(i % xorKey.length);
-      decryptedChars.push(String.fromCharCode(byte ^ keyChar));
-    }
-    return decryptedChars.join("").split("").reverse().join("");
-  } catch (e) {
-    console.error("Error decrypting API Key", e);
-    return "";
-  }
-}
-
-const OBFUSCATED_KEYS = [
-  "Bj0tWj5ALh0OPyEWWy09BDYVAQw+I1UMHDoEPSBBPkQJCwoAXC1HCxgGBTJXICZRBTNPJyg=", // Clave Principal (Ofuscada)
-  "MCYrCwEAKw4fMjAiBAAbOBgiDzY2NREDBwIqOgcEMAQ/JzlEAD0VA0IoMTVXICZRBTNPJyg=", // Clave de Respaldo 1 (Ofuscada)
-  "IDorCwgQOSAwJiArMUMTVQpMHRwONBMBLF1TIhsXUR5BBy1MOg0mFgMGODNXICZRBTNPJyg=", // Clave de Respaldo 2 (Ofuscada)
-  "MAkHAxM2KkUuPigHKAM9MRw7QwI4CFAAWR8QLQMPRAcsGDYHEw8IAzMwPzJXICZRBTNPJyg="  // Clave de Respaldo 3 (Ofuscada)
-];
-
-const PRECONFIGURED_KEYS = OBFUSCATED_KEYS.map(decryptApiKey).filter(Boolean);
+// PRECONFIGURED_KEYS alias para compatibilidad con el resto del componente
+const PRECONFIGURED_KEYS = GEMINI_KEYS
 
 async function testKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
   try {
@@ -302,15 +279,13 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
       for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
         const targetIndex = (chatActiveKeyIndex + i) % PRECONFIGURED_KEYS.length;
         const currentKey = PRECONFIGURED_KEYS[targetIndex];
-        console.log(`[Chat Fallback] Probando Key ${targetIndex} con consulta de prueba "."`);
-        
+
         const testResult = await testKey(currentKey);
         checkTrace.push(`Llave ${targetIndex + 1}: ${testResult.success ? '🟢' : `❌ (${testResult.error || 'Inactiva'})`}`);
         
         if (testResult.success) {
           activeKey = currentKey;
           activeKeyIndex = targetIndex;
-          console.log(`[Chat Fallback] Key ${targetIndex} activa y seleccionada.`);
           break;
         } else {
           console.warn(`[Chat Fallback] Key ${targetIndex} reportó error o límite de cuota: ${testResult.error}`);

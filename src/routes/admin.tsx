@@ -18,6 +18,7 @@ import {
   type SistemaProducto
 } from '../supabase'
 import { Producto } from '../data/productos'
+import { GEMINI_KEYS, getMaskedKey } from '../utils/geminiKeys'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: (search: Record<string, unknown>) => {
@@ -89,38 +90,8 @@ function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones:
   return { numPartes: 2, presentaciones: [] }
 }
 
-// Helper to decrypt the preconfigured API key
-function decryptApiKey(encryptedStr: string): string {
-  try {
-    const encryptedBytes = atob(encryptedStr);
-    const xorKey = "antigravity";
-    const decryptedChars: string[] = [];
-    for (let i = 0; i < encryptedBytes.length; i++) {
-      const byte = encryptedBytes.charCodeAt(i);
-      const keyChar = xorKey.charCodeAt(i % xorKey.length);
-      decryptedChars.push(String.fromCharCode(byte ^ keyChar));
-    }
-    return decryptedChars.join("").split("").reverse().join("");
-  } catch (e) {
-    console.error("Error decrypting API Key", e);
-    return "";
-  }
-}
-
-const OBFUSCATED_KEYS = [
-  "Bj0tWj5ALh0OPyEWWy09BDYVAQw+I1UMHDoEPSBBPkQJCwoAXC1HCxgGBTJXICZRBTNPJyg=", // Clave Principal (Ofuscada)
-  "MCYrCwEAKw4fMjAiBAAbOBgiDzY2NREDBwIqOgcEMAQ/JzlEAD0VA0IoMTVXICZRBTNPJyg=", // Clave de Respaldo 1 (Ofuscada)
-  "IDorCwgQOSAwJiArMUMTVQpMHRwONBMBLF1TIhsXUR5BBy1MOg0mFgMGODNXICZRBTNPJyg=", // Clave de Respaldo 2 (Ofuscada)
-  "MAkHAxM2KkUuPigHKAM9MRw7QwI4CFAAWR8QLQMPRAcsGDYHEw8IAzMwPzJXICZRBTNPJyg="  // Clave de Respaldo 3 (Ofuscada)
-];
-
-const PRECONFIGURED_KEYS = OBFUSCATED_KEYS.map(decryptApiKey).filter(Boolean);
-
-function getMaskedKey(key: string): string {
-  if (!key) return '';
-  if (key.length <= 12) return '••••••••';
-  return `${key.substring(0, 7)}••••••••••••${key.substring(key.length - 4)}`;
-}
+// decryptApiKey, OBFUSCATED_KEYS, PRECONFIGURED_KEYS y getMaskedKey importados desde '../utils/geminiKeys'
+const PRECONFIGURED_KEYS = GEMINI_KEYS
 
 interface SearchableProductSelectProps {
   productos: any[]
@@ -382,12 +353,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       let success = false
       let lastErrorMsg = ''
 
-      for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
-        const currentKeyIndex = (activeKeyIndex + i) % PRECONFIGURED_KEYS.length
-        const currentKey = PRECONFIGURED_KEYS[currentKeyIndex]
+      for (let i = 0; i < GEMINI_KEYS.length; i++) {
+        const currentKeyIndex = (activeKeyIndex + i) % GEMINI_KEYS.length
+        const currentKey = GEMINI_KEYS[currentKeyIndex]
 
         try {
-          console.log(`Intentando extracción con Gemini API Key (índice ${currentKeyIndex})...`)
           let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${currentKey}`, {
             method: 'POST',
             headers: {

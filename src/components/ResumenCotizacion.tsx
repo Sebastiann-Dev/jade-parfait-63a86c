@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react'
 import { type Producto } from '../data/productos'
 import { generarPDF } from '../utils/generarPDF'
+import { formatMXN, formatNum, type EstadoPiso } from '../utils/format'
 
 export interface LineaProducto {
   id: string
@@ -23,18 +24,12 @@ interface ResumenCotizacionProps {
   tipoCambio: number
   esMinorista: boolean
   descuentoPorcentaje: number
-  estadoPiso: 'liso' | 'estandar' | 'rugoso' | 'ninguno'
+  estadoPiso: EstadoPiso
   eliminarLinea: (id: string) => void
   editarLinea: (linea: LineaProducto) => void
 }
 
-function formatMXN(value: number) {
-  return value.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
-}
-
-function formatNum(value: number, decimals = 2) {
-  return value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: decimals })
-}
+// formatMXN y formatNum importados desde '../utils/format'
 
 export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
   lineas,
@@ -81,10 +76,7 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
             🖨️ Imprimir
           </button>
           <button
-            onClick={() => generarPDF({
-              clienteNombre,
-              proyectoNombre,
-              notesText: notasProyecto, // Note: generating PDF takes notesText in some versions or notasProyecto? Let's check Cotizador.tsx call: it was generating PDF with notesProyecto or notasProyecto? Ah: in Cotizador.tsx line 1672: it passed notasProyecto: notasProyecto. Wait, let's keep the exact same fields as Cotizador.tsx
+          onClick={() => generarPDF({
               clienteNombre,
               proyectoNombre,
               notasProyecto,

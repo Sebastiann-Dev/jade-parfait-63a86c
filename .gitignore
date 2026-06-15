@@ -1,0 +1,34 @@
+# Dependencias
+node_modules/
+
+# Build outputs
+dist/
+.output/
+.vinxi/
+
+# Variables de entorno — NUNCA versionar
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Netlify cache
+.netlify/
+
+# Archivos de trabajo / scratch del agente de IA
+scratch/
+**/__pycache__/
+*.pyc
+*.pyo

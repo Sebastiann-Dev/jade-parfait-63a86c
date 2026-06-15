@@ -1,15 +1,5 @@
-import type { Producto } from '../data/productos'
-
-interface LineaProducto {
-  id: string
-  producto: Producto
-  metros: number
-  cantidad: number
-  precioUnitario: number
-  totalMXN: number
-  esMinorista: boolean
-  presentacion?: any
-}
+import type { LineaProducto } from '../components/ResumenCotizacion'
+import { formatMXN, formatNum, type EstadoPiso } from './format'
 
 interface CotizacionData {
   clienteNombre: string
@@ -19,18 +9,12 @@ interface CotizacionData {
   tipoCambio: number
   esMinorista: boolean
   descuentoPorcentaje: number
-  estadoPiso: 'liso' | 'estandar' | 'rugoso' | 'ninguno'
+  estadoPiso: EstadoPiso
   lineas: LineaProducto[]
   totalProyecto: number
 }
 
-function formatMXN(value: number) {
-  return value.toLocaleString('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 2 })
-}
-
-function formatNum(value: number, decimals = 2) {
-  return value.toLocaleString('es-MX', { minimumFractionDigits: 0, maximumFractionDigits: decimals })
-}
+// formatMXN y formatNum importados desde './format'
 
 export function generarPDF(data: CotizacionData) {
   const {
