@@ -1,3 +1,4 @@
+// Trigger build: Clean concrete details bullet points layout
 import React from 'react'
 import { type Producto } from '../data/productos'
 import { formatNum, getMermaFactor, type EstadoPiso } from '../utils/format'
