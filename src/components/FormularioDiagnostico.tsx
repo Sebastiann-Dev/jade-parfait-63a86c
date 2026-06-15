@@ -37,6 +37,7 @@ export const FormularioDiagnostico: React.FC = () => {
   const [emailError, setEmailError] = useState('')
   const [telefonoError, setTelefonoError] = useState('')
   const [mostrarErroresContacto, setMostrarErroresContacto] = useState(false)
+  const [intentoAvanzar, setIntentoAvanzar] = useState(false)
 
   // Scoping Answers
   const [queRecubrir, setQueRecubrir] = useState<string>('')
@@ -162,6 +163,14 @@ export const FormularioDiagnostico: React.FC = () => {
       }
     }
 
+    if (!validarPaso()) {
+      setIntentoAvanzar(true)
+      return // Block navigation
+    }
+
+    // Reset warnings on successful step transition
+    setIntentoAvanzar(false)
+
     if (paso < totalPasos - 1) {
       setPaso(paso + 1)
     } else {
@@ -170,6 +179,7 @@ export const FormularioDiagnostico: React.FC = () => {
   }
 
   const handleAtras = () => {
+    setIntentoAvanzar(false)
     if (paso > 0) {
       setPaso(paso - 1)
     }
@@ -1149,12 +1159,12 @@ export const FormularioDiagnostico: React.FC = () => {
             </div>
 
             {/* Validation warning */}
-            {obtenerMensajeValidacion() && (
+            {((intentoAvanzar || (pasoActual.id === 'contacto' && mostrarErroresContacto)) && obtenerMensajeValidacion()) ? (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fade-in shrink-0">
                 <span>⚠️</span>
                 <span>{obtenerMensajeValidacion()}</span>
               </div>
-            )}
+            ) : null}
 
             {/* Navigation buttons */}
             <div className="pt-4 border-t border-gray-150 flex justify-between gap-3 shrink-0">
@@ -1170,7 +1180,7 @@ export const FormularioDiagnostico: React.FC = () => {
               <button
                 type="button"
                 onClick={handleSiguiente}
-                disabled={!validarPaso() || guardando}
+                disabled={guardando}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none transform active:scale-95"
               >
                 {guardando ? 'Guardando...' : (paso === totalPasos - 1 ? 'Finalizar y Ver Recomendación' : 'Siguiente')}
