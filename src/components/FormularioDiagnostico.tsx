@@ -325,7 +325,7 @@ export const FormularioDiagnostico: React.FC = () => {
                   className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-50/50 ${
                     telefonoError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500'
                   }`}
-                  placeholder="Ej. 8112345678 (10 dígitos)"
+                  placeholder="8112345678"
                   value={telefono}
                   onChange={e => {
                     const val = e.target.value
@@ -354,7 +354,7 @@ export const FormularioDiagnostico: React.FC = () => {
                   className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-50/50 ${
                     emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500'
                   }`}
-                  placeholder="Ej. contacto@empresa.com"
+                  placeholder="contacto@empresa.com"
                   value={email}
                   onChange={e => {
                     const val = e.target.value
