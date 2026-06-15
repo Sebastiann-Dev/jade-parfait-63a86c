@@ -97,14 +97,14 @@ export const LeadPortal: React.FC = () => {
     const traducciones: { label: string; value: string }[] = []
 
     const dictUbicacion: Record<string, string> = { interior: 'Interior', exterior: 'Exterior', both: 'Ambos (Interior y Exterior)' }
-    const dictSuperficie: Record<string, string> = { concrete_floor: 'Piso de Concreto', wall: 'Muro / Pared', metal_structure: 'Estructura Metálica', tank: 'Tanque / Cisterna', other: 'Otro' }
-    const dictTrafico: Record<string, string> = { none: 'Sin Tráfico / Peatonal Ligero', pedestrian_heavy: 'Peatonal Intenso', light: 'Tránsito Ligero (Carritos, Patines)', heavy: 'Tránsito Pesado (Montacargas, Autos)', severe: 'Tránsito Industrial Severo (Montacargas Rueda Dura)' }
+    const dictSuperficie: Record<string, string> = { concrete_floor: 'Piso de Concreto', wall: 'Muro / Pared', metal_structure: 'Estructura Metálica / Fierro', tank: 'Tanque / Cisterna', wood: 'Madera / Triplay', other: 'Otro' }
+    const dictTrafico: Record<string, string> = { none: 'Peatonal Ligero', pedestrian_heavy: 'Peatonal Intenso', light: 'Tránsito Ligero', heavy: 'Tránsito Pesado', severe: 'Tránsito Industrial Severo' }
     const dictQuimicos: Record<string, string> = { no: 'Sin contacto', yes_oils: 'Aceites y grasas comunes', yes_light_acids: 'Ácidos/Álcalis ligeros', yes_heavy_acids: 'Ácidos fuertes/Solventes' }
-    const dictEstadoConcreto: Record<string, string> = { new: 'Nuevo sin pulir / Rugoso', polished: 'Pulido / Espejo', damaged: 'Dañado / Con baches', contaminated: 'Contaminado con grasa' }
+    const dictEstadoConcreto: Record<string, string> = { new: 'Nuevo sin pulir / Rugoso', polished: 'Pulido / Muy liso (brillante)', damaged: 'Dañado / Con grietas o baches', contaminated: 'Contaminado con aceite o grasa', peeling: 'Descascarado / Con desprendimiento', humidity: 'Humedad ascendente / Salitre', other: 'Otro' }
     const dictUv: Record<string, string> = { yes: 'Sí, exposición directa', no: 'No, bajo sombra/techado' }
     const dictRuedas: Record<string, string> = { rubber: 'Caucho / Neumáticos', polyurethane: 'Poliuretano rígido', metal_nylon: 'Nylon / Metal' }
     const dictFrecuencia: Record<string, string> = { occasional: 'Ocasional / Salpicadura', daily_cleaning: 'Limpieza / Sanitizado diario', immersion: 'Inmersión / Charco continuo' }
-    const dictColor: Record<string, string> = { gray: 'Gris Industrial', red: 'Rojo Óxido', white: 'Blanco Sanitario', clear: 'Transparente / Neutro', custom: 'Custom RAL' }
+    const dictColor: Record<string, string> = { gray: 'Gris (Base estándar)', red: 'Rojo (Base estándar)', white: 'Blanco (Base estándar)', clear: 'Transparente / Neutro', entonacion: 'Entonación' }
 
     if (respuestas.que_recubrir) {
       traducciones.push({ label: 'Superficie a recubrir', value: dictSuperficie[respuestas.que_recubrir] || respuestas.que_recubrir })
@@ -113,14 +113,13 @@ export const LeadPortal: React.FC = () => {
       traducciones.push({ label: 'Ubicación física', value: dictUbicacion[respuestas.ubicacion] || respuestas.ubicacion })
     }
     if (respuestas.objetivos && Array.isArray(respuestas.objetivos)) {
-      const objetivosTrad = respuestas.objetivos.map((o: string) => {
-        const dictObj: Record<string, string> = { aesthetic: 'Estética', traffic: 'Resistencia a Tráfico', chemicals: 'Resistencia Química', waterproofing: 'Impermeabilización', repair: 'Nivelación/Reparación', hygiene: 'Higiene/Grado Alimenticio' }
-        return dictObj[o] || o
-      })
-      traducciones.push({ label: 'Objetivos del proyecto', value: objetivosTrad.join(', ') })
+      traducciones.push({ label: 'Objetivos del proyecto', value: respuestas.objetivos.join(', ') })
     }
     if (respuestas.trafico) {
-      traducciones.push({ label: 'Nivel de Tráfico', value: dictTrafico[respuestas.trafico] || respuestas.trafico })
+      const traficoVal = Array.isArray(respuestas.trafico)
+        ? respuestas.trafico.map((t: string) => dictTrafico[t] || t).join(', ')
+        : (dictTrafico[respuestas.trafico] || respuestas.trafico)
+      traducciones.push({ label: 'Nivel de Tráfico', value: traficoVal })
     }
     if (respuestas.quimicos) {
       traducciones.push({ label: 'Contacto con Químicos', value: dictQuimicos[respuestas.quimicos] || respuestas.quimicos })
@@ -141,8 +140,8 @@ export const LeadPortal: React.FC = () => {
       traducciones.push({ label: 'Área del proyecto', value: `${respuestas.area_m2} m²` })
     }
     if (respuestas.color_deseado) {
-      const colorText = respuestas.color_deseado === 'custom' && respuestas.color_detalle 
-        ? `Custom RAL (${respuestas.color_detalle})` 
+      const colorText = respuestas.color_deseado === 'entonacion' && respuestas.color_detalle 
+        ? `Entonación (${respuestas.color_detalle})` 
         : (dictColor[respuestas.color_deseado] || respuestas.color_deseado)
       traducciones.push({ label: 'Color solicitado', value: colorText })
     }

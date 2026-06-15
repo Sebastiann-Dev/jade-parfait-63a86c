@@ -3,7 +3,6 @@ import { Link } from '@tanstack/react-router'
 import {
   fetchProductosSupabase,
   fetchSistemasSupabase,
-  fetchSistemaProductosSupabase,
   saveProspectoSupabase,
   type Prospecto,
   type Sistema
@@ -35,19 +34,28 @@ export const FormularioDiagnostico: React.FC = () => {
   const [proyectoNombre, setProyectoNombre] = useState('')
   const [telefono, setTelefono] = useState('')
   const [email, setEmail] = useState('')
+  const [emailError, setEmailError] = useState('')
+  const [telefonoError, setTelefonoError] = useState('')
 
   // Scoping Answers
   const [queRecubrir, setQueRecubrir] = useState<string>('')
+  const [queRecubrirDetalle, setQueRecubrirDetalle] = useState<string>('')
+  
   const [ubicacion, setUbicacion] = useState<string>('')
+  
   const [objetivos, setObjetivos] = useState<string[]>([])
-  const [trafico, setTrafico] = useState<string>('')
+  const [objetivoOtro, setObjetivoOtro] = useState<string>('')
+  const [mostrarInputObjetivoOtro, setMostrarInputObjetivoOtro] = useState(false)
+  
+  const [traficosSeleccionados, setTraficosSeleccionados] = useState<string[]>([])
   const [quimicos, setQuimicos] = useState<string>('')
-  const [areaM2, setAreaM2] = useState<number>(100)
+  const [areaM2, setAreaM2] = useState<number>(0)
   const [colorDeseado, setColorDeseado] = useState<string>('')
   const [colorDetalle, setColorDetalle] = useState<string>('')
 
   // Conditional Scoping Answers
   const [estadoConcreto, setEstadoConcreto] = useState<string>('')
+  const [estadoConcretoDetalle, setEstadoConcretoDetalle] = useState<string>('')
   const [radiacionUv, setRadiacionUv] = useState<string>('')
   const [tipoRuedas, setTipoRuedas] = useState<string>('')
   const [frecuenciaQuimica, setFrecuenciaQuimica] = useState<string>('')
@@ -95,7 +103,8 @@ export const FormularioDiagnostico: React.FC = () => {
     }
 
     // Conditional: Wheel type under heavy traffic
-    if (trafico === 'heavy' || trafico === 'severe') {
+    const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
+    if (esTraficoIntenso) {
       pasos.push({ id: 'tipo_ruedas', titulo: 'Tipo de Tránsito y Ruedas' })
     }
 
@@ -128,17 +137,10 @@ export const FormularioDiagnostico: React.FC = () => {
     }
   }
 
-  const toggleObjetivo = (obj: string) => {
-    setObjetivos(prev =>
-      prev.includes(obj) ? prev.filter(o => o !== obj) : [...prev, obj]
-    )
-  }
-
   // --- Rule-Based Recommendation Logic Engine ---
   const calcularRecomendaciones = () => {
     const recomendadosSys: Sistema[] = []
     const recomendadosProds: Producto[] = []
-
     const tagsBuscados: string[] = []
 
     // 1. Determine requirements from answers
@@ -147,33 +149,36 @@ export const FormularioDiagnostico: React.FC = () => {
     const esTanque = queRecubrir === 'tank'
     const esExterior = ubicacion === 'exterior' || ubicacion === 'both'
     const esQuimicoIntenso = quimicos === 'yes_heavy_acids' || frecuenciaQuimica === 'immersion'
-    const esTraficoIntenso = trafico === 'heavy' || trafico === 'severe'
-    const esHigiene = objetivos.includes('hygiene')
-    const necesitaNivelar = estadoConcreto === 'damaged' || objetivos.includes('repair')
+    const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
+    
+    const esHigiene = objetivos.some(o => 
+      o.toLowerCase().includes('higiene') || 
+      o.toLowerCase().includes('alimentic') || 
+      o.toLowerCase().includes('clean') ||
+      o.toLowerCase().includes('antibact')
+    )
+    const necesitaNivelar = objetivos.some(o => 
+      o.toLowerCase().includes('repar') || 
+      o.toLowerCase().includes('nivel') || 
+      o.toLowerCase().includes('grieta')
+    ) || estadoConcreto === 'damaged'
 
     // 2. Map requirements to product/system search terms
     if (esPiso) {
       if (esQuimicoIntenso || esTraficoIntenso) {
-        // Recommend heavy-duty systems (polyurethane mortar / Bucacrete / Novolac)
         tagsBuscados.push('BucaCrete', 'Crete', 'Novolaca')
       } else if (esExterior) {
-        // Outdoor traffic / UV
         tagsBuscados.push('BucaTrafic', 'Bucathane')
       } else if (necesitaNivelar) {
-        // Self leveling or concrete repairs
         tagsBuscados.push('Autonivelante', 'Tapaporo')
       } else {
-        // General indoor floors
         tagsBuscados.push('BucaPoxyMulti', 'PoxyPlus')
       }
     } else if (esMetal) {
-      // Metal primer & topcoats
       tagsBuscados.push('Base Primer', 'Bucathane')
     } else if (esTanque) {
-      // Tank linings (solvent-free epoxies)
       tagsBuscados.push('BucaPoxyPlus', 'Epoxico')
     } else {
-      // Default
       tagsBuscados.push('BucaPoxyMulti', 'PoxyPlus')
     }
 
@@ -194,11 +199,9 @@ export const FormularioDiagnostico: React.FC = () => {
 
     // 4. Search catalog products
     productos.forEach(prod => {
-      // Exclude Parte B standalone products if possible to recommend the system / kit
       if (prod.nombre.toLowerCase().includes('parte b') || prod.nombre.toLowerCase().includes('pte b')) {
         return
       }
-      
       const match = tagsBuscados.some(tag => 
         prod.nombre.toLowerCase().includes(tag.toLowerCase()) || 
         (prod.nota && prod.nota.toLowerCase().includes(tag.toLowerCase()))
@@ -208,13 +211,11 @@ export const FormularioDiagnostico: React.FC = () => {
       }
     })
 
-    // 5. Fallback if no matching systems/products found
+    // 5. Fallbacks
     if (recomendadosSys.length === 0 && sistemas.length > 0) {
-      // Add first system
       recomendadosSys.push(sistemas[0])
     }
     if (recomendadosProds.length === 0 && productos.length > 0) {
-      // Add BucaPoxyMulti & Bucathane as defaults
       const multi = productos.find(p => p.nombre.toLowerCase().includes('multi'))
       const thane = productos.find(p => p.nombre.toLowerCase().includes('thane'))
       if (multi) recomendadosProds.push(multi)
@@ -236,19 +237,22 @@ export const FormularioDiagnostico: React.FC = () => {
     setRecSistemas(systems)
     setRecProductos(products)
 
+    const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
+
     const respuestas = {
-      que_recubrir: queRecubrir,
+      que_recubrir: queRecubrir === 'other' ? `Otro: ${queRecubrirDetalle}` : queRecubrir,
       ubicacion,
       objetivos,
-      trafico,
+      trafico: traficosSeleccionados,
       quimicos,
       area_m2: areaM2,
       color_deseado: colorDeseado,
       color_detalle: colorDetalle,
-      // Condicionales
-      estado_concreto: queRecubrir === 'concrete_floor' ? estadoConcreto : undefined,
+      estado_concreto: queRecubrir === 'concrete_floor' 
+        ? (estadoConcreto === 'other' ? `Otro: ${estadoConcretoDetalle}` : estadoConcreto) 
+        : undefined,
       radiacion_uv: (ubicacion === 'exterior' || ubicacion === 'both') ? radiacionUv : undefined,
-      tipo_ruedas: (trafico === 'heavy' || trafico === 'severe') ? tipoRuedas : undefined,
+      tipo_ruedas: esTraficoIntenso ? tipoRuedas : undefined,
       frecuencia_quimica: (quimicos && quimicos !== 'no') ? frecuenciaQuimica : undefined
     }
 
@@ -258,7 +262,7 @@ export const FormularioDiagnostico: React.FC = () => {
     ]
 
     try {
-      const insertedId = await saveProspectoSupabase({
+      await saveProspectoSupabase({
         codigo_seguimiento: codigo,
         cliente_nombre: clienteNombre,
         proyecto_nombre: proyectoNombre,
@@ -318,21 +322,56 @@ export const FormularioDiagnostico: React.FC = () => {
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Teléfono de Contacto</label>
                 <input
                   type="tel"
-                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-50/50"
-                  placeholder="Ej. 8112345678"
+                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-50/50 ${
+                    telefonoError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
+                  placeholder="Ej. 8112345678 (10 dígitos)"
                   value={telefono}
-                  onChange={e => setTelefono(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value
+                    setTelefono(val)
+                    if (val.trim()) {
+                      const cleanDigits = val.replace(/\D/g, '')
+                      const isOnlyDigits = /^[0-9\s\-()+]*$/.test(val)
+                      if (!isOnlyDigits) {
+                        setTelefonoError('El teléfono solo debe contener números.')
+                      } else if (cleanDigits.length !== 10) {
+                        setTelefonoError('El teléfono debe tener exactamente 10 dígitos.')
+                      } else {
+                        setTelefonoError('')
+                      }
+                    } else {
+                      setTelefonoError('')
+                    }
+                  }}
                 />
+                {telefonoError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{telefonoError}</p>}
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1.5">Correo Electrónico</label>
                 <input
                   type="email"
-                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-gray-50/50"
+                  className={`w-full text-sm px-3.5 py-2.5 border rounded-xl outline-none focus:ring-1 bg-gray-50/50 ${
+                    emailError ? 'border-red-500 focus:border-red-500 focus:ring-red-500' : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500'
+                  }`}
                   placeholder="Ej. contacto@empresa.com"
                   value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  onChange={e => {
+                    const val = e.target.value
+                    setEmail(val)
+                    if (val.trim()) {
+                      const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val)
+                      if (!isValid) {
+                        setEmailError('Por favor ingresa un correo electrónico válido.')
+                      } else {
+                        setEmailError('')
+                      }
+                    } else {
+                      setEmailError('')
+                    }
+                  }}
                 />
+                {emailError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{emailError}</p>}
               </div>
             </div>
           </div>
@@ -340,28 +379,40 @@ export const FormularioDiagnostico: React.FC = () => {
 
       case 'que_recubrir':
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              { id: 'concrete_floor', icon: '🧱', label: 'Piso de Concreto', desc: 'Naves industriales, almacenes, talleres' },
-              { id: 'wall', icon: '🧱', label: 'Muro / Pared', desc: 'Áreas comerciales, laboratorios, cocinas' },
-              { id: 'metal_structure', icon: '🏗️', label: 'Estructura Metálica', desc: 'Vigas, techos, herrería industrial' },
-              { id: 'tank', icon: '🛢️', label: 'Tanque / Cisterna', desc: 'Almacenamiento de agua o reactivos' },
-              { id: 'other', icon: '🎨', label: 'Otro', desc: 'Otras aplicaciones especiales' }
-            ].map(opt => (
-              <div
-                key={opt.id}
-                onClick={() => setQueRecubrir(opt.id)}
-                className={`p-4 border rounded-2xl cursor-pointer transition-all duration-200 select-none hover:shadow-md ${
-                  queRecubrir === opt.id 
-                    ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
-                <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
-                <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
+          <div className="space-y-4">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Selecciona la superficie a recubrir:</label>
+            <select
+              className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
+              value={queRecubrir}
+              onChange={e => {
+                setQueRecubrir(e.target.value)
+                if (e.target.value !== 'other') {
+                  setQueRecubrirDetalle('')
+                }
+              }}
+            >
+              <option value="">-- Seleccionar Superficie --</option>
+              <option value="concrete_floor">Piso de Concreto</option>
+              <option value="wall">Muro / Pared</option>
+              <option value="metal_structure">Estructura Metálica / Fierro</option>
+              <option value="tank">Tanque / Cisterna</option>
+              <option value="wood">Madera / Triplay</option>
+              <option value="other">Otra</option>
+            </select>
+
+            {queRecubrir === 'other' && (
+              <div className="animate-fade-in pt-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Especifica la superficie a recubrir *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50/50"
+                  placeholder="Ej. Albercas, Fachadas..."
+                  value={queRecubrirDetalle}
+                  onChange={e => setQueRecubrirDetalle(e.target.value)}
+                />
               </div>
-            ))}
+            )}
           </div>
         )
 
@@ -392,59 +443,125 @@ export const FormularioDiagnostico: React.FC = () => {
 
       case 'objetivos':
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {[
-              { id: 'aesthetic', icon: '✨', label: 'Estética y Color', desc: 'Acabado brillante, limpio, uniforme' },
-              { id: 'traffic', icon: '🚚', label: 'Resistencia al Tráfico', desc: 'Soportar montacargas y vehículos' },
-              { id: 'chemicals', icon: '🧪', label: 'Resistencia Química', desc: 'Derrame de ácidos, aceites, solventes' },
-              { id: 'waterproofing', icon: '💧', label: 'Impermeabilización', desc: 'Evitar filtraciones y humedad' },
-              { id: 'repair', icon: '🔧', label: 'Nivelación / Reparación', desc: 'Corregir grietas, baches y desniveles' },
-              { id: 'hygiene', icon: '🧼', label: 'Higiene / Grado Alimenticio', desc: 'Antibacteriano, fácil de lavar' }
-            ].map(opt => {
-              const selected = objetivos.includes(opt.id)
-              return (
-                <div
-                  key={opt.id}
-                  onClick={() => toggleObjetivo(opt.id)}
-                  className={`p-4 border rounded-2xl cursor-pointer transition-all duration-200 select-none hover:shadow-md ${
-                    selected 
-                      ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
+          <div className="space-y-4">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Selecciona tus objetivos principales (puedes añadir varios):</label>
+            <div className="flex gap-2">
+              <select
+                className="flex-1 text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
+                onChange={e => {
+                  const val = e.target.value
+                  if (val === 'other') {
+                    setMostrarInputObjetivoOtro(true)
+                  } else if (val && !objetivos.includes(val)) {
+                    setObjetivos([...objetivos, val])
+                  }
+                  e.target.value = "" // Reset select option
+                }}
+              >
+                <option value="">-- Agregar Objetivo --</option>
+                <option value="Estética y color">Estética y color</option>
+                <option value="Resistencia al tráfico intenso">Resistencia al tráfico intenso</option>
+                <option value="Resistencia a derrame de químicos / aceites">Resistencia a derrame de químicos / aceites</option>
+                <option value="Impermeabilización contra humedad/agua">Impermeabilización contra humedad/agua</option>
+                <option value="Nivelación o reparación de grietas">Nivelación o reparación de grietas</option>
+                <option value="Higiene / Grado alimenticio / Antibacterial">Higiene / Grado alimenticio / Antibacterial</option>
+                <option value="Antiderrapante / Seguridad">Antiderrapante / Seguridad</option>
+                <option value="Resistencia a la temperatura (choque térmico)">Resistencia a la temperatura (choque térmico)</option>
+                <option value="Aumento de iluminación (Reflectividad de luz)">Aumento de iluminación (Reflectividad de luz)</option>
+                <option value="Protección contra impacto y arrastre">Protección contra impacto y arrastre</option>
+                <option value="Acabado mate antirreflejante">Acabado mate antirreflejante</option>
+                <option value="Retardante de fuego / Ignífugo">Retardante de fuego / Ignífugo</option>
+                <option value="Fácil limpieza y mantenimiento">Fácil limpieza y mantenimiento</option>
+                <option value="Protección contra corrosión">Protección contra corrosión</option>
+                <option value="other">Otra (Escribir en específico)</option>
+              </select>
+            </div>
+
+            {mostrarInputObjetivoOtro && (
+              <div className="flex gap-2 items-center animate-fade-in">
+                <input
+                  type="text"
+                  className="flex-1 text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50/50"
+                  placeholder="Escribe tu objetivo personalizado..."
+                  value={objetivoOtro}
+                  onChange={e => setObjetivoOtro(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (objetivoOtro.trim() && !objetivos.includes(objetivoOtro.trim())) {
+                      setObjetivos([...objetivos, objetivoOtro.trim()])
+                      setObjetivoOtro('')
+                      setMostrarInputObjetivoOtro(false)
+                    }
+                  }}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow"
                 >
-                  <span className="text-2xl block mb-2">{opt.icon}</span>
-                  <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
-                  <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
-                </div>
-              )
-            })}
+                  Añadir
+                </button>
+              </div>
+            )}
+
+            {/* Selected tags */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              {objetivos.length === 0 ? (
+                <p className="text-[11px] text-amber-600 font-semibold italic bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                  💡 Por favor, agrega al menos un objetivo de la lista desplegable.
+                </p>
+              ) : (
+                objetivos.map((obj, idx) => (
+                  <span key={idx} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                    {obj}
+                    <button
+                      type="button"
+                      onClick={() => setObjetivos(prev => prev.filter(o => o !== obj))}
+                      className="text-blue-500 hover:text-red-500 font-bold ml-1 text-sm leading-none"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))
+              )}
+            </div>
           </div>
         )
 
       case 'trafico':
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <div className="space-y-3">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Selecciona todos los tipos de tráfico que estarán presentes (elige varios si aplica):</label>
             {[
-              { id: 'none', icon: '🚶', label: 'Peatonal Ligero', desc: 'Oficinas, pasillos sin maquinaria' },
-              { id: 'pedestrian_heavy', icon: '🚶‍♂️🚶‍♀️', label: 'Peatonal Intenso', desc: 'Tiendas comerciales, accesos comunes' },
-              { id: 'light', icon: '🛒', label: 'Tránsito Ligero', desc: 'Patines hidráulicos, carritos de mano' },
-              { id: 'heavy', icon: '🚜', label: 'Tránsito Pesado', desc: 'Montacargas ligeros, autos particulares' },
-              { id: 'severe', icon: '🚛', label: 'Tránsito Industrial Severo', desc: 'Montacargas pesados (ruedas duras), camiones' }
-            ].map(opt => (
-              <div
-                key={opt.id}
-                onClick={() => setTrafico(opt.id)}
-                className={`p-4 border rounded-2xl cursor-pointer transition-all duration-200 select-none hover:shadow-md ${
-                  trafico === opt.id 
-                    ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
-                <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
-                <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
-              </div>
-            ))}
+              { id: 'none', label: 'Peatonal Ligero', desc: 'Oficinas, pasillos sin maquinaria' },
+              { id: 'pedestrian_heavy', label: 'Peatonal Intenso', desc: 'Tiendas comerciales, accesos comunes' },
+              { id: 'light', label: 'Tránsito Ligero', desc: 'Patines hidráulicos, carritos de mano' },
+              { id: 'heavy', label: 'Tránsito Pesado', desc: 'Montacargas ligeros, autos particulares' },
+              { id: 'severe', label: 'Tránsito Industrial Severo', desc: 'Montacargas pesados (ruedas rígidas de metal/nylon), camiones' }
+            ].map(opt => {
+              const isChecked = traficosSeleccionados.includes(opt.id)
+              return (
+                <label
+                  key={opt.id}
+                  className={`flex items-start gap-3 p-3 border rounded-xl cursor-pointer transition select-none hover:shadow-sm ${
+                    isChecked ? 'border-blue-500 bg-blue-50/20' : 'border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    checked={isChecked}
+                    onChange={() => {
+                      setTraficosSeleccionados(prev =>
+                        prev.includes(opt.id) ? prev.filter(x => x !== opt.id) : [...prev, opt.id]
+                      )
+                    }}
+                  />
+                  <div>
+                    <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
+                    <span className="text-[10px] text-gray-400 block mt-0.5">{opt.desc}</span>
+                  </div>
+                </label>
+              )
+            })}
           </div>
         )
 
@@ -476,27 +593,41 @@ export const FormularioDiagnostico: React.FC = () => {
 
       case 'estado_concreto':
         return (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { id: 'new', icon: '🆕', label: 'Nuevo sin pulir / Rugoso', desc: 'Liso pero absorbente, menos de 1 año' },
-              { id: 'polished', icon: '💎', label: 'Pulido / Fino', desc: 'Espejo o muy liso, requiere perfilado mecánico' },
-              { id: 'damaged', icon: '🏚️', label: 'Dañado / Fisurado', desc: 'Tiene baches, grietas y requiere resanador' },
-              { id: 'contaminated', icon: '🧴', label: 'Contaminado con aceite o grasa', desc: 'Ha tenido derrames profundos' }
-            ].map(opt => (
-              <div
-                key={opt.id}
-                onClick={() => setEstadoConcreto(opt.id)}
-                className={`p-4 border rounded-2xl cursor-pointer transition-all duration-200 select-none hover:shadow-md ${
-                  estadoConcreto === opt.id 
-                    ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
-                    : 'border-gray-200 hover:border-gray-300 bg-white'
-                }`}
-              >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
-                <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
-                <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
+          <div className="space-y-4">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Selecciona el estado actual del concreto:</label>
+            <select
+              className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
+              value={estadoConcreto}
+              onChange={e => {
+                setEstadoConcreto(e.target.value)
+                if (e.target.value !== 'other') {
+                  setEstadoConcretoDetalle('')
+                }
+              }}
+            >
+              <option value="">-- Seleccionar Estado --</option>
+              <option value="new">Nuevo sin pulir / Rugoso</option>
+              <option value="polished">Pulido / Muy liso (brillante)</option>
+              <option value="damaged">Dañado / Con grietas o baches</option>
+              <option value="contaminated">Contaminado con aceite o grasa</option>
+              <option value="peeling">Descascarado / Con desprendimiento</option>
+              <option value="humidity">Humedad ascendente / Salitre</option>
+              <option value="other">Otro estado especial</option>
+            </select>
+
+            {estadoConcreto === 'other' && (
+              <div className="animate-fade-in pt-2">
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Especifica el estado actual *</label>
+                <input
+                  type="text"
+                  required
+                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50/50"
+                  placeholder="Ej. Concreto muy desmoronado, etc."
+                  value={estadoConcretoDetalle}
+                  onChange={e => setEstadoConcretoDetalle(e.target.value)}
+                />
               </div>
-            ))}
+            )}
           </div>
         )
 
@@ -581,11 +712,11 @@ export const FormularioDiagnostico: React.FC = () => {
             <div className="flex items-center gap-4 justify-center bg-gray-50 border border-gray-200 p-6 rounded-2xl">
               <input
                 type="number"
-                min={1}
+                min={0}
                 required
                 className="w-36 text-center text-xl font-bold font-mono px-3 py-2 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                 value={areaM2}
-                onChange={e => setAreaM2(Math.max(1, Number(e.target.value)))}
+                onChange={e => setAreaM2(Math.max(0, Number(e.target.value)))}
               />
               <span className="text-lg font-bold text-gray-600">m²</span>
             </div>
@@ -607,35 +738,31 @@ export const FormularioDiagnostico: React.FC = () => {
       case 'color':
         return (
           <div className="space-y-4">
-            <p className="text-sm text-gray-500 mb-2">Selecciona el tono aproximado que se requiere para el acabado del recubrimiento.</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-              {[
-                { id: 'gray', colorBg: 'bg-gray-400', label: 'Gris Industrial' },
-                { id: 'red', colorBg: 'bg-red-700', label: 'Rojo Óxido' },
-                { id: 'white', colorBg: 'bg-gray-100 border border-gray-200', label: 'Blanco Sanitario' },
-                { id: 'clear', colorBg: 'bg-sky-50 border border-dashed border-sky-300', label: 'Transparente / Neutro' },
-                { id: 'custom', colorBg: 'bg-gradient-to-tr from-yellow-400 via-green-500 to-indigo-500', label: 'Custom / RAL' }
-              ].map(opt => (
-                <div
-                  key={opt.id}
-                  onClick={() => setColorDeseado(opt.id)}
-                  className={`p-3 border rounded-2xl cursor-pointer transition-all duration-200 select-none text-center hover:shadow-md flex flex-col items-center justify-between h-28 ${
-                    colorDeseado === opt.id 
-                      ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500 font-bold' 
-                      : 'border-gray-200 hover:border-gray-300 bg-white'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-full ${opt.colorBg} shadow-inner mt-1`} />
-                  <span className="text-[11px] text-gray-700 font-semibold mb-1 block leading-tight">{opt.label}</span>
-                </div>
-              ))}
-            </div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">Selecciona la opción de color deseada:</label>
+            <select
+              className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl bg-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 cursor-pointer font-medium"
+              value={colorDeseado}
+              onChange={e => {
+                setColorDeseado(e.target.value)
+                if (e.target.value !== 'entonacion') {
+                  setColorDetalle('')
+                }
+              }}
+            >
+              <option value="">-- Seleccionar Color --</option>
+              <option value="gray">Gris (Base estándar)</option>
+              <option value="red">Rojo (Base estándar)</option>
+              <option value="white">Blanco (Base estándar)</option>
+              <option value="clear">Transparente / Neutro (Base estándar)</option>
+              <option value="entonacion">Entonación (Igualación especial)</option>
+            </select>
 
-            {colorDeseado === 'custom' && (
+            {colorDeseado === 'entonacion' && (
               <div className="animate-fade-in pt-2">
-                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Especifica el tono o código RAL:</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Especifica el tono o código RAL para entonación *</label>
                 <input
                   type="text"
+                  required
                   className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50/50"
                   placeholder="Ej. RAL 5015 Azul Celeste, o Igualación especial"
                   value={colorDetalle}
@@ -654,21 +781,27 @@ export const FormularioDiagnostico: React.FC = () => {
   // --- Validation ---
   const validarPaso = () => {
     const pasoActual = pasosActivos[paso]
+    if (!pasoActual) return true
     switch (pasoActual.id) {
-      case 'contacto':
-        return !!clienteNombre.trim() && !!proyectoNombre.trim()
+      case 'contacto': {
+        const cleanDigits = telefono.replace(/\D/g, '')
+        const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
+        const esTelefonoValido = !telefono.trim() || (isOnlyDigits && cleanDigits.length === 10)
+        const esEmailValido = !email.trim() || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+        return !!clienteNombre.trim() && !!proyectoNombre.trim() && esTelefonoValido && esEmailValido && !emailError && !telefonoError
+      }
       case 'que_recubrir':
-        return !!queRecubrir
+        return !!queRecubrir && (queRecubrir !== 'other' || !!queRecubrirDetalle.trim())
       case 'ubicacion':
         return !!ubicacion
       case 'objetivos':
         return objetivos.length > 0
       case 'trafico':
-        return !!trafico
+        return traficosSeleccionados.length > 0
       case 'quimicos':
         return !!quimicos
       case 'estado_concreto':
-        return !!estadoConcreto
+        return !!estadoConcreto && (estadoConcreto !== 'other' || !!estadoConcretoDetalle.trim())
       case 'radiacion_uv':
         return !!radiacionUv
       case 'tipo_ruedas':
@@ -678,9 +811,106 @@ export const FormularioDiagnostico: React.FC = () => {
       case 'area_m2':
         return areaM2 > 0
       case 'color':
-        return !!colorDeseado && (colorDeseado !== 'custom' || !!colorDetalle.trim())
+        return !!colorDeseado && (colorDeseado !== 'entonacion' || !!colorDetalle.trim())
       default:
         return true
+    }
+  }
+
+  const obtenerMensajeValidacion = (): string => {
+    const pasoActual = pasosActivos[paso]
+    if (!pasoActual) return ''
+    switch (pasoActual.id) {
+      case 'contacto':
+        if (!clienteNombre.trim() && !proyectoNombre.trim()) {
+          return 'El nombre del cliente y del proyecto son obligatorios.'
+        }
+        if (!clienteNombre.trim()) {
+          return 'El nombre del cliente o empresa es obligatorio.'
+        }
+        if (!proyectoNombre.trim()) {
+          return 'El nombre del proyecto es obligatorio.'
+        }
+        if (telefono.trim()) {
+          const cleanDigits = telefono.replace(/\D/g, '')
+          const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
+          if (!isOnlyDigits || cleanDigits.length !== 10 || telefonoError) {
+            return 'El teléfono debe tener exactamente 10 dígitos numéricos.'
+          }
+        }
+        if (email.trim()) {
+          const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
+          if (!isValid || emailError) {
+            return 'El correo electrónico no es válido.'
+          }
+        }
+        return ''
+      case 'que_recubrir':
+        if (!queRecubrir) {
+          return 'Selecciona la superficie que deseas recubrir.'
+        }
+        if (queRecubrir === 'other' && !queRecubrirDetalle.trim()) {
+          return 'Por favor especifica la superficie.'
+        }
+        return ''
+      case 'ubicacion':
+        if (!ubicacion) {
+          return 'Selecciona la ubicación física del proyecto.'
+        }
+        return ''
+      case 'objetivos':
+        if (objetivos.length === 0) {
+          return 'Agrega al menos un objetivo de la lista.'
+        }
+        return ''
+      case 'trafico':
+        if (traficosSeleccionados.length === 0) {
+          return 'Selecciona al menos una opción de tráfico.'
+        }
+        return ''
+      case 'quimicos':
+        if (!quimicos) {
+          return 'Selecciona el contacto con químicos.'
+        }
+        return ''
+      case 'estado_concreto':
+        if (!estadoConcreto) {
+          return 'Selecciona el estado actual del concreto.'
+        }
+        if (estadoConcreto === 'other' && !estadoConcretoDetalle.trim()) {
+          return 'Por favor especifica el estado del concreto.'
+        }
+        return ''
+      case 'radiacion_uv':
+        if (!radiacionUv) {
+          return 'Selecciona la exposición solar.'
+        }
+        return ''
+      case 'tipo_ruedas':
+        if (!tipoRuedas) {
+          return 'Selecciona el tipo de ruedas.'
+        }
+        return ''
+      case 'frecuencia_quimica':
+        if (!frecuenciaQuimica) {
+          return 'Selecciona la frecuencia de exposición química.'
+        }
+        return ''
+      case 'area_m2':
+        if (areaM2 <= 0) {
+          return 'La dimensión de la obra debe ser mayor a 0 m².'
+        }
+        return ''
+      case 'color':
+        if (!colorDeseado) {
+          return 'Selecciona la opción de color deseada.'
+        }
+        if (colorDeseado === 'entonacion' && !colorDetalle.trim()) {
+          return 'Por favor especifica el tono o código RAL para entonación.'
+        }
+        return ''
+      default:
+        return ''
     }
   }
 
@@ -790,14 +1020,21 @@ export const FormularioDiagnostico: React.FC = () => {
                   setTelefono('')
                   setEmail('')
                   setQueRecubrir('')
+                  setQueRecubrirDetalle('')
                   setUbicacion('')
                   setObjetivos([])
-                  setTrafico('')
+                  setObjetivoOtro('')
+                  setMostrarInputObjetivoOtro(false)
+                  setTraficosSeleccionados([])
                   setQuimicos('')
                   setEstadoConcreto('')
+                  setEstadoConcretoDetalle('')
                   setRadiacionUv('')
                   setTipoRuedas('')
                   setFrecuenciaQuimica('')
+                  setAreaM2(0)
+                  setColorDeseado('')
+                  setColorDetalle('')
                   setRecProductos([])
                   setRecSistemas([])
                   setCodigoGenerado('')
@@ -877,13 +1114,21 @@ export const FormularioDiagnostico: React.FC = () => {
               {renderContenidoPaso()}
             </div>
 
+            {/* Validation warning */}
+            {obtenerMensajeValidacion() && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fade-in shrink-0">
+                <span>⚠️</span>
+                <span>{obtenerMensajeValidacion()}</span>
+              </div>
+            )}
+
             {/* Navigation buttons */}
             <div className="pt-4 border-t border-gray-150 flex justify-between gap-3 shrink-0">
               <button
                 type="button"
                 onClick={handleAtras}
                 disabled={paso === 0 || guardando}
-                className="px-5 py-3 border border-gray-250 hover:bg-gray-50 text-gray-600 font-semibold text-xs rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none"
+                className="px-5 py-3 border border-gray-255 hover:bg-gray-50 text-gray-600 font-semibold text-xs rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none"
               >
                 Atrás
               </button>
