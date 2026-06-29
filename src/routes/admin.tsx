@@ -13,6 +13,8 @@ import {
   deleteSistemaSupabase,
   uploadPdfProducto,
   deletePdfProducto,
+  uploadDocToS3,
+  requestDownloadUrl,
   registrarLogActividad,
   type Sistema,
   type SistemaProducto
@@ -31,7 +33,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string; cotizacion_referencia_url?: string } = {
+const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string; cotizacion_referencia_url?: string; cotizacion_referencia_s3key?: string } = {
   nombre: '',
   cantRef: '',
   unidad: 'L',
@@ -52,6 +54,9 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   ficha_tecnica_url: '',
   ficha_seguridad_url: '',
   cotizacion_referencia_url: '',
+  ficha_tecnica_s3key: '',
+  ficha_seguridad_s3key: '',
+  cotizacion_referencia_s3key: '',
   estado: 'borrador',
   motivo_incompleto: ''
 }
@@ -767,10 +772,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         payload.rendimiento = null;
       }
 
+      // item.pdfUrl ya contiene el S3 Key (subido en el procesador de cola)
       if (item.tipoDoc === 'ficha_tecnica') {
-        payload.ficha_tecnica_url = item.pdfUrl || '';
+        payload.ficha_tecnica_s3key = item.pdfUrl || ''
+        payload.ficha_tecnica_url = null // Limpiar URL legacy
       } else {
-        payload.ficha_seguridad_url = item.pdfUrl || '';
+        payload.ficha_seguridad_s3key = item.pdfUrl || ''
+        payload.ficha_seguridad_url = null // Limpiar URL legacy
       }
 
       if (item.productoAsociado) {
@@ -789,13 +797,13 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         };
         const nuevoId = await saveProductoSupabase(nuevoPayload);
 
+        // El s3Key ya fue subido en el procesador de cola — solo guardar la referencia
         if (item.pdfUrl) {
-          const finalUrl = await uploadPdfProducto(nuevoId, item.tipoDoc, item.file);
           const updatePayload: any = {};
           if (item.tipoDoc === 'ficha_tecnica') {
-            updatePayload.ficha_tecnica_url = finalUrl;
+            updatePayload.ficha_tecnica_s3key = item.pdfUrl;
           } else {
-            updatePayload.ficha_seguridad_url = finalUrl;
+            updatePayload.ficha_seguridad_s3key = item.pdfUrl;
           }
           await updateProductoSupabase(nuevoId, updatePayload);
         }
@@ -825,9 +833,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
       try {
         const prodId = siguiente.productoAsociado?.id || `nuevo_${Date.now()}`;
-        const publicUrl = await uploadPdfProducto(prodId, siguiente.tipoDoc, siguiente.file);
+        // S3: subir directamente a S3 y guardar el key (nunca la URL pública)
+        const s3Key = await uploadDocToS3(prodId, siguiente.tipoDoc, siguiente.file);
 
-        setColaMigracion(prev => prev.map(item => item.id === id ? { ...item, estado: 'analizando', pdfUrl: publicUrl } : item));
+        setColaMigracion(prev => prev.map(item => item.id === id ? { ...item, estado: 'analizando', pdfUrl: s3Key } : item));
 
         const extraidos = await extraerDatosPdfGemini(siguiente.file);
 
@@ -844,7 +853,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         setColaMigracion(prev => prev.map(item => item.id === id ? {
           ...item,
           estado: 'completado',
-          pdfUrl: publicUrl,
+          pdfUrl: s3Key,  // S3 Key — guardado en Supabase como s3key, no como URL
           productoAsociado: prodAsociadoFinal,
           propuesta: extraidos
         } : item));
@@ -1182,19 +1191,31 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       }
 
       if (editingId) {
+        // S3: subir nuevos archivos directamente a S3 y guardar el key en Supabase
         if (fichaTecnicaFile) {
-          finalFichaTecnica = await uploadPdfProducto(editingId, 'ficha_tecnica', fichaTecnicaFile)
+          const s3Key = await uploadDocToS3(editingId, 'ficha_tecnica', fichaTecnicaFile)
+          payload.ficha_tecnica_s3key = s3Key
+          payload.ficha_tecnica_url = null // Eliminar URL legacy al reemplazar con S3
+        } else {
+          payload.ficha_tecnica_s3key = formData.ficha_tecnica_s3key || null
+          payload.ficha_tecnica_url = formData.ficha_tecnica_url || null
         }
         if (fichaSeguridadFile) {
-          finalFichaSeguridad = await uploadPdfProducto(editingId, 'ficha_seguridad', fichaSeguridadFile)
+          const s3Key = await uploadDocToS3(editingId, 'ficha_seguridad', fichaSeguridadFile)
+          payload.ficha_seguridad_s3key = s3Key
+          payload.ficha_seguridad_url = null // Eliminar URL legacy al reemplazar con S3
+        } else {
+          payload.ficha_seguridad_s3key = formData.ficha_seguridad_s3key || null
+          payload.ficha_seguridad_url = formData.ficha_seguridad_url || null
         }
         if (cotizacionReferenciaFile) {
-          finalCotizacionReferencia = await uploadPdfProducto(editingId, 'cotizacion_referencia', cotizacionReferenciaFile)
+          const s3Key = await uploadDocToS3(editingId, 'cotizacion_referencia', cotizacionReferenciaFile)
+          payload.cotizacion_referencia_s3key = s3Key
+          payload.cotizacion_referencia_url = null // Eliminar URL legacy al reemplazar con S3
+        } else {
+          payload.cotizacion_referencia_s3key = formData.cotizacion_referencia_s3key || null
+          payload.cotizacion_referencia_url = formData.cotizacion_referencia_url || null
         }
-
-        payload.ficha_tecnica_url = finalFichaTecnica || null
-        payload.ficha_seguridad_url = finalFichaSeguridad || null
-        payload.cotizacion_referencia_url = finalCotizacionReferencia || null
 
         try {
           await updateProductoSupabase(editingId, payload, lastUpdatedAt)
@@ -1214,28 +1235,30 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
         showMsg('✅ Producto actualizado con éxito', 'ok')
       } else {
+        // Nuevo producto: primero guardar sin documentos, luego subir a S3
         payload.ficha_tecnica_url = null
         payload.ficha_seguridad_url = null
         payload.cotizacion_referencia_url = null
+        payload.ficha_tecnica_s3key = null
+        payload.ficha_seguridad_s3key = null
+        payload.cotizacion_referencia_s3key = null
 
         const newId = await saveProductoSupabase(payload)
 
         let updateNeeded = false
         const updatePayload: any = {}
 
+        // S3: subir directamente a S3 desde el navegador y guardar el key
         if (fichaTecnicaFile) {
-          finalFichaTecnica = await uploadPdfProducto(newId, 'ficha_tecnica', fichaTecnicaFile)
-          updatePayload.ficha_tecnica_url = finalFichaTecnica
+          updatePayload.ficha_tecnica_s3key = await uploadDocToS3(newId, 'ficha_tecnica', fichaTecnicaFile)
           updateNeeded = true
         }
         if (fichaSeguridadFile) {
-          finalFichaSeguridad = await uploadPdfProducto(newId, 'ficha_seguridad', fichaSeguridadFile)
-          updatePayload.ficha_seguridad_url = finalFichaSeguridad
+          updatePayload.ficha_seguridad_s3key = await uploadDocToS3(newId, 'ficha_seguridad', fichaSeguridadFile)
           updateNeeded = true
         }
         if (cotizacionReferenciaFile) {
-          finalCotizacionReferencia = await uploadPdfProducto(newId, 'cotizacion_referencia', cotizacionReferenciaFile)
-          updatePayload.cotizacion_referencia_url = finalCotizacionReferencia
+          updatePayload.cotizacion_referencia_s3key = await uploadDocToS3(newId, 'cotizacion_referencia', cotizacionReferenciaFile)
           updateNeeded = true
         }
 
@@ -1320,6 +1343,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       ficha_tecnica_url: p.ficha_tecnica_url || '',
       ficha_seguridad_url: p.ficha_seguridad_url || '',
       cotizacion_referencia_url: p.cotizacion_referencia_url || '',
+      // S3 keys — nueva arquitectura
+      ficha_tecnica_s3key: p.ficha_tecnica_s3key || '',
+      ficha_seguridad_s3key: p.ficha_seguridad_s3key || '',
+      cotizacion_referencia_s3key: p.cotizacion_referencia_s3key || '',
       estado: p.estado || 'borrador',
       motivo_incompleto: p.motivo_incompleto || ''
     })
@@ -1336,11 +1363,12 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setFichaTecnicaFile(null)
     setFichaSeguridadFile(null)
     setCotizacionReferenciaFile(null)
-    setUseCotizacionReferencia(!!p.cotizacion_referencia_url)
+    setUseCotizacionReferencia(!!(p.cotizacion_referencia_url || p.cotizacion_referencia_s3key))
 
-    if (p.ficha_tecnica_url) {
+    // Mostrar previsualización del PDF disponible por defecto
+    if (p.ficha_tecnica_s3key || p.ficha_tecnica_url) {
       setActivePdfPreview('ficha_tecnica')
-    } else if (p.ficha_seguridad_url) {
+    } else if (p.ficha_seguridad_s3key || p.ficha_seguridad_url) {
       setActivePdfPreview('ficha_seguridad')
     } else {
       setActivePdfPreview(null)
@@ -2486,7 +2514,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               <div style={{ flex: 1, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                 {(() => {
                   const hasLocal = activePdfPreview === 'ficha_tecnica' ? !!fichaTecnicaFile : !!fichaSeguridadFile
-                  const hasRemote = activePdfPreview === 'ficha_tecnica' ? !!formData.ficha_tecnica_url : !!formData.ficha_seguridad_url
+                  // Para el visor: comprobar tanto s3key (nueva arquitectura) como url (legacy)
+                  const hasRemote = activePdfPreview === 'ficha_tecnica'
+                    ? (!!formData.ficha_tecnica_s3key || !!formData.ficha_tecnica_url)
+                    : (!!formData.ficha_seguridad_s3key || !!formData.ficha_seguridad_url)
 
                   if (!activePdfPreview) {
                     return (
@@ -2543,18 +2574,71 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     )
                   }
 
-                  const previewUrl = activePdfPreview === 'ficha_tecnica'
-                    ? (fichaTecnicaFile ? URL.createObjectURL(fichaTecnicaFile) : formData.ficha_tecnica_url)
-                    : (fichaSeguridadFile ? URL.createObjectURL(fichaSeguridadFile) : formData.ficha_seguridad_url)
+                  // Para el iframe: archivos locales usan blob URL
+                  // Archivos en S3: no se puede embeber directamente — mostrar botón de apertura
+                  const localFile = activePdfPreview === 'ficha_tecnica' ? fichaTecnicaFile : fichaSeguridadFile
+                  const s3Key = activePdfPreview === 'ficha_tecnica' ? formData.ficha_tecnica_s3key : formData.ficha_seguridad_s3key
+                  const legacyUrl = activePdfPreview === 'ficha_tecnica' ? formData.ficha_tecnica_url : formData.ficha_seguridad_url
 
-                  return (
-                    <iframe
-                      src={previewUrl}
-                      title="PDF Preview"
-                      style={{ width: '100%', height: '100%', border: 'none', minHeight: '450px' }}
-                    />
-                  )
-                })()}
+                  if (localFile) {
+                    // Archivo local recién seleccionado — previsualizar directamente
+                    const blobUrl = URL.createObjectURL(localFile)
+                    return (
+                      <iframe
+                        src={blobUrl}
+                        title="PDF Preview"
+                        style={{ width: '100%', height: '100%', border: 'none', minHeight: '450px' }}
+                      />
+                    )
+                  }
+
+                  if (s3Key) {
+                    // Documento en S3: generar Presigned URL y abrir en nueva pestaña
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px' }}>
+                        <span style={{ fontSize: '36px' }}>🔒</span>
+                        <p style={{ fontSize: '13px', color: '#475569', textAlign: 'center', fontWeight: 600 }}>
+                          Este documento está almacenado de forma segura en S3.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              const url = await requestDownloadUrl(s3Key)
+                              window.open(url, '_blank', 'noreferrer')
+                            } catch (err: any) {
+                              alert('❌ Error al generar enlace: ' + (err.message || 'Intenta de nuevo.'))
+                            }
+                          }}
+                          style={{
+                            padding: '8px 20px',
+                            background: '#0369a1',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          👁️ Abrir PDF (enlace seguro)
+                        </button>
+                        <p style={{ fontSize: '11px', color: '#94a3b8' }}>El enlace expirará en 15 minutos.</p>
+                      </div>
+                    )
+                  }
+
+                  if (legacyUrl) {
+                    return (
+                      <iframe
+                        src={legacyUrl}
+                        title="PDF Preview"
+                        style={{ width: '100%', height: '100%', border: 'none', minHeight: '450px' }}
+                      />
+                    )
+                  }
+
+                  return null
               </div>
             </div>
           </div>
@@ -2657,11 +2741,22 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           )}
                         </td>
                         <td style={{ ...tdStyle, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {p.ficha_tecnica_url ? (
-                            <a
-                              href={p.ficha_tecnica_url}
-                              target="_blank"
-                              rel="noreferrer"
+                          {(p.ficha_tecnica_s3key || p.ficha_tecnica_url) ? (
+                            <button
+                              onClick={async () => {
+                                try {
+                                  if (p.ficha_tecnica_s3key) {
+                                    // Nueva arquitectura: generar Presigned URL temporal de S3
+                                    const url = await requestDownloadUrl(p.ficha_tecnica_s3key)
+                                    window.open(url, '_blank', 'noreferrer')
+                                  } else if (p.ficha_tecnica_url) {
+                                    // Legacy: URL pública directa de Supabase Storage
+                                    window.open(p.ficha_tecnica_url, '_blank', 'noreferrer')
+                                  }
+                                } catch (err: any) {
+                                  alert('❌ Error al generar enlace de descarga: ' + (err.message || 'Intenta de nuevo.'))
+                                }
+                              }}
                               style={{
                                 padding: '4px 12px',
                                 background: '#e0f2fe',
@@ -2672,12 +2767,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                                 fontWeight: 700,
                                 cursor: 'pointer',
                                 marginRight: '8px',
-                                textDecoration: 'none',
-                                display: 'inline-block'
                               }}
                             >
                               👁️ Ver
-                            </a>
+                            </button>
                           ) : (
                             <button
                               disabled

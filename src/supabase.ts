@@ -242,26 +242,127 @@ export async function deleteSistemaSupabase(id: string): Promise<void> {
   }
 }
 
+// ─── AWS S3 — Almacenamiento de Documentos con Presigned URLs ─────────────────
+// El archivo NUNCA pasa por nuestro servidor. El flujo es:
+//   1. requestUploadUrl()   → llama al servidor TanStack Start para obtener la Presigned PUT URL
+//   2. uploadFileToS3()     → el navegador sube el File directamente a S3 vía HTTP PUT
+//   3. Guardar s3Key en Supabase (nunca la URL completa)
+//   4. requestDownloadUrl() → llama al servidor para obtener Presigned GET URL temporal (15 min)
+
+export type DocTipo = 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia'
+
+/**
+ * Solicita al servidor una Presigned URL de subida para S3.
+ * @returns { uploadUrl: string, s3Key: string }
+ *          - uploadUrl: URL de PUT para subir el archivo directamente a S3
+ *          - s3Key:     Ruta en S3 — este valor se guarda en Supabase
+ */
+export async function requestUploadUrl(
+  productoId: string,
+  tipo: DocTipo,
+  contentType = 'application/pdf'
+): Promise<{ uploadUrl: string; s3Key: string }> {
+  const res = await fetch('/api/s3-presign/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ productoId, tipo, contentType }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error || `Error ${res.status} al solicitar URL de subida`)
+  }
+
+  return res.json()
+}
+
+/**
+ * Sube el archivo directamente a S3 usando la Presigned URL de PUT.
+ * El archivo nunca pasa por nuestros servidores.
+ * @param uploadUrl - URL firmada de PUT (obtenida de requestUploadUrl)
+ * @param file      - Archivo a subir
+ */
+export async function uploadFileToS3(uploadUrl: string, file: File): Promise<void> {
+  const res = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type || 'application/pdf' },
+    body: file,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Error al subir el archivo a S3: HTTP ${res.status}`)
+  }
+}
+
+/**
+ * Solicita al servidor una Presigned URL de descarga para S3.
+ * La URL expira en 15 minutos. Ideal para abrir en iframe o nueva pestaña.
+ * @param s3Key - Clave del objeto en S3 (guardada en Supabase)
+ * @returns URL de descarga temporal
+ */
+export async function requestDownloadUrl(s3Key: string): Promise<string> {
+  const res = await fetch('/api/s3-presign/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ s3Key }),
+  })
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error || `Error ${res.status} al solicitar URL de descarga`)
+  }
+
+  const data = await res.json()
+  return data.downloadUrl
+}
+
+/**
+ * Flujo completo de subida: solicita Presigned URL al servidor y sube el archivo a S3.
+ * Retorna el s3Key para guardar en Supabase.
+ *
+ * Uso en admin.tsx:
+ *   const s3Key = await uploadDocToS3(productoId, 'ficha_tecnica', file)
+ *   await updateProductoSupabase(productoId, { ficha_tecnica_s3key: s3Key })
+ */
+export async function uploadDocToS3(
+  productoId: string,
+  tipo: DocTipo,
+  file: File
+): Promise<string> {
+  const { uploadUrl, s3Key } = await requestUploadUrl(productoId, tipo, file.type || 'application/pdf')
+  await uploadFileToS3(uploadUrl, file)
+  return s3Key
+}
+
+// ─── LEGACY: Supabase Storage (deprecado — solo para compatibilidad durante migración) ───
+/**
+ * @deprecated Usar uploadDocToS3() en su lugar.
+ * Mantenido para que los productos con URLs de Supabase Storage sigan funcionando
+ * hasta que sean re-subidos con la nueva arquitectura S3.
+ */
 export async function uploadPdfProducto(
   productoId: string,
   tipo: 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia',
   file: File
 ): Promise<string> {
+  console.warn(
+    '[DEPRECATED] uploadPdfProducto() usa Supabase Storage. ' +
+    'Migrar a uploadDocToS3() para subidas nuevas.'
+  )
   const ext = file.name.split('.').pop() || 'pdf'
   const path = `${productoId}/${tipo}.${ext}`
-
   await supabase.storage.from('product-docs').remove([path])
-
   const { error: uploadError } = await supabase.storage
     .from('product-docs')
     .upload(path, file, { upsert: true, contentType: 'application/pdf' })
-
   if (uploadError) throw uploadError
-
   const { data } = supabase.storage.from('product-docs').getPublicUrl(path)
   return data.publicUrl
 }
 
+/**
+ * @deprecated Usar deleteS3Object() (importar de src/server/s3.ts en server functions) en su lugar.
+ */
 export async function deletePdfProducto(
   productoId: string,
   tipo: 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia'
@@ -269,6 +370,7 @@ export async function deletePdfProducto(
   const paths = [`${productoId}/${tipo}.pdf`, `${productoId}/${tipo}.PDF`]
   await supabase.storage.from('product-docs').remove(paths)
 }
+
 
 export interface Prospecto {
   id: string;

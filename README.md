@@ -22,7 +22,7 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
 - Total del proyecto en MXN e impresión / exportación optimizada para PDF.
 - **Panel de Administración (`/admin`):**
   - Gestión completa en tiempo real de productos y sistemas multicapa (CRUD sincronizado con Supabase).
-  - Subida de fichas técnicas (TDS) y seguridad (SDS) directamente a Supabase Storage.
+  - **Almacenamiento de Documentos con AWS S3 y Presigned URLs**: Los PDFs (fichas técnicas TDS, hojas de seguridad SDS, cotizaciones de referencia) se almacenan de forma segura en AWS S3. El archivo nunca pasa por los servidores — el navegador sube directamente a S3 usando una URL firmada de `PUT` (Presigned Upload URL) generada por el servidor. Para descargar, el servidor genera una URL firmada de `GET` que expira en 15 minutos. En la base de datos de Supabase solo se guarda la clave S3 (ruta relativa) con timestamp, nunca la URL pública.
   - Visor de PDF integrado side-by-side con el formulario.
   - **Asistente IA (Gemini):** Lee el PDF y autocompleta el formulario de producto en segundos de forma inteligente.
   - Protección de claves API y sistema de rotación automática para tolerancia a fallos.
