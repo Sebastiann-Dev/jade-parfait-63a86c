@@ -26,6 +26,16 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
   - Visor de PDF integrado side-by-side con el formulario.
   - **Asistente IA (Gemini):** Lee el PDF y autocompleta el formulario de producto en segundos de forma inteligente.
   - Protección de claves API y sistema de rotación automática para tolerancia a fallos.
+- **Formulario de Diagnóstico Técnico (Scoping Wizard en `/diagnostico`):**
+  - Cuestionario interactivo paso a paso para el cliente final para identificar sus necesidades de recubrimiento.
+  - Árbol de decisión con ramificaciones lógicas dinámicas (ej: pregunta el tipo de ruedas ante tráfico pesado, exposición UV en exteriores o frecuencia de lavado químico).
+  - **Motor de Recomendación de Sistemas**: Analiza las respuestas del cliente y sugiere automáticamente productos individuales o sistemas multicapa (ej. BucaCrete, Bucathane) ideales para su obra.
+  - **Filtro Anti-Spam Inteligente**: Validación estricta que bloquea dominios de correo temporales (+73,000 dominios), groserías, palabras de prueba (ej. `test`, `prueba`) y teclazos aleatorios ("keyboard mashes" como `asdfg`).
+- **Portal de Prospectos para Vendedores (`/admin`):**
+  - Tablero centralizado de leads para el equipo de ventas de BUCA.
+  - Permite buscar, filtrar y dar seguimiento comercial a los diagnósticos realizados por los clientes.
+  - Bitácora editable para asignar asesores, actualizar el estatus de la cotización (Nuevo, Contactado, Cotizado, Ganado, Perdido), registrar notas de llamadas y presupuestos aproximados.
+  - **Carga Directa al Cotizador**: Botón de un solo clic que carga toda la recomendación sugerida en la calculadora principal para agilizar la cotización formal.
 
 ## Ejecutar localmente
 
