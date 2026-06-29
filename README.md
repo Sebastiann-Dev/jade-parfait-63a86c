@@ -37,6 +37,41 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
   - Bitácora editable para asignar asesores, actualizar el estatus de la cotización (Nuevo, Contactado, Cotizado, Ganado, Perdido), registrar notas de llamadas y presupuestos aproximados.
   - **Carga Directa al Cotizador**: Botón de un solo clic que carga toda la recomendación sugerida en la calculadora principal para agilizar la cotización formal.
 
+## Panel de Administración (`/admin`)
+
+El panel de administración es el centro de control técnico y comercial de BUCA. Está protegido por autenticación y estructurado en pestañas especializadas:
+
+### 1. Gestión del Catálogo (Productos y Sistemas)
+* **CRUD de Productos**: Permite añadir, editar y dar de baja productos individuales. Se definen precios base (en MXN o USD), unidad de medida (lote, cubeta, galón, tambor, Kg), rendimiento teórico y campos de conversión.
+* **Constructor de Sistemas Multicapa**: Los sistemas representan soluciones listas para cotizar (ej. Sistema Epóxico 100% Sólidos). Permite configurar cada capa (Primer, Intermedio, Top Coat), asignar los productos correspondientes, establecer espesores sugeridos y calcular rendimientos automáticos combinados.
+
+### 2. Visor e Inteligencia Artificial (Carga Automática de Fichas Técnicas)
+* **Gestor de Fichas (TDS/SDS)**: Permite subir las fichas técnicas (TDS) y hojas de seguridad (SDS) en PDF a buckets seguros de **Supabase Storage**.
+* **Asistente de Carga por IA**: Incorpora la API de **Google Gemini 2.5 Flash** para automatizar el alta de productos. El administrador sube un PDF y el asistente extrae, interpreta y pre-llena automáticamente el formulario (nombre, descripción, densidades, rendimientos y precauciones), reduciendo el tiempo de carga a solo segundos.
+* **Visor Side-by-Side**: Muestra el documento PDF en paralelo al formulario para que el administrador pueda validar y ajustar los datos extraídos por la IA antes de guardar.
+
+### 3. Portal de Prospectos y Seguimiento Comercial
+* **Bandeja de Entrada de Leads**: Almacena las respuestas de los clientes del *Scoping Wizard* y las clasifica.
+* **Seguimiento Comercial**: Permite asignar un asesor de ventas, registrar notas de llamadas, estimar el presupuesto de la obra y cambiar el estatus del prospecto (Nuevo, Contactado, Cotizado, Ganado, Perdido).
+* **Cotizador Instantáneo**: Con un solo clic, el vendedor puede cargar los datos del prospecto y la recomendación técnica directamente en la calculadora de presupuestos para generar la propuesta formal.
+
+### 4. Gestión de Claves y Rotación de API de IA
+* **Control de Claves Gemini**: Permite al administrador registrar, validar y administrar múltiples API Keys de Gemini.
+* **Rotación Automática**: El sistema alterna inteligentemente entre las claves registradas en caso de alcanzar el límite de cuotas de la API o detectar fallos, garantizando la continuidad del servicio del asistente de IA.
+
+---
+
+## Creación de Cuentas de Administrador
+Para dar de alta cuentas de vendedor o administrador en Supabase que puedan acceder a `/admin`, puedes utilizar el script automatizado provisto en el repositorio:
+
+```bash
+# Ejecutar el script indicando el correo oficial y la contraseña deseada
+python crear_admin.py correo@bucamx.com contraseña
+```
+*Nota: Este script utiliza el `service_role` de Supabase para crear y confirmar la cuenta automáticamente sin necesidad de esperar verificación por correo.*
+
+---
+
 ## Ejecutar localmente
 
 ### Opción A: Sandbox de Docker (Recomendada - Sin instalar Node.js)
