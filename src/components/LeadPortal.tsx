@@ -23,6 +23,12 @@ const obtenerNombreDesdeEmail = (email?: string): string => {
   return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
 }
 
+const sinEmojis = (texto: string): string => {
+  if (!texto) return ''
+  return texto.replace(/[\u2600-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDF00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|\uD83E[\uDD00-\uDFFF]/g, '').trim()
+}
+
+
 export const LeadPortal: React.FC = () => {
   const [prospectos, setProspectos] = useState<Prospecto[]>([])
   const [loading, setLoading] = useState(true)
@@ -452,7 +458,7 @@ export const LeadPortal: React.FC = () => {
               {prospectoSeleccionado.recomendaciones.map((rec, idx) => (
                 <div key={idx} className="px-3 py-2 bg-blue-50/50 border border-blue-100 rounded-xl flex items-center justify-between gap-3 text-xs">
                   <span className="truncate flex items-center gap-1.5">
-                    <strong className="text-blue-900 truncate">{rec.nombre}</strong>
+                    <strong className="text-blue-900 truncate">{sinEmojis(rec.nombre)}</strong>
                   </span>
                   
                   {/* Load in Cotizador direct link */}
@@ -476,7 +482,7 @@ export const LeadPortal: React.FC = () => {
                 <div className="flex flex-wrap gap-1.5">
                   {productosAdicionales.map((pName, index) => (
                     <span key={index} className="inline-flex items-center gap-1 bg-yellow-50 text-yellow-800 border border-yellow-200 px-2 py-0.5 rounded-lg text-[10px] font-semibold">
-                      {pName}
+                      {sinEmojis(pName)}
                       <button
                         type="button"
                         onClick={() => setProductosAdicionales(prev => prev.filter(x => x !== pName))}
@@ -500,7 +506,7 @@ export const LeadPortal: React.FC = () => {
               >
                 <option value="">+ Añadir producto necesario...</option>
                 {todosProductos.map(p => (
-                  <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                  <option key={p.id} value={p.nombre}>{sinEmojis(p.nombre)}</option>
                 ))}
               </select>
             </div>
