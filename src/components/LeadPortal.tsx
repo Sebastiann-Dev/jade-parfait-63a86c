@@ -83,10 +83,10 @@ export const LeadPortal: React.FC = () => {
           : null
       )
 
-      setMensajeEdicion({ texto: '✓ Seguimiento guardado correctamente.', tipo: 'ok' })
+      setMensajeEdicion({ texto: 'Seguimiento guardado correctamente.', tipo: 'ok' })
     } catch (error: any) {
       console.error("Error updating prospect follow-up details:", error)
-      setMensajeEdicion({ texto: '❌ Error al guardar cambios en base de datos.', tipo: 'error' })
+      setMensajeEdicion({ texto: 'Error al guardar cambios en base de datos.', tipo: 'error' })
     } finally {
       setGuardandoSeguimiento(false)
     }
@@ -176,7 +176,11 @@ export const LeadPortal: React.FC = () => {
         {/* Filters bar */}
         <div className="bg-white border border-gray-150 rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
           <div className="relative w-full sm:max-w-xs">
-            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">🔍</span>
+            <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5 text-gray-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.602 10.602Z" />
+              </svg>
+            </span>
             <input
               type="text"
               className="w-full text-xs pl-9 pr-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-400 bg-gray-50/50"
@@ -205,7 +209,9 @@ export const LeadPortal: React.FC = () => {
               className="p-2 border border-gray-200 rounded-xl bg-white hover:bg-gray-50 text-xs font-semibold text-gray-600 transition shrink-0"
               title="Recargar lista"
             >
-              🔄
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3.5 h-3.5 text-gray-600">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+              </svg>
             </button>
           </div>
         </div>
@@ -218,7 +224,9 @@ export const LeadPortal: React.FC = () => {
           </div>
         ) : prospectosFiltrados.length === 0 ? (
           <div className="bg-white border border-gray-150 rounded-2xl py-16 text-center text-gray-400">
-            <span className="text-4xl block mb-2 font-emoji">📋</span>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="1.5" stroke="currentColor" className="w-10 h-10 text-gray-300 mx-auto mb-2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z" />
+            </svg>
             <h4 className="font-bold text-gray-700 text-sm">No se encontraron prospectos</h4>
             <p className="text-xs text-gray-400 mt-1">Intenta ajustando los criterios de búsqueda o filtros.</p>
           </div>
@@ -337,7 +345,6 @@ export const LeadPortal: React.FC = () => {
               {prospectoSeleccionado.recomendaciones.map((rec, idx) => (
                 <div key={idx} className="px-3 py-2 bg-blue-50/50 border border-blue-100 rounded-xl flex items-center justify-between gap-3 text-xs">
                   <span className="truncate flex items-center gap-1.5">
-                    <span className="font-emoji">{rec.type === 'sistema' ? '🧪' : '📦'}</span>
                     <strong className="text-blue-900 truncate">{rec.nombre}</strong>
                   </span>
                   

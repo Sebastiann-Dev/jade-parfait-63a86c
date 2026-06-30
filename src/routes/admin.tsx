@@ -3838,7 +3838,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         {currentTab === 'prospectos' && (
           <div style={{ animation: 'fadeIn 0.3s ease', background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
             <h2 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: '#0f766e', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📋 Bandeja de Prospectos y Perfilamiento de Proyectos
+              Bandeja de Prospectos y Perfilamiento de Proyectos
             </h2>
             <LeadPortal />
           </div>
