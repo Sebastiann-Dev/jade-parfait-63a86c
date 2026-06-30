@@ -23,10 +23,18 @@ export interface Producto {
   densidad_conversion?: number
   // Bitácora / Notas internas
   bitacora?: string
-  // Documentación técnica
+  // Documentación técnica — Legacy (Supabase Storage, URLs públicas)
+  // Mantener por compatibilidad durante la migración. Usar _s3key cuando esté disponible.
   ficha_tecnica_url?: string
   ficha_seguridad_url?: string
   cotizacion_referencia_url?: string
+  // Documentación técnica — Nueva arquitectura (AWS S3 con Presigned URLs)
+  // Solo se almacena la ruta/clave en S3, nunca la URL pública.
+  // Formato: productos/{timestamp}_{productoId}_{tipo}.pdf
+  // El servidor genera una Presigned GET URL temporal (15 min) al solicitar el archivo.
+  ficha_tecnica_s3key?: string
+  ficha_seguridad_s3key?: string
+  cotizacion_referencia_s3key?: string
   // Estado de publicación y auditoría
   id?: string
   estado?: string
