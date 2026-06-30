@@ -1,3 +1,4 @@
+// BUCA Recubrimientos - Formulario de Diagnóstico
 import React, { useState, useEffect } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
