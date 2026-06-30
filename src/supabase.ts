@@ -262,76 +262,53 @@ export async function requestUploadUrl(
   tipo: DocTipo,
   contentType = 'application/pdf'
 ): Promise<{ uploadUrl: string; s3Key: string }> {
-  const res = await fetch('/api/s3-presign/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ productoId, tipo, contentType }),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error || `Error ${res.status} al solicitar URL de subida`)
-  }
-
-  return res.json()
+  // Retorna stubs ya que subiremos directamente con uploadDocToS3
+  return { uploadUrl: '', s3Key: '' }
 }
 
 /**
- * Sube el archivo directamente a S3 usando la Presigned URL de PUT.
- * El archivo nunca pasa por nuestros servidores.
- * @param uploadUrl - URL firmada de PUT (obtenida de requestUploadUrl)
- * @param file      - Archivo a subir
+ * @deprecated No es necesario para Supabase Storage.
  */
 export async function uploadFileToS3(uploadUrl: string, file: File): Promise<void> {
-  const res = await fetch(uploadUrl, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type || 'application/pdf' },
-    body: file,
-  })
-
-  if (!res.ok) {
-    throw new Error(`Error al subir el archivo a S3: HTTP ${res.status}`)
-  }
+  // Stub sin operación
 }
 
 /**
- * Solicita al servidor una Presigned URL de descarga para S3.
- * La URL expira en 15 minutos. Ideal para abrir en iframe o nueva pestaña.
- * @param s3Key - Clave del objeto en S3 (guardada en Supabase)
- * @returns URL de descarga temporal
+ * Obtiene la URL pública del documento guardado en Supabase Storage.
+ * Mantenemos el nombre 'requestDownloadUrl' para compatibilidad con el resto del código.
  */
 export async function requestDownloadUrl(s3Key: string): Promise<string> {
-  const res = await fetch('/api/s3-presign/download', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ s3Key }),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error || `Error ${res.status} al solicitar URL de descarga`)
+  if (!s3Key) return ''
+  // Si ya es una URL pública completa (legada), retornarla tal cual
+  if (s3Key.startsWith('http://') || s3Key.startsWith('https://')) {
+    return s3Key
   }
-
-  const data = await res.json()
-  return data.downloadUrl
+  const { data } = supabase.storage.from('product-docs').getPublicUrl(s3Key)
+  return data.publicUrl
 }
 
 /**
- * Flujo completo de subida: solicita Presigned URL al servidor y sube el archivo a S3.
- * Retorna el s3Key para guardar en Supabase.
- *
- * Uso en admin.tsx:
- *   const s3Key = await uploadDocToS3(productoId, 'ficha_tecnica', file)
- *   await updateProductoSupabase(productoId, { ficha_tecnica_s3key: s3Key })
+ * Sube el archivo directamente al bucket de Supabase Storage 'product-docs'.
+ * Retorna la ruta relativa (key) del archivo para guardarla en la base de datos.
  */
 export async function uploadDocToS3(
   productoId: string,
   tipo: DocTipo,
   file: File
 ): Promise<string> {
-  const { uploadUrl, s3Key } = await requestUploadUrl(productoId, tipo, file.type || 'application/pdf')
-  await uploadFileToS3(uploadUrl, file)
-  return s3Key
+  const ext = file.name.split('.').pop() || 'pdf'
+  const timestamp = Date.now()
+  const path = `${productoId}/${timestamp}_${tipo}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('product-docs')
+    .upload(path, file, { 
+      upsert: true, 
+      contentType: file.type || 'application/pdf' 
+    })
+
+  if (uploadError) throw uploadError
+  return path
 }
 
 // ─── LEGACY: Supabase Storage (deprecado — solo para compatibilidad durante migración) ───

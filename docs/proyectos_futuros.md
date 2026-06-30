@@ -36,3 +36,15 @@ Donde el **Factor CSP** incrementa la cantidad de material:
 *   **CSP 3 - 4:** +10% a 15% de merma (estándar para la mayoría de sistemas industriales).
 *   **CSP 5 - 6:** +20% a 30% de merma (requiere capas de renivelación gruesas).
 *   **CSP 7 - 9:** +40% o más (casos de reparación severa).
+
+---
+
+## 3. Migración de Almacenamiento a AWS S3 (Próxima Fase)
+
+Actualmente, todos los documentos (fichas técnicas, hojas de seguridad y cotizaciones de referencia) y las fotos de superficie del diagnóstico se almacenan en **Supabase Storage** (dentro del bucket `product-docs`), lo cual permite un desarrollo rápido y sin costes de infraestructura adicionales durante la fase de validación de mercado.
+
+Como proyecto de madurez para el sistema, se tiene planificada la migración hacia **AWS S3** bajo la siguiente arquitectura propuesta:
+- **Subida Directa desde Cliente:** Uso de URLs de subida firmadas (`PUT` presigned URLs) generadas por el servidor de TanStack Start para que los navegadores suban archivos grandes directo a AWS, previniendo transferencias de red y cuellos de botella en el servidor principal.
+- **Acceso Privado y Seguro:** Generación de enlaces temporales (`GET` presigned URLs) con expiración de 15 minutos para descargas y visualizaciones, manteniendo los recursos ocultos ante indexadores y accesos no autorizados.
+- **Políticas de Ciclo de Vida:** Archivar reportes e imágenes antiguas automáticamente a Glacier para reducir costos de almacenamiento.
+- **Auditoría:** Registro automático de metadatos en la base de datos vinculando el S3 Key (`ficha_tecnica_s3key`, `foto_superficie_s3key`, etc.) con los ID de productos y prospectos correspondientes.

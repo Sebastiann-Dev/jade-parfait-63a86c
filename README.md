@@ -5,8 +5,7 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
 ## Tecnologías
 
 - **Framework:** TanStack Start (React 19 + Vite)
-- **Base de Datos:** Supabase (PostgreSQL)
-- **Almacenamiento de Documentos:** AWS S3 (o compatible) con subida directa del cliente mediante Presigned URLs
+- **Base de Datos y Almacenamiento:** Supabase (PostgreSQL y Supabase Storage)
 - **Inteligencia Artificial:** API de Google Gemini (`gemini-2.5-flash`) con rotación automática multiclave
 - **Estilos:** Tailwind CSS v4 con clases custom
 - **Contenedores (Sandbox):** Docker y Dev Containers (Codespaces)
@@ -22,8 +21,8 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
 - Lista acumulada de productos para cotización completa de proyecto.
 - Total del proyecto en MXN e impresión / exportación optimizada para PDF.
 - **Panel de Administración (`/admin`):**
-  - Gestión completa en tiempo real de productos y sistemas multicapa (CRUD sincronizado con Supabase).
-  - **Almacenamiento de Documentos con AWS S3 y Presigned URLs**: Los PDFs (fichas técnicas TDS, hojas de seguridad SDS, cotizaciones de referencia) se almacenan de forma segura en AWS S3. El archivo nunca pasa por los servidores — el navegador sube directamente a S3 usando una URL firmada de `PUT` (Presigned Upload URL) generada por el servidor. Para descargar, el servidor genera una URL firmada de `GET` que expira en 15 minutos. En la base de datos de Supabase solo se guarda la clave S3 (ruta relativa) con timestamp, nunca la URL pública.
+  - Gestión completa en tiempo real de productos y sistemas multicapa (CRUD en Supabase).
+  - **Almacenamiento de Documentos con Supabase Storage**: Los PDFs (fichas técnicas TDS, hojas de seguridad SDS y cotizaciones de referencia) y las fotos de superficie se suben y sirven a través de Supabase Storage en el bucket `product-docs`.
   - Visor de PDF integrado side-by-side con el formulario.
   - **Asistente IA (Gemini):** Lee el PDF y autocompleta el formulario de producto en segundos de forma inteligente.
   - Protección de claves API y sistema de rotación automática para tolerancia a fallos.
@@ -47,9 +46,9 @@ El panel de administración es el centro de control técnico y comercial de BUCA
 * **Constructor de Sistemas Multicapa**: Los sistemas representan soluciones listas para cotizar (ej. Sistema Epóxico 100% Sólidos). Permite configurar cada capa (Primer, Intermedio, Top Coat), asignar los productos correspondientes, establecer espesores sugeridos y calcular rendimientos automáticos combinados.
 
 ### 2. Visor e Inteligencia Artificial (Carga Automática de Fichas Técnicas)
-* **Gestor de Fichas (TDS/SDS)**: Permite subir fichas técnicas (TDS), hojas de seguridad (SDS) y cotizaciones de referencia en PDF directamente a un bucket seguro de **AWS S3** mediante URLs de subida firmadas (`PUT` presigned URLs), manteniendo los archivos privados y previniendo transferencias innecesarias por el servidor principal.
+* **Gestor de Fichas (TDS/SDS)**: Permite subir fichas técnicas (TDS), hojas de seguridad (SDS) y cotizaciones de referencia en PDF directamente al bucket `product-docs` de **Supabase Storage**.
 * **Asistente de Carga por IA**: Incorpora la API de **Google Gemini 2.5 Flash** para automatizar el alta de productos. El administrador sube un PDF y el asistente extrae, interpreta y pre-llena automáticamente el formulario (nombre, descripción, densidades, rendimientos y precauciones), reduciendo el tiempo de carga a solo segundos.
-* **Visor Side-by-Side**: Muestra el documento PDF en paralelo al formulario para que el administrador pueda validar y ajustar los datos extraídos por la IA antes de guardar. Para archivos en S3, genera una URL temporal firmada (`GET` presigned URL) con expiración de 15 minutos.
+* **Visor Side-by-Side**: Muestra el documento PDF en paralelo al formulario para que el administrador pueda validar y ajustar los datos extraídos por la IA antes de guardar usando la visualización de Supabase Storage.
 
 ### 3. Portal de Prospectos y Seguimiento Comercial
 * **Bandeja de Entrada de Leads**: Almacena las respuestas de los clientes del *Scoping Wizard* y las clasifica.
