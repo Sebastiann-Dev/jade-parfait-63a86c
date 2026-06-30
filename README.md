@@ -95,3 +95,15 @@ npm run dev
 
 La app corre en `http://localhost:3000`
 
+---
+
+## 🔄 Flujo de Trabajo en Git (Políticas)
+Para mantener la estabilidad de la aplicación y evitar caídas accidentales en producción (`main`), el desarrollo sigue una política estricta de ramas y pull requests:
+* **`main` (Producción)**: Código estable. Commit directo prohibido. Solo recibe cambios desde `staging`.
+* **`staging` (Pre-producción)**: Entorno de pruebas y control de calidad (QA). Recibe cambios desde `dev`.
+* **`dev` (Desarrollo)**: Rama de integración de características.
+* **`feature/*` / `fix/*`**: Ramas temporales para el desarrollo de tareas específicas o solución de errores.
+
+Para más detalles sobre cómo abrir ramas y pull requests, consulta la [Guía de Flujo de Trabajo de Git (git_workflow.md)](docs/git_workflow.md).
+
+
