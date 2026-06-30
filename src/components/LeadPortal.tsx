@@ -51,6 +51,7 @@ export const LeadPortal: React.FC = () => {
   
   const [guardandoSeguimiento, setGuardandoSeguimiento] = useState(false)
   const [mensajeEdicion, setMensajeEdicion] = useState<{ texto: string; tipo: 'ok' | 'error' } | null>(null)
+  const [fotoSuperficieUrl, setFotoSuperficieUrl] = useState<string>('')
 
   const vendedoresExistentes = useMemo(() => {
     const set = new Set<string>()
@@ -103,6 +104,14 @@ export const LeadPortal: React.FC = () => {
     setMostrarNuevoVendedorInput(false)
     setNuevoVendedorNombre('')
     setMensajeEdicion(null)
+
+    // Fetch surface photo URL from S3 if it exists
+    setFotoSuperficieUrl('')
+    if (p.respuestas?.foto_superficie_s3key) {
+      requestDownloadUrl(p.respuestas.foto_superficie_s3key)
+        .then(setFotoSuperficieUrl)
+        .catch(err => console.error("Error getting surface photo download URL:", err))
+    }
   }
 
   const guardarSeguimiento = async (e: React.FormEvent) => {
@@ -429,24 +438,21 @@ export const LeadPortal: React.FC = () => {
               ))}
             </div>
             {prospectoSeleccionado.respuestas?.foto_superficie_s3key && (
-              <div className="pt-2 border-t border-gray-100 flex justify-end">
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      const url = await requestDownloadUrl(prospectoSeleccionado.respuestas.foto_superficie_s3key)
-                      window.open(url, '_blank')
-                    } catch (e) {
-                      alert('No se pudo abrir la imagen')
-                    }
-                  }}
-                  className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3 h-3">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                  </svg>
-                  Ver Foto de Superficie
-                </button>
+              <div className="pt-3 border-t border-gray-100 space-y-2">
+                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Foto de Superficie:</span>
+                {fotoSuperficieUrl ? (
+                  <div className="relative group overflow-hidden rounded-2xl border border-gray-200 bg-gray-50 max-h-48 flex items-center justify-center">
+                    <img 
+                      src={fotoSuperficieUrl} 
+                      alt="Superficie del proyecto" 
+                      className="object-cover w-full h-full max-h-48 cursor-zoom-in hover:scale-105 transition duration-300"
+                      onClick={() => window.open(fotoSuperficieUrl, '_blank')}
+                      title="Haz clic para ver en tamaño completo"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-gray-400 animate-pulse">Obteniendo enlace de la imagen...</p>
+                )}
               </div>
             )}
           </div>

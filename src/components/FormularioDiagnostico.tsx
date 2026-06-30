@@ -5,7 +5,7 @@ import {
   fetchProductosSupabase,
   fetchSistemasSupabase,
   saveProspectoSupabase,
-  requestUploadUrl,
+  uploadDocToS3,
   type Prospecto,
   type Sistema
 } from '../supabase'
@@ -206,19 +206,11 @@ export const FormularioDiagnostico: React.FC = () => {
     try {
       setSubiendoFoto(true)
       const tempId = 'wizard_' + Math.random().toString(36).substring(2, 11)
-      const { uploadUrl, s3Key } = await requestUploadUrl(tempId, 'foto_superficie', file.type || 'image/jpeg')
-      
-      const res = await fetch(uploadUrl, {
-        method: 'PUT',
-        headers: { 'Content-Type': file.type || 'image/jpeg' },
-        body: file,
-      })
-      if (!res.ok) throw new Error('Error al subir a S3')
-      
+      const s3Key = await uploadDocToS3(tempId, 'foto_superficie', file)
       setFotoSuperficieS3Key(s3Key)
-    } catch (err) {
-      console.error(err)
-      alert('No se pudo subir la imagen. Intenta de nuevo.')
+    } catch (err: any) {
+      console.error("Error uploading surface photo:", err)
+      alert(`No se pudo subir la imagen.\nDetalle: ${err.message || err}`)
     } finally {
       setSubiendoFoto(false)
     }
