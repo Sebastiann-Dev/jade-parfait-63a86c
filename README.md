@@ -5,7 +5,8 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
 ## Tecnologías
 
 - **Framework:** TanStack Start (React 19 + Vite)
-- **Base de Datos y Almacenamiento:** Supabase (PostgreSQL y Supabase Storage)
+- **Base de Datos:** Supabase (PostgreSQL)
+- **Almacenamiento de Documentos:** AWS S3 (o compatible) con subida directa del cliente mediante Presigned URLs
 - **Inteligencia Artificial:** API de Google Gemini (`gemini-2.5-flash`) con rotación automática multiclave
 - **Estilos:** Tailwind CSS v4 con clases custom
 - **Contenedores (Sandbox):** Docker y Dev Containers (Codespaces)
@@ -46,9 +47,9 @@ El panel de administración es el centro de control técnico y comercial de BUCA
 * **Constructor de Sistemas Multicapa**: Los sistemas representan soluciones listas para cotizar (ej. Sistema Epóxico 100% Sólidos). Permite configurar cada capa (Primer, Intermedio, Top Coat), asignar los productos correspondientes, establecer espesores sugeridos y calcular rendimientos automáticos combinados.
 
 ### 2. Visor e Inteligencia Artificial (Carga Automática de Fichas Técnicas)
-* **Gestor de Fichas (TDS/SDS)**: Permite subir las fichas técnicas (TDS) y hojas de seguridad (SDS) en PDF a buckets seguros de **Supabase Storage**.
+* **Gestor de Fichas (TDS/SDS)**: Permite subir fichas técnicas (TDS), hojas de seguridad (SDS) y cotizaciones de referencia en PDF directamente a un bucket seguro de **AWS S3** mediante URLs de subida firmadas (`PUT` presigned URLs), manteniendo los archivos privados y previniendo transferencias innecesarias por el servidor principal.
 * **Asistente de Carga por IA**: Incorpora la API de **Google Gemini 2.5 Flash** para automatizar el alta de productos. El administrador sube un PDF y el asistente extrae, interpreta y pre-llena automáticamente el formulario (nombre, descripción, densidades, rendimientos y precauciones), reduciendo el tiempo de carga a solo segundos.
-* **Visor Side-by-Side**: Muestra el documento PDF en paralelo al formulario para que el administrador pueda validar y ajustar los datos extraídos por la IA antes de guardar.
+* **Visor Side-by-Side**: Muestra el documento PDF en paralelo al formulario para que el administrador pueda validar y ajustar los datos extraídos por la IA antes de guardar. Para archivos en S3, genera una URL temporal firmada (`GET` presigned URL) con expiración de 15 minutos.
 
 ### 3. Portal de Prospectos y Seguimiento Comercial
 * **Bandeja de Entrada de Leads**: Almacena las respuestas de los clientes del *Scoping Wizard* y las clasifica.
