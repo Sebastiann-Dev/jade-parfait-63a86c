@@ -5,6 +5,7 @@ import {
   fetchProductosSupabase,
   fetchSistemasSupabase,
   saveProspectoSupabase,
+  requestUploadUrl,
   type Prospecto,
   type Sistema
 } from '../supabase'
@@ -119,6 +120,12 @@ export const FormularioDiagnostico: React.FC = () => {
   const [tipoRuedas, setTipoRuedas] = useState<string>('')
   const [frecuenciaQuimica, setFrecuenciaQuimica] = useState<string>('')
 
+  // New scoping flow and S3 photo states
+  const [sabeLoQueBusca, setSabeLoQueBusca] = useState<string>('')
+  const [sabeLoQueBuscaDetalle, setSabeLoQueBuscaDetalle] = useState<string>('')
+  const [fotoSuperficieS3Key, setFotoSuperficieS3Key] = useState<string>('')
+  const [subiendoFoto, setSubiendoFoto] = useState<boolean>(false)
+
   // Recommendations State
   const [recSistemas, setRecSistemas] = useState<Sistema[]>([])
   const [recProductos, setRecProductos] = useState<Producto[]>([])
@@ -144,43 +151,78 @@ export const FormularioDiagnostico: React.FC = () => {
   const obtenerPasosActivos = () => {
     const pasos = [
       { id: 'contacto', titulo: 'Información del Proyecto' },
-      { id: 'que_recubrir', titulo: '¿Qué deseas recubrir?' },
-      { id: 'ubicacion', titulo: '¿Dónde estará ubicado?' },
-      { id: 'objetivos', titulo: '¿Cuáles son tus objetivos?' },
-      { id: 'trafico', titulo: '¿Estará expuesto a tráfico?' },
-      { id: 'quimicos', titulo: '¿Contacto con químicos o aceites?' }
+      { id: 'sabe_lo_que_quiere', titulo: '¿Ya sabes qué buscas?' }
     ]
 
-    // Conditional: Concrete floor state
-    if (queRecubrir === 'concrete_floor') {
-      pasos.push({ id: 'estado_concreto', titulo: 'Estado del Concreto' })
-    }
+    if (sabeLoQueBusca === 'si') {
+      // Fast-track: few questions for customer profile
+      pasos.push(
+        { id: 'area_m2', titulo: 'Dimensión de la Obra' },
+        { id: 'color', titulo: 'Color Solicitado' }
+      )
+    } else if (sabeLoQueBusca === 'no') {
+      // Detailed diagnostics
+      pasos.push(
+        { id: 'que_recubrir', titulo: '¿Qué deseas recubrir?' },
+        { id: 'ubicacion', titulo: '¿Dónde estará ubicado?' },
+        { id: 'objetivos', titulo: '¿Cuáles son tus objetivos?' },
+        { id: 'trafico', titulo: '¿Estará expuesto a tráfico?' },
+        { id: 'quimicos', titulo: '¿Contacto con químicos o aceites?' }
+      )
 
-    // Conditional: UV exposure
-    if (ubicacion === 'exterior' || ubicacion === 'both') {
-      pasos.push({ id: 'radiacion_uv', titulo: 'Exposición Solar (UV)' })
-    }
+      if (queRecubrir === 'concrete_floor' || queRecubrir === 'asphalt_concrete') {
+        pasos.push({ id: 'estado_concreto', titulo: 'Estado del Concreto' })
+      }
 
-    // Conditional: Wheel type under heavy traffic
-    const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
-    if (esTraficoIntenso) {
-      pasos.push({ id: 'tipo_ruedas', titulo: 'Tipo de Tránsito y Ruedas' })
-    }
+      if (ubicacion === 'exterior' || ubicacion === 'both') {
+        pasos.push({ id: 'radiacion_uv', titulo: 'Exposición Solar (UV)' })
+      }
 
-    // Conditional: Chemical frequency
-    if (quimicos && quimicos !== 'no') {
-      pasos.push({ id: 'frecuencia_quimica', titulo: 'Frecuencia de Exposición Química' })
-    }
+      const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
+      if (esTraficoIntenso) {
+        pasos.push({ id: 'tipo_ruedas', titulo: 'Tipo de Tránsito y Ruedas' })
+      }
 
-    // Standard scoping variables
-    pasos.push({ id: 'area_m2', titulo: 'Dimensión de la Obra' })
-    pasos.push({ id: 'color', titulo: 'Color Solicitado' })
+      if (quimicos && quimicos !== 'no') {
+        pasos.push({ id: 'frecuencia_quimica', titulo: 'Frecuencia de Exposición Química' })
+      }
+
+      pasos.push(
+        { id: 'area_m2', titulo: 'Dimensión de la Obra' },
+        { id: 'color', titulo: 'Color Solicitado' }
+      )
+    }
 
     return pasos
   }
 
   const pasosActivos = obtenerPasosActivos()
   const totalPasos = pasosActivos.length
+
+  const handleFotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      setSubiendoFoto(true)
+      const tempId = 'wizard_' + Math.random().toString(36).substring(2, 11)
+      const { uploadUrl, s3Key } = await requestUploadUrl(tempId, 'foto_superficie', file.type || 'image/jpeg')
+      
+      const res = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'image/jpeg' },
+        body: file,
+      })
+      if (!res.ok) throw new Error('Error al subir a S3')
+      
+      setFotoSuperficieS3Key(s3Key)
+    } catch (err) {
+      console.error(err)
+      alert('No se pudo subir la imagen. Intenta de nuevo.')
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
 
   const handleSiguiente = () => {
     const pasoActual = pasosActivos[paso]
@@ -389,27 +431,32 @@ export const FormularioDiagnostico: React.FC = () => {
     setErrorEnvio('')
     const codigo = generarCodigoSeguimiento()
 
-    const { systems, products } = calcularRecomendaciones()
+    const { systems, products } = sabeLoQueBusca === 'si'
+      ? { systems: [], products: [] }
+      : calcularRecomendaciones()
     setRecSistemas(systems)
     setRecProductos(products)
 
     const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
 
     const respuestas = {
-      que_recubrir: queRecubrir === 'other' ? `Otro: ${queRecubrirDetalle}` : queRecubrir,
-      ubicacion,
-      objetivos,
-      trafico: traficosSeleccionados,
-      quimicos,
+      sabe_lo_que_busca: sabeLoQueBusca,
+      sabe_lo_que_busca_detalle: sabeLoQueBusca === 'si' ? sabeLoQueBuscaDetalle : undefined,
+      que_recubrir: sabeLoQueBusca === 'no' ? (queRecubrir === 'other' ? `Otro: ${queRecubrirDetalle}` : queRecubrir) : undefined,
+      ubicacion: sabeLoQueBusca === 'no' ? ubicacion : undefined,
+      objetivos: sabeLoQueBusca === 'no' ? objetivos : undefined,
+      trafico: sabeLoQueBusca === 'no' ? traficosSeleccionados : undefined,
+      quimicos: sabeLoQueBusca === 'no' ? quimicos : undefined,
       area_m2: areaM2 === '' ? 0 : areaM2,
       color_deseado: colorDeseado,
       color_detalle: colorDetalle,
-      estado_concreto: queRecubrir === 'concrete_floor' 
+      estado_concreto: (sabeLoQueBusca === 'no' && (queRecubrir === 'concrete_floor' || queRecubrir === 'asphalt_concrete'))
         ? (estadoConcreto === 'other' ? `Otro: ${estadoConcretoDetalle}` : estadoConcreto) 
         : undefined,
-      radiacion_uv: (ubicacion === 'exterior' || ubicacion === 'both') ? radiacionUv : undefined,
-      tipo_ruedas: esTraficoIntenso ? tipoRuedas : undefined,
-      frecuencia_quimica: (quimicos && quimicos !== 'no') ? frecuenciaQuimica : undefined
+      radiacion_uv: (sabeLoQueBusca === 'no' && (ubicacion === 'exterior' || ubicacion === 'both')) ? radiacionUv : undefined,
+      tipo_ruedas: (sabeLoQueBusca === 'no' && esTraficoIntenso) ? tipoRuedas : undefined,
+      frecuencia_quimica: (sabeLoQueBusca === 'no' && quimicos && quimicos !== 'no') ? frecuenciaQuimica : undefined,
+      foto_superficie_s3key: fotoSuperficieS3Key || undefined
     }
 
     const recomendaciones = [
@@ -585,6 +632,54 @@ export const FormularioDiagnostico: React.FC = () => {
                 {mostrarErroresContacto && emailError && <p className="text-[10px] text-red-600 mt-1 font-semibold">{emailError}</p>}
               </div>
             </div>
+          </div>
+        )
+
+      case 'sabe_lo_que_quiere':
+        return (
+          <div className="space-y-4">
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5">¿Ya sabes qué producto o sistema de recubrimiento necesitas?</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div
+                onClick={() => setSabeLoQueBusca('si')}
+                className={`p-4 border rounded-2xl cursor-pointer transition-all duration-200 select-none hover:shadow-md ${
+                  sabeLoQueBusca === 'si' 
+                    ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <span className="font-bold text-xs text-gray-800 block">Sí, ya sé lo que busco</span>
+                <span className="text-[10px] text-gray-400 mt-1 block leading-tight">Especificar el producto o sistema directamente</span>
+              </div>
+              <div
+                onClick={() => {
+                  setSabeLoQueBusca('no')
+                  setSabeLoQueBuscaDetalle('')
+                }}
+                className={`p-4 border rounded-2xl cursor-pointer transition-all duration-200 select-none hover:shadow-md ${
+                  sabeLoQueBusca === 'no' 
+                    ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' 
+                    : 'border-gray-200 hover:border-gray-300 bg-white'
+                }`}
+              >
+                <span className="font-bold text-xs text-gray-800 block">No, necesito asesoría / diagnóstico técnico</span>
+                <span className="text-[10px] text-gray-400 mt-1 block leading-tight">Guiarme con preguntas para encontrar la mejor recomendación</span>
+              </div>
+            </div>
+
+            {sabeLoQueBusca === 'si' && (
+              <div className="animate-fade-in pt-2 space-y-1.5">
+                <label className="block text-xs font-semibold text-gray-700">Describe el producto, sistema o especificación que buscas *</label>
+                <textarea
+                  required
+                  rows={4}
+                  className="w-full text-sm px-3.5 py-2.5 border border-gray-200 rounded-xl outline-none focus:border-blue-500 bg-gray-50/50 resize-none"
+                  placeholder="Ej. Requiero 3 kits de Bucapoxy 100% Sólidos color Gris y primario Bucaprimer..."
+                  value={sabeLoQueBuscaDetalle}
+                  onChange={e => setSabeLoQueBuscaDetalle(e.target.value)}
+                />
+              </div>
+            )}
           </div>
         )
 
@@ -840,6 +935,30 @@ export const FormularioDiagnostico: React.FC = () => {
                 />
               </div>
             )}
+
+            <div className="mt-4 p-4 border border-dashed border-gray-300 rounded-2xl bg-gray-50/50 space-y-3">
+              <label className="block text-xs font-semibold text-gray-700">Subir foto de la superficie (Opcional):</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleFotoUpload}
+                disabled={subiendoFoto}
+                className="text-xs text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer w-full"
+              />
+              {subiendoFoto && <p className="text-[10px] text-blue-600 font-semibold animate-pulse">Subiendo imagen a S3...</p>}
+              {fotoSuperficieS3Key && (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-600 font-bold text-xs">✓ Imagen cargada con éxito</span>
+                  <button
+                    type="button"
+                    onClick={() => setFotoSuperficieS3Key('')}
+                    className="text-red-500 hover:text-red-700 text-xs font-semibold underline"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         )
 
@@ -1026,6 +1145,8 @@ export const FormularioDiagnostico: React.FC = () => {
 
         return esClienteValido && esProyectoValido && esTelefonoValido && esEmailValido
       }
+      case 'sabe_lo_que_quiere':
+        return !!sabeLoQueBusca && (sabeLoQueBusca !== 'si' || !!sabeLoQueBuscaDetalle.trim())
       case 'que_recubrir':
         return !!queRecubrir && (queRecubrir !== 'other' || !!queRecubrirDetalle.trim())
       case 'ubicacion':
@@ -1113,6 +1234,14 @@ export const FormularioDiagnostico: React.FC = () => {
               return 'No se permiten correos de proveedores temporales o sospechosos de spam.'
             }
           }
+        }
+        return ''
+      case 'sabe_lo_que_quiere':
+        if (!sabeLoQueBusca) {
+          return 'Por favor selecciona si ya sabes lo que buscas.'
+        }
+        if (sabeLoQueBusca === 'si' && !sabeLoQueBuscaDetalle.trim()) {
+          return 'Por favor describe qué producto o especificación buscas.'
         }
         return ''
       case 'que_recubrir':

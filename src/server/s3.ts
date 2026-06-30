@@ -65,7 +65,7 @@ function getBucket(): string {
 }
 
 // ─── Tipos ───────────────────────────────────────────────────────────────────
-export type DocTipo = 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia'
+export type DocTipo = 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia' | 'foto_superficie'
 
 export interface PresignedUploadResult {
   /** URL firmada de PUT para subir el archivo directamente a S3 desde el navegador */
@@ -76,8 +76,8 @@ export interface PresignedUploadResult {
 
 // ─── Generación de S3 Key con timestamp ──────────────────────────────────────
 /**
- * Genera una clave única de S3 con timestamp para un documento de producto.
- * Formato: productos/{timestamp}_{productoId}_{tipo}.pdf
+ * Genera una clave única de S3 con timestamp para un documento de producto o foto de obra.
+ * Formato: productos/{timestamp}_{productoId}_{tipo}.{extension}
  */
 export function buildS3Key(productoId: string, tipo: DocTipo, extension = 'pdf'): string {
   const timestamp = Date.now()
@@ -89,11 +89,11 @@ export function buildS3Key(productoId: string, tipo: DocTipo, extension = 'pdf')
  * Genera una URL firmada para que el navegador suba un archivo directamente a S3
  * mediante una petición HTTP PUT. El archivo NUNCA pasa por nuestro servidor.
  *
- * @param productoId   - ID del producto al que pertenece el documento
- * @param tipo         - Tipo de documento ('ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia')
- * @param contentType  - MIME type del archivo (ej: 'application/pdf')
+ * @param productoId   - ID del producto o ID del prospecto
+ * @param tipo         - Tipo de documento ('ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia' | 'foto_superficie')
+ * @param contentType  - MIME type del archivo (ej: 'application/pdf', 'image/jpeg')
  * @param expiresIn    - Segundos de validez de la URL (default: 300 = 5 minutos)
- * @returns            - { uploadUrl, s3Key } — guardar s3Key en Supabase
+ * @returns            - { uploadUrl, s3Key }
  */
 export async function generateUploadPresignedUrl(
   productoId: string,
@@ -103,13 +103,18 @@ export async function generateUploadPresignedUrl(
 ): Promise<PresignedUploadResult> {
   const s3 = getS3Client()
   const bucket = getBucket()
-  const s3Key = buildS3Key(productoId, tipo)
+
+  let ext = 'pdf'
+  if (contentType.startsWith('image/')) {
+    ext = contentType.split('/').pop() || 'png'
+    if (ext === 'jpeg') ext = 'jpg'
+  }
+  const s3Key = buildS3Key(productoId, tipo, ext)
 
   const command = new PutObjectCommand({
     Bucket: bucket,
     Key: s3Key,
     ContentType: contentType,
-    // Metadatos adicionales para gestión futura
     Metadata: {
       productoId,
       tipo,
@@ -137,12 +142,14 @@ export async function generateDownloadPresignedUrl(
   const s3 = getS3Client()
   const bucket = getBucket()
 
+  const isImage = s3Key.endsWith('.png') || s3Key.endsWith('.jpg') || s3Key.endsWith('.jpeg') || s3Key.endsWith('.webp')
+  const responseContentType = isImage ? 'image/jpeg' : 'application/pdf'
+
   const command = new GetObjectCommand({
     Bucket: bucket,
     Key: s3Key,
-    // ResponseContentDisposition asegura que el PDF se abra en el navegador (no se descargue)
     ResponseContentDisposition: 'inline',
-    ResponseContentType: 'application/pdf',
+    ResponseContentType: responseContentType,
   })
 
   return getSignedUrl(s3, command, { expiresIn })

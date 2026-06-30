@@ -249,7 +249,7 @@ export async function deleteSistemaSupabase(id: string): Promise<void> {
 //   3. Guardar s3Key en Supabase (nunca la URL completa)
 //   4. requestDownloadUrl() → llama al servidor para obtener Presigned GET URL temporal (15 min)
 
-export type DocTipo = 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia'
+export type DocTipo = 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia' | 'foto_superficie'
 
 /**
  * Solicita al servidor una Presigned URL de subida para S3.

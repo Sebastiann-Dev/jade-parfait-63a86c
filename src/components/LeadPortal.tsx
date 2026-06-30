@@ -3,8 +3,25 @@ import { Link } from '@tanstack/react-router'
 import {
   fetchProspectosSupabase,
   updateProspectoSupabase,
+  fetchProductosSupabase,
+  requestDownloadUrl,
+  supabase,
   type Prospecto
 } from '../supabase'
+import { type Producto } from '../data/productos'
+
+const obtenerNombreDesdeEmail = (email?: string): string => {
+  if (!email) return ''
+  if (email === 'sebastian.grajales.rmzz@gmail.com') return 'Sebastian Grajales'
+  const parts = email.split('@')
+  if (parts.length === 2 && parts[1] === 'bucamx.com') {
+    return parts[0]
+      .split('.')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+  return parts[0].charAt(0).toUpperCase() + parts[0].slice(1)
+}
 
 export const LeadPortal: React.FC = () => {
   const [prospectos, setProspectos] = useState<Prospecto[]>([])
@@ -16,11 +33,38 @@ export const LeadPortal: React.FC = () => {
   // Editable fields for vendor details
   const [estadoLead, setEstadoLead] = useState('')
   const [vendedorAsignado, setVendedorAsignado] = useState('')
-  const [presupuestoEstimado, setPresupuestoEstimado] = useState<number>(0)
   const [notasSeguimiento, setNotasSeguimiento] = useState('')
+
+  // Vendor profiles, additional products, and historical logs
+  const [todosProductos, setTodosProductos] = useState<Producto[]>([])
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('')
+  const [productosAdicionales, setProductosAdicionales] = useState<string[]>([])
+  const [mostrarBitacora, setMostrarBitacora] = useState<boolean>(false)
+  const [nuevoVendedorNombre, setNuevoVendedorNombre] = useState<string>('')
+  const [mostrarNuevoVendedorInput, setMostrarNuevoVendedorInput] = useState<boolean>(false)
   
   const [guardandoSeguimiento, setGuardandoSeguimiento] = useState(false)
   const [mensajeEdicion, setMensajeEdicion] = useState<{ texto: string; tipo: 'ok' | 'error' } | null>(null)
+
+  const vendedoresExistentes = useMemo(() => {
+    const set = new Set<string>()
+    set.add('Sebastian Grajales')
+    set.add('Ventas BUCA 1')
+    set.add('Ventas BUCA 2')
+    
+    prospectos.forEach(p => {
+      const v = p.campos_vendedor?.vendedor
+      if (v && v.trim()) {
+        set.add(v.trim())
+      }
+    })
+    
+    if (currentUserEmail) {
+      set.add(obtenerNombreDesdeEmail(currentUserEmail))
+    }
+    
+    return Array.from(set).sort()
+  }, [prospectos, currentUserEmail])
 
   const loadProspects = async () => {
     try {
@@ -36,14 +80,22 @@ export const LeadPortal: React.FC = () => {
 
   useEffect(() => {
     loadProspects()
+    fetchProductosSupabase(false).then(setTodosProductos).catch(console.error)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.email) {
+        setCurrentUserEmail(user.email)
+      }
+    })
   }, [])
 
   const selectProspecto = (p: Prospecto) => {
     setProspectoSeleccionado(p)
     setEstadoLead(p.estado)
     setVendedorAsignado(p.campos_vendedor?.vendedor || '')
-    setPresupuestoEstimado(p.campos_vendedor?.presupuesto || 0)
     setNotasSeguimiento(p.campos_vendedor?.notas || '')
+    setProductosAdicionales(p.campos_vendedor?.productos_adicionales || [])
+    setMostrarNuevoVendedorInput(false)
+    setNuevoVendedorNombre('')
     setMensajeEdicion(null)
   }
 
@@ -54,11 +106,33 @@ export const LeadPortal: React.FC = () => {
     setGuardandoSeguimiento(true)
     setMensajeEdicion(null)
 
+    const finalVendedor = vendedorAsignado === 'new_vendedor'
+      ? nuevoVendedorNombre.trim()
+      : vendedorAsignado.trim()
+
+    const historialExistente = Array.isArray(prospectoSeleccionado.campos_vendedor?.historial_notas)
+      ? prospectoSeleccionado.campos_vendedor.historial_notas
+      : []
+
+    let updatedHistorial = [...historialExistente]
+    const noteTextClean = notasSeguimiento.trim()
+    if (noteTextClean) {
+      const ultimaNota = historialExistente[historialExistente.length - 1]
+      if (!ultimaNota || ultimaNota.nota !== noteTextClean) {
+        updatedHistorial.push({
+          fecha: new Date().toISOString(),
+          vendedor: finalVendedor || 'Sistema',
+          nota: noteTextClean
+        })
+      }
+    }
+
     const updatedCamposVendedor = {
       ...prospectoSeleccionado.campos_vendedor,
-      vendedor: vendedorAsignado.trim(),
-      presupuesto: Number(presupuestoEstimado),
-      notas: notasSeguimiento.trim()
+      vendedor: finalVendedor,
+      notas: noteTextClean,
+      historial_notas: updatedHistorial,
+      productos_adicionales: productosAdicionales
     }
 
     try {
@@ -106,6 +180,18 @@ export const LeadPortal: React.FC = () => {
     const dictFrecuencia: Record<string, string> = { occasional: 'Ocasional / Salpicadura', daily_cleaning: 'Limpieza / Sanitizado diario', immersion: 'Inmersión / Charco continuo' }
     const dictColor: Record<string, string> = { gray: 'Gris (Base estándar)', red: 'Rojo (Base estándar)', white: 'Blanco (Base estándar)', clear: 'Transparente / Neutro', entonacion: 'Entonación' }
 
+    if (respuestas.sabe_lo_que_busca) {
+      traducciones.push({
+        label: '¿Sabe lo que busca?',
+        value: respuestas.sabe_lo_que_busca === 'si' ? 'Sí, ya sabe lo que busca' : 'No, requiere asesoría'
+      })
+    }
+    if (respuestas.sabe_lo_que_busca_detalle) {
+      traducciones.push({
+        label: 'Detalle de lo que busca',
+        value: respuestas.sabe_lo_que_busca_detalle
+      })
+    }
     if (respuestas.que_recubrir) {
       traducciones.push({ label: 'Superficie a recubrir', value: dictSuperficie[respuestas.que_recubrir] || respuestas.que_recubrir })
     }
@@ -336,6 +422,27 @@ export const LeadPortal: React.FC = () => {
                 </div>
               ))}
             </div>
+            {prospectoSeleccionado.respuestas?.foto_superficie_s3key && (
+              <div className="pt-2 border-t border-gray-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      const url = await requestDownloadUrl(prospectoSeleccionado.respuestas.foto_superficie_s3key)
+                      window.open(url, '_blank')
+                    } catch (e) {
+                      alert('No se pudo abrir la imagen')
+                    }
+                  }}
+                  className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2.5" stroke="currentColor" className="w-3 h-3">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                  </svg>
+                  Ver Foto de Superficie
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Recommendation block */}
@@ -361,6 +468,42 @@ export const LeadPortal: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {/* Custom seller added products */}
+            <div className="mt-3 pt-3 border-t border-gray-150 space-y-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider block">Productos Adicionales del Vendedor (Guardados):</span>
+              {productosAdicionales.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {productosAdicionales.map((pName, index) => (
+                    <span key={index} className="inline-flex items-center gap-1 bg-yellow-50 text-yellow-800 border border-yellow-200 px-2 py-0.5 rounded-lg text-[10px] font-semibold">
+                      {pName}
+                      <button
+                        type="button"
+                        onClick={() => setProductosAdicionales(prev => prev.filter(x => x !== pName))}
+                        className="text-yellow-600 hover:text-red-600 font-bold ml-1 text-xs"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <select
+                onChange={e => {
+                  const pName = e.target.value
+                  if (pName && !productosAdicionales.includes(pName)) {
+                    setProductosAdicionales([...productosAdicionales, pName])
+                  }
+                  e.target.value = "" // Reset select value
+                }}
+                className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl bg-white outline-none focus:border-blue-400 cursor-pointer"
+              >
+                <option value="">+ Añadir producto necesario...</option>
+                {todosProductos.map(p => (
+                  <option key={p.id} value={p.nombre}>{p.nombre}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* Follow-up editor Form */}
@@ -375,47 +518,75 @@ export const LeadPortal: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Estatus del Lead</label>
-                <select
-                  className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl bg-white outline-none focus:border-blue-400 cursor-pointer"
-                  value={estadoLead}
-                  onChange={e => setEstadoLead(e.target.value)}
-                >
-                  <option value="Nuevo">Nuevo</option>
-                  <option value="Contactado">Contactado</option>
-                  <option value="Cotizado">Cotizado</option>
-                  <option value="Cerrado Ganado">Cerrado Ganado</option>
-                  <option value="Cerrado Perdido">Cerrado Perdido</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Presupuesto ($)</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl outline-none focus:border-blue-400 bg-white font-mono"
-                  placeholder="Presupuesto"
-                  value={presupuestoEstimado}
-                  onChange={e => setPresupuestoEstimado(Number(e.target.value))}
-                />
-              </div>
+            <div>
+              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Estatus del Lead</label>
+              <select
+                className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl bg-white outline-none focus:border-blue-400 cursor-pointer"
+                value={estadoLead}
+                onChange={e => setEstadoLead(e.target.value)}
+              >
+                <option value="Nuevo">Nuevo</option>
+                <option value="Contactado">Contactado</option>
+                <option value="Cotizado">Cotizado</option>
+                <option value="Cerrado Ganado">Cerrado Ganado</option>
+                <option value="Cerrado Perdido">Cerrado Perdido</option>
+              </select>
             </div>
 
             <div>
               <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Vendedor Asignado</label>
-              <input
-                type="text"
-                className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl outline-none focus:border-blue-400 bg-white"
-                placeholder="Nombre del asesor"
+              <select
+                className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl bg-white outline-none focus:border-blue-400 cursor-pointer mb-2"
                 value={vendedorAsignado}
-                onChange={e => setVendedorAsignado(e.target.value)}
-              />
+                onChange={e => {
+                  const val = e.target.value
+                  setVendedorAsignado(val)
+                  if (val === 'new_vendedor') {
+                    setMostrarNuevoVendedorInput(true)
+                  } else {
+                    setMostrarNuevoVendedorInput(false)
+                  }
+                }}
+              >
+                <option value="">-- Seleccionar Vendedor --</option>
+                {currentUserEmail && (
+                  <option value={obtenerNombreDesdeEmail(currentUserEmail)}>
+                    Mi Perfil ({obtenerNombreDesdeEmail(currentUserEmail)})
+                  </option>
+                )}
+                {vendedoresExistentes.map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+                <option value="new_vendedor">+ Registrar nuevo vendedor...</option>
+              </select>
+
+              {mostrarNuevoVendedorInput && (
+                <input
+                  type="text"
+                  required
+                  className="w-full text-xs px-2.5 py-2 border border-blue-300 rounded-xl outline-none focus:border-blue-500 bg-white placeholder-gray-400 animate-fade-in"
+                  placeholder="Nombre completo del nuevo asesor"
+                  value={nuevoVendedorNombre}
+                  onChange={e => setNuevoVendedorNombre(e.target.value)}
+                />
+              )}
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Notas de Seguimiento</label>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-wider">Notas de Seguimiento</label>
+                <button
+                  type="button"
+                  onClick={() => setMostrarBitacora(true)}
+                  className="text-[10px] text-blue-600 hover:text-blue-800 font-bold hover:underline cursor-pointer"
+                >
+                  Ver bitácora de mensajes ({
+                    Array.isArray(prospectoSeleccionado.campos_vendedor?.historial_notas)
+                      ? prospectoSeleccionado.campos_vendedor.historial_notas.length
+                      : 0
+                  })
+                </button>
+              </div>
               <textarea
                 rows={3}
                 className="w-full text-xs px-2.5 py-2 border border-gray-250 rounded-xl outline-none focus:border-blue-400 bg-white resize-none"
@@ -433,6 +604,64 @@ export const LeadPortal: React.FC = () => {
               {guardandoSeguimiento ? 'Guardando...' : 'Guardar Ficha de Seguimiento'}
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Historical logs modal */}
+      {mostrarBitacora && prospectoSeleccionado && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm z-50 flex items-center justify-center p-4" style={{ animation: 'fadeIn 0.25s ease' }}>
+          <div className="bg-white rounded-3xl w-full max-w-xl max-h-[85vh] overflow-hidden shadow-2xl flex flex-col" style={{ animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <div>
+                <h3 className="font-bold text-sm text-gray-800">Bitácora de Notas y Seguimiento</h3>
+                <p className="text-[10px] text-gray-400 mt-0.5">{prospectoSeleccionado.cliente_nombre} — {prospectoSeleccionado.proyecto_nombre}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMostrarBitacora(false)}
+                className="w-7 h-7 bg-white hover:bg-gray-150 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 transition shadow-sm border border-gray-100 font-bold"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              {Array.isArray(prospectoSeleccionado.campos_vendedor?.historial_notas) &&
+              prospectoSeleccionado.campos_vendedor.historial_notas.length > 0 ? (
+                [...prospectoSeleccionado.campos_vendedor.historial_notas]
+                  .reverse() // Display newest first
+                  .map((hn: any, index: number) => (
+                    <div key={index} className="p-3 bg-gray-50 border border-gray-100 rounded-2xl space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-[10px] text-gray-400 font-semibold">
+                        <span>Asesor: <strong className="text-gray-700">{hn.vendedor}</strong></span>
+                        <span>{formatearFecha(hn.fecha)}</span>
+                      </div>
+                      <p className="text-gray-700 whitespace-pre-line font-medium leading-relaxed bg-white p-2.5 rounded-xl border border-gray-100/50">
+                        {hn.nota}
+                      </p>
+                    </div>
+                  ))
+              ) : (
+                <div className="text-center py-10 text-gray-400 text-xs">
+                  No hay notas previas registradas en el historial de este prospecto.
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end bg-gray-50/50">
+              <button
+                type="button"
+                onClick={() => setMostrarBitacora(false)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow transition"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
