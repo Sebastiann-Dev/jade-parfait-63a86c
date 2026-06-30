@@ -16,7 +16,7 @@ Herramienta interna de cotización para el equipo de ventas de BUCA Recubrimient
 - Selector de producto con búsqueda en tiempo real.
 - Cálculo automático de cantidad según rendimiento por m² (o espesor y densidad en morteros).
 - Soporte para productos sin rendimiento (cantidad manual).
-- Toggle Minorista / Mayorista (descuento 20% automático).
+- Toggle Minorista / Mayorista (descuento 5% automático).
 - Tipo de cambio USD → MXN editable (default $17.50).
 - Lista acumulada de productos para cotización completa de proyecto.
 - Total del proyecto en MXN e impresión / exportación optimizada para PDF.
