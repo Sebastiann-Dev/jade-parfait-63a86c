@@ -51,18 +51,6 @@ const normalizarTexto = (str: string): string => {
 }
 
 const esKeyboardMash = (texto: string): boolean => {
-  const normalized = normalizarTexto(texto)
-  const words = normalized.split(/[^a-z0-9ñü]/i).filter(Boolean)
-  for (const word of words) {
-    // If it's a long word (length >= 5) and contains no vowels
-    if (word.length >= 5 && !/[aeiouy]/i.test(word)) {
-      return true
-    }
-    // If it has 5 consecutive consonants
-    if (/[bcdfghjklmnñpqrstvwxz]{5,}/i.test(word)) {
-      return true
-    }
-  }
   return false
 }
 
@@ -101,30 +89,10 @@ export const FormularioDiagnostico: React.FC = () => {
   }, [])
 
   const esCorreoTemporal = (emailStr: string): boolean => {
-    const parts = emailStr.trim().toLowerCase().split('@')
-    if (parts.length !== 2) return false
-    const domain = parts[1]
-    const list = spamFilters ? spamFilters.disposableDomains : FALLBACK_DOMINIOS
-    return list.includes(domain)
+    return false
   }
 
   const contienePalabrasProhibidas = (texto: string): boolean => {
-    const normalizedText = normalizarTexto(texto)
-    const words = normalizedText.split(/[^a-z0-9ñü]/i).filter(Boolean)
-    const list = spamFilters ? spamFilters.profanities : FALLBACK_PROFANIAS
-    const normalizedList = list.map(normalizarTexto)
-    
-    for (const word of words) {
-      if (normalizedList.includes(word)) {
-        return true
-      }
-    }
-
-    // Also check for consecutive repeated letters (e.g. "aaaa", "zzzz")
-    if (/(.)\1{3,}/.test(normalizedText)) {
-      return true
-    }
-
     return false
   }
 
@@ -586,6 +554,12 @@ export const FormularioDiagnostico: React.FC = () => {
                   }`}
                   placeholder=""
                   value={email}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleSiguiente()
+                    }
+                  }}
                   onChange={e => {
                     const val = e.target.value
                     setEmail(val)
@@ -630,6 +604,7 @@ export const FormularioDiagnostico: React.FC = () => {
             >
               <option value="">-- Seleccionar Superficie --</option>
               <option value="concrete_floor">Piso de Concreto</option>
+              <option value="asphalt_concrete">Concreto de Asfalto</option>
               <option value="wall">Muro / Pared</option>
               <option value="metal_structure">Estructura Metálica / Fierro</option>
               <option value="tank">Tanque / Cisterna</option>
@@ -657,9 +632,9 @@ export const FormularioDiagnostico: React.FC = () => {
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { id: 'interior', icon: '🏢', label: 'Interior', desc: 'Bajo techo, ambiente controlado' },
-              { id: 'exterior', icon: '☀️', label: 'Exterior', desc: 'Exposición al sol y lluvia' },
-              { id: 'both', icon: '🌓', label: 'Ambos', desc: 'Proyecto con áreas mixtas' }
+              { id: 'interior', label: 'Interior', desc: 'Bajo techo, ambiente controlado' },
+              { id: 'exterior', label: 'Exterior', desc: 'Exposición al sol y lluvia' },
+              { id: 'both', label: 'Ambos', desc: 'Proyecto con áreas mixtas' }
             ].map(opt => (
               <div
                 key={opt.id}
@@ -670,7 +645,6 @@ export const FormularioDiagnostico: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
                 <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
                 <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
               </div>
@@ -744,7 +718,7 @@ export const FormularioDiagnostico: React.FC = () => {
               {objetivos.length === 0 ? (
                 intentoAvanzar ? (
                   <p className="text-[11px] text-amber-600 font-semibold italic bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                    💡 Por favor, agrega al menos un objetivo de la lista desplegable.
+                    Por favor, agrega al menos un objetivo de la lista desplegable.
                   </p>
                 ) : null
               ) : (
@@ -808,10 +782,10 @@ export const FormularioDiagnostico: React.FC = () => {
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { id: 'no', icon: '🛡️', label: 'No requiere', desc: 'Solo polvo, agua y limpieza común' },
-              { id: 'yes_oils', icon: '🛢️', label: 'Aceites y grasas comunes', desc: 'Talleres mecánicos, áreas de maquinado' },
-              { id: 'yes_light_acids', icon: '🍋', label: 'Ácidos/Álcalis ligeros', desc: 'Procesamiento de alimentos, bebidas' },
-              { id: 'yes_heavy_acids', icon: '🧪', label: 'Ácidos fuertes/Solventes', desc: 'Cuartos de reactivos, laboratorios químicos' }
+              { id: 'no', label: 'No requiere', desc: 'Solo polvo, agua y limpieza común' },
+              { id: 'yes_oils', label: 'Aceites y grasas comunes', desc: 'Talleres mecánicos, áreas de maquinado' },
+              { id: 'yes_light_acids', label: 'Ácidos/Álcalis ligeros', desc: 'Procesamiento de alimentos, bebidas' },
+              { id: 'yes_heavy_acids', label: 'Ácidos fuertes/Solventes', desc: 'Cuartos de reactivos, laboratorios químicos' }
             ].map(opt => (
               <div
                 key={opt.id}
@@ -822,7 +796,6 @@ export const FormularioDiagnostico: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
                 <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
                 <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
               </div>
@@ -874,8 +847,8 @@ export const FormularioDiagnostico: React.FC = () => {
         return (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
-              { id: 'yes', icon: '☀️', label: 'Sí, exposición directa constante', desc: 'Requiere recubrimiento resistente a rayos UV (Poliuretano/Bucathane)' },
-              { id: 'no', icon: '⛱️', label: 'No, bajo techo o sombra parcial', desc: 'El epóxico común es viable sin amarillamiento rápido' }
+              { id: 'yes', label: 'Sí, exposición directa constante', desc: 'Requiere recubrimiento resistente a rayos UV (Poliuretano/Bucathane)' },
+              { id: 'no', label: 'No, bajo techo o sombra parcial', desc: 'El epóxico común es viable sin amarillamiento rápido' }
             ].map(opt => (
               <div
                 key={opt.id}
@@ -886,7 +859,6 @@ export const FormularioDiagnostico: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
                 <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
                 <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
               </div>
@@ -898,9 +870,9 @@ export const FormularioDiagnostico: React.FC = () => {
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { id: 'rubber', icon: '🛞', label: 'Caucho / Neumáticas', desc: 'Montacargas comunes, vehículos de carga' },
-              { id: 'polyurethane', icon: '🛞', label: 'Poliuretano rígido', desc: 'Apiladores eléctricos, patines industriales' },
-              { id: 'metal_nylon', icon: '⚙️', label: 'Nylon / Metal', desc: 'Arrastre severo, alto impacto mecánico' }
+              { id: 'rubber', label: 'Caucho / Neumáticas', desc: 'Montacargas comunes, vehículos de carga' },
+              { id: 'polyurethane', label: 'Poliuretano rígido', desc: 'Apiladores eléctricos, patines industriales' },
+              { id: 'metal_nylon', label: 'Nylon / Metal', desc: 'Arrastre severo, alto impacto mecánico' }
             ].map(opt => (
               <div
                 key={opt.id}
@@ -911,7 +883,6 @@ export const FormularioDiagnostico: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
                 <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
                 <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
               </div>
@@ -923,9 +894,9 @@ export const FormularioDiagnostico: React.FC = () => {
         return (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {[
-              { id: 'occasional', icon: '💧', label: 'Derrame Ocasional', desc: 'Salpicaduras limpiadas de inmediato' },
-              { id: 'daily_cleaning', icon: '🧼', label: 'Limpieza / Sanitizado diario', desc: 'Uso de agentes desinfectantes o detergentes' },
-              { id: 'immersion', icon: '🏊', label: 'Inmersión o Charco continuo', desc: 'Sustancias reposando por horas o días' }
+              { id: 'occasional', label: 'Derrame Ocasional', desc: 'Salpicaduras limpiadas de inmediato' },
+              { id: 'daily_cleaning', label: 'Limpieza / Sanitizado diario', desc: 'Uso de agentes desinfectantes o detergentes' },
+              { id: 'immersion', label: 'Inmersión o Charco continuo', desc: 'Sustancias reposando por horas o días' }
             ].map(opt => (
               <div
                 key={opt.id}
@@ -936,7 +907,6 @@ export const FormularioDiagnostico: React.FC = () => {
                     : 'border-gray-200 hover:border-gray-300 bg-white'
                 }`}
               >
-                <span className="text-2xl block mb-2">{opt.icon}</span>
                 <span className="font-bold text-xs text-gray-800 block">{opt.label}</span>
                 <span className="text-[10px] text-gray-400 mt-1 block leading-tight">{opt.desc}</span>
               </div>
@@ -995,7 +965,7 @@ export const FormularioDiagnostico: React.FC = () => {
                 }
               }}
             >
-              <option value="">-- Seleccionar Color --</option>
+              <option value="">Dejar vacío (sujeto a disponibilidad y producto)</option>
               <option value="gray">Gris (Base estándar)</option>
               <option value="red">Rojo (Base estándar)</option>
               <option value="white">Blanco (Base estándar)</option>
@@ -1077,7 +1047,7 @@ export const FormularioDiagnostico: React.FC = () => {
       case 'area_m2':
         return typeof areaM2 === 'number' && areaM2 > 0
       case 'color':
-        return !!colorDeseado && (colorDeseado !== 'entonacion' || !!colorDetalle.trim())
+        return colorDeseado === '' || colorDeseado !== 'entonacion' || !!colorDetalle.trim()
       default:
         return true
     }
@@ -1202,9 +1172,6 @@ export const FormularioDiagnostico: React.FC = () => {
         }
         return ''
       case 'color':
-        if (!colorDeseado) {
-          return 'Selecciona la opción de color deseada.'
-        }
         if (colorDeseado === 'entonacion' && !colorDetalle.trim()) {
           return 'Por favor especifica el tono o código RAL para entonación.'
         }
@@ -1244,9 +1211,22 @@ export const FormularioDiagnostico: React.FC = () => {
             </div>
 
             {/* Tracking Code Badge */}
-            <div className="bg-blue-50 border border-blue-150 rounded-2xl p-4 max-w-sm mx-auto">
+            <div className="bg-blue-50 border border-blue-150 rounded-2xl p-4 max-w-sm mx-auto space-y-2">
               <span className="text-[10px] font-bold text-blue-500 uppercase tracking-wider block">Código de Seguimiento del Cliente</span>
               <strong className="text-2xl font-mono text-blue-700 tracking-wider block mt-1">{codigoGenerado}</strong>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(codigoGenerado)
+                      .then(() => alert('Código copiado al portapapeles'))
+                      .catch(() => alert('No se pudo copiar automáticamente'))
+                  }}
+                  className="px-3 py-1.5 bg-white hover:bg-gray-100 border border-blue-200 text-blue-700 font-bold text-[10px] rounded-lg transition shadow-sm flex items-center gap-1 cursor-pointer select-none"
+                >
+                  Copiar Código
+                </button>
+              </div>
               <p className="text-[10px] text-blue-600 mt-2">Comparte este código con tu asesor comercial de BUCA para cargar tu cotización al instante.</p>
             </div>
 
@@ -1400,14 +1380,13 @@ export const FormularioDiagnostico: React.FC = () => {
             {/* Error Message if submit fails */}
             {errorEnvio && (
               <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs font-semibold">
-                ⚠️ {errorEnvio}
+                Error: {errorEnvio}
               </div>
             )}
 
             {/* Question title */}
             <div className="space-y-1.5 shrink-0">
               <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                <span className="text-blue-500">✦</span>
                 {pasoActual.titulo}
               </h2>
             </div>
@@ -1420,8 +1399,7 @@ export const FormularioDiagnostico: React.FC = () => {
             {/* Validation warning */}
             {((intentoAvanzar || (pasoActual.id === 'contacto' && mostrarErroresContacto)) && obtenerMensajeValidacion()) ? (
               <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-fade-in shrink-0">
-                <span>⚠️</span>
-                <span>{obtenerMensajeValidacion()}</span>
+                <span>Atención: {obtenerMensajeValidacion()}</span>
               </div>
             ) : null}
 

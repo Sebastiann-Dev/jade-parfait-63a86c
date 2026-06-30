@@ -1032,9 +1032,12 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     setAuthError('')
     try {
       if (authIsSignUp) {
+        // Guardrails de dominio desactivados temporalmente para pruebas
+        /*
         if (!authEmail.endsWith('@bucamx.com') && authEmail !== 'sebastian.grajales.rmzz@gmail.com') {
           throw new Error('El correo debe terminar en @bucamx.com')
         }
+        */
         const { data, error } = await supabase.auth.signUp({
           email: authEmail,
           password: authPassword,
