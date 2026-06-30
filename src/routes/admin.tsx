@@ -3908,7 +3908,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   4. Terminología e ID de los Prospectos (Códigos de Seguimiento)
                 </h3>
                 <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#475569', lineHeight: '1.6' }}>
-                  El código de seguimiento generado por el sistema no es aleatorio. Comunica información clave del proyecto de forma directa:
+                  El código de seguimiento generado por el sistema no es aleatorio. Comunica información técnica y comercial clave del proyecto de forma directa para facilitar el diagnóstico rápido del asesor:
                 </p>
                 <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontFamily: 'monospace', fontSize: '13px', color: '#334155', marginBottom: '16px', textAlign: 'center', fontWeight: 600 }}>
                   BUCA - [AÑO][MES] - [SUPERFICIE] - [NECESIDAD] - [TRÁFICO] - [UBICACIÓN] - [SECUENCIAL] - [CLIENTE]
@@ -3917,53 +3917,88 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: '#334155' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 12px', fontWeight: 700 }}>Segmento</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700 }}>Significado</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700 }}>Valores Comunes</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700 }}>Ejemplo</th>
+                        <th style={{ padding: '8px 12px', fontWeight: 700, width: '120px' }}>Segmento</th>
+                        <th style={{ padding: '8px 12px', fontWeight: 700, width: '150px' }}>Significado</th>
+                        <th style={{ padding: '8px 12px', fontWeight: 700 }}>Desglose de Códigos y Valores</th>
+                        <th style={{ padding: '8px 12px', fontWeight: 700, width: '150px' }}>Ejemplo</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>AÑO+MES</td>
                         <td style={{ padding: '8px 12px' }}>Periodo de Registro</td>
-                        <td style={{ padding: '8px 12px' }}>Dígitos de año y mes (ej: <code>2606</code>)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Formato de 4 dígitos <code>YYMM</code>. Los primeros 2 dígitos corresponden al año (ej: <code>26</code> para 2026) y los siguientes 2 al mes en curso (ej: <code>06</code> para Junio).
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>2606</code> (Junio 2026)</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>SUPERFICIE</td>
                         <td style={{ padding: '8px 12px' }}>Tipo de Superficie</td>
-                        <td style={{ padding: '8px 12px' }}><code>CF</code> (Concreto), <code>AC</code> (Asfalto), <code>MT</code> (Metal), <code>MR</code> (Muro), <code>XX</code> (Otro)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Mapea el tipo de sustrato a recubrir:<br />
+                          • <code>CF</code> = Piso de Concreto (Concrete Floor)<br />
+                          • <code>AC</code> = Asfalto o Concreto dañado (Asphalt/Concrete)<br />
+                          • <code>MT</code> = Superficie de Metal o Acero (Metal/Steel)<br />
+                          • <code>MR</code> = Muros, Paredes o Plafón (Walls/Ceilings)<br />
+                          • <code>TQ</code> = Aljibes, Tanques o Cisternas (Tanks/Cisterns)<br />
+                          • <code>WD</code> = Estructura o piso de Madera (Wood)<br />
+                          • <code>XX</code> = Otro tipo o no especificado
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>CF</code> (Concreto Piso)</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>NECESIDAD</td>
                         <td style={{ padding: '8px 12px' }}>Familia recomendada</td>
-                        <td style={{ padding: '8px 12px' }}><code>EQ</code> (Epóxico Químico), <code>PU</code> (Poliuretano), <code>PX</code> (Epóxico Std), <code>AS</code> (Asesoría)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Mapea la familia técnica sugerida por el motor de recomendaciones:<br />
+                          • <code>EQ</code> = Epóxico Químico / Mortero de Altas Cargas (morteros, BucaCrete, etc. para alta resistencia química)<br />
+                          • <code>PU</code> = Poliuretano con resistencia UV (Bucathane, acabados exteriores)<br />
+                          • <code>NV</code> = Autonivelantes (capas autonivelantes de nivelación o alisado)<br />
+                          • <code>PX</code> = Epóxicos estándar o decorativos (sistemas multicapa de alta adherencia)<br />
+                          • <code>IM</code> = Impermeabilizantes o membranas elastoméricas de protección<br />
+                          • <code>PR</code> = Anticorrosivos o Primarios base para preparación de metal u otros sustratos<br />
+                          • <code>AS</code> = Asesoría directa (cuando el cliente ya sabe lo que busca y salta el motor dinámico)
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>EQ</code> (BucaCrete / Químico)</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>TRÁFICO</td>
                         <td style={{ padding: '8px 12px' }}>Intensidad de uso</td>
-                        <td style={{ padding: '8px 12px' }}><code>IN</code> (Industrial Severo), <code>HV</code> (Vehicular Pesado), <code>LD</code> (Peatonal), <code>NA</code> (Ninguno)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Mapea el nivel de tránsito físico que soportará el piso:<br />
+                          • <code>IN</code> = Tráfico Industrial Severo (montacargas pesados con ruedas sólidas de metal, nylon o poliuretano)<br />
+                          • <code>HV</code> = Tráfico Vehicular Pesado (montacargas neumáticos, camiones, tránsito continuo de automóviles)<br />
+                          • <code>LD</code> = Tráfico Peatonal Ligero o Moderado (paso de personas, patines hidráulicos manuales)<br />
+                          • <code>NA</code> = No Aplica / Sin Tráfico (para muros, aljibes, techos y zonas no transitables)
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>HV</code> (Tráfico Pesado)</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>UBICACIÓN</td>
                         <td style={{ padding: '8px 12px' }}>Zona física</td>
-                        <td style={{ padding: '8px 12px' }}><code>INT</code> (Interior), <code>EXT</code> (Exterior), <code>AMB</code> (Ambos)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Mapea las condiciones de exposición ambiental del proyecto:<br />
+                          • <code>INT</code> = Interior (sin requerimiento de protección solar contra rayos UV)<br />
+                          • <code>EXT</code> = Exterior (requiere capas de sello alifático con filtro solar UV para evitar amarillamiento o tiznado)<br />
+                          • <code>AMB</code> = Ambos (zonas mixtas interiores/exteriores que combinan especificaciones)
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>INT</code> (Interior)</td>
                       </tr>
                       <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>SECUENCIAL</td>
                         <td style={{ padding: '8px 12px' }}>Registro mensual</td>
-                        <td style={{ padding: '8px 12px' }}>Dígitos de secuencia (ej: <code>001</code>, <code>042</code>, se resetea al iniciar el mes)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Contador correlativo de 3 dígitos (<code>001</code> al <code>999</code>). Se calcula de forma automática consultando en tiempo real en la base de datos de Supabase cuántos prospectos han sido registrados en el mes actual, sumando 1 al total. Se resetea automáticamente a <code>001</code> el primer día de cada mes.
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>002</code> (2do prospecto del mes)</td>
                       </tr>
                       <tr>
                         <td style={{ padding: '8px 12px', fontWeight: 700 }}>CLIENTE</td>
                         <td style={{ padding: '8px 12px' }}>Siglas del Cliente</td>
-                        <td style={{ padding: '8px 12px' }}>Primeras 3 letras del nombre o empresa (ej: <code>JUA</code>, <code>ACE</code>)</td>
+                        <td style={{ padding: '8px 12px', lineHeight: '1.5' }}>
+                          Abreviatura de 3 letras del nombre del cliente o empresa, sanitizado (limpio de acentos, espacios y caracteres especiales). Ej: "Juan Pérez" se reduce a <code>JUA</code>, "Aceros del Norte" se reduce a <code>ACE</code>.
+                        </td>
                         <td style={{ padding: '8px 12px' }}><code>JUA</code> (Juan Pérez)</td>
                       </tr>
                     </tbody>
