@@ -487,10 +487,10 @@ export default function Cotizador() {
               <p className="text-blue-100 text-xs">{fechaHoy}</p>
             </div>
             <Link to="/diagnostico" className="ml-4 px-3 py-1.5 bg-emerald-700 text-white text-xs font-medium rounded-lg hover:bg-emerald-600 transition">
-              📋 Diagnóstico Técnico
+              Diagnóstico Técnico
             </Link>
             <Link to="/sistemas" className="ml-2 px-3 py-1.5 bg-purple-700 text-white text-xs font-medium rounded-lg hover:bg-purple-600 transition">
-              🧪 Catálogo de Sistemas
+              Catálogo de Sistemas
             </Link>
             <Link to="/admin" className="ml-2 px-3 py-1.5 bg-blue-800 text-white text-xs font-medium rounded-lg hover:bg-blue-700 transition">
               ⚙️ Admin

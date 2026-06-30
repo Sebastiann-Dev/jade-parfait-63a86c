@@ -1626,7 +1626,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               transition: 'all 0.2s'
             }}
           >
-            📋 Prospectos y Necesidades
+            Prospectos y Necesidades
           </button>
         </div>
 

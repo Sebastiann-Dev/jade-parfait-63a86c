@@ -42,7 +42,7 @@ export const DiagramaCapas: React.FC<DiagramaCapasProps> = ({
   return (
     <div className="bg-white border border-gray-150 rounded-xl p-4 shadow-sm">
       <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4 flex items-center gap-1">
-        <span>📊</span> Esquema Técnico de Capas (Haz clic para ver detalles)
+        Esquema Técnico de Capas (Haz clic para ver detalles)
       </h4>
 
       <div className="flex flex-col gap-2 max-w-lg mx-auto">
