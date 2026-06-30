@@ -1654,7 +1654,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               transition: 'all 0.2s'
             }}
           >
-            📖 Guía de Uso
+            Guía de Uso
           </button>
         </div>
 
@@ -3848,7 +3848,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         {currentTab === 'guia' && (
           <div style={{ animation: 'fadeIn 0.3s ease', background: 'white', padding: '28px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
             <h2 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: 800, color: '#c2410c', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              📖 Guía Comercial y Manual de Operaciones
+              Guía Comercial y Manual de Operaciones
             </h2>
             <p style={{ margin: '0 0 24px', fontSize: '14px', color: '#64748b' }}>
               Manual operativo completo para entender el flujo de trabajo, la administración del catálogo, prospección y la nomenclatura de los prospectos desde cero.
@@ -3858,7 +3858,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               {/* Seccion 1 */}
               <div style={{ padding: '20px', borderRadius: '12px', background: '#fff7ed', border: '1px solid #ffedd5' }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#9a3412', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  💰 1. El Cotizador Comercial (Calculadora Principal)
+                  1. El Cotizador Comercial (Calculadora Principal)
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#431407', lineHeight: '1.6' }}>
                   Es la herramienta diaria de los asesores comerciales. Permite calcular material, dosificaciones y precios finales:
@@ -3873,7 +3873,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               {/* Seccion 2 */}
               <div style={{ padding: '20px', borderRadius: '12px', background: '#f5f3ff', border: '1px solid #e0e7ff' }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#5b21b6', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  🧪 2. Gestión de Catálogo (Productos y Sistemas)
+                  2. Gestión de Catálogo (Productos y Sistemas)
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#1e1b4b', lineHeight: '1.6' }}>
                   Permite mantener actualizada la oferta técnica del portafolio comercial de BUCA:
@@ -3888,7 +3888,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               {/* Seccion 3 */}
               <div style={{ padding: '20px', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #dcfce7' }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  🎯 3. Prospección, Diagnóstico y Seguimiento Comercial
+                  3. Prospección, Diagnóstico y Seguimiento Comercial
                 </h3>
                 <p style={{ margin: 0, fontSize: '13px', color: '#14532d', lineHeight: '1.6' }}>
                   Canaliza y califica el interés de los nuevos prospectos a través del portal:
@@ -3905,7 +3905,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               {/* Seccion 4 */}
               <div style={{ padding: '20px', borderRadius: '12px', background: '#f0f9ff', border: '1px solid #e0f2fe' }}>
                 <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#075985', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  🆔 4. Terminología e ID de los Prospectos (Códigos de Seguimiento)
+                  4. Terminología e ID de los Prospectos (Códigos de Seguimiento)
                 </h3>
                 <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#0c4a6e', lineHeight: '1.6' }}>
                   El código de seguimiento generado por el sistema no es aleatorio. Comunica información clave del proyecto de forma directa:
