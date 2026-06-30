@@ -562,8 +562,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   // Systems state variables and migration
   const { tab, action } = Route.useSearch()
-  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion' | 'prospectos'>(
-    tab === 'sistemas' || tab === 'migracion' || tab === 'prospectos' ? tab : 'productos'
+  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion' | 'prospectos' | 'guia'>(
+    tab === 'sistemas' || tab === 'migracion' || tab === 'prospectos' || tab === 'guia' ? tab : 'productos'
   )
   const [colaMigracion, setColaMigracion] = useState<FilaMigracion[]>([])
   const [procesandoCola, setProcesandoCola] = useState(false)
@@ -1504,7 +1504,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   ? (loadingSistemas ? 'Cargando sistemas...' : `${sistemas.length} sistemas en la base de datos`)
                   : currentTab === 'prospectos'
                     ? 'Seguimiento y perfilamiento de cotizaciones'
-                    : 'Importación masiva de fichas técnicas'}
+                    : currentTab === 'guia'
+                      ? 'Guía comercial y manual de operaciones del sistema'
+                      : 'Importación masiva de fichas técnicas'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1638,6 +1640,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             }}
           >
             Prospectos y Necesidades
+          </button>
+          <button
+            onClick={() => setCurrentTab('guia')}
+            style={{
+              padding: '8px 16px',
+              background: currentTab === 'guia' ? '#ea580c' : 'transparent',
+              color: currentTab === 'guia' ? 'white' : '#475569',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            📖 Guía de Uso
           </button>
         </div>
 
@@ -3825,6 +3842,138 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               Bandeja de Prospectos y Perfilamiento de Proyectos
             </h2>
             <LeadPortal />
+          </div>
+        )}
+
+        {currentTab === 'guia' && (
+          <div style={{ animation: 'fadeIn 0.3s ease', background: 'white', padding: '28px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+            <h2 style={{ margin: '0 0 8px', fontSize: '22px', fontWeight: 800, color: '#c2410c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📖 Guía Comercial y Manual de Operaciones
+            </h2>
+            <p style={{ margin: '0 0 24px', fontSize: '14px', color: '#64748b' }}>
+              Manual operativo completo para entender el flujo de trabajo, la administración del catálogo, prospección y la nomenclatura de los prospectos desde cero.
+            </p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+              {/* Seccion 1 */}
+              <div style={{ padding: '20px', borderRadius: '12px', background: '#fff7ed', border: '1px solid #ffedd5' }}>
+                <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#9a3412', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  💰 1. El Cotizador Comercial (Calculadora Principal)
+                </h3>
+                <p style={{ margin: 0, fontSize: '13px', color: '#431407', lineHeight: '1.6' }}>
+                  Es la herramienta diaria de los asesores comerciales. Permite calcular material, dosificaciones y precios finales:
+                </p>
+                <ul style={{ margin: '10px 0 0', paddingLeft: '20px', fontSize: '13px', color: '#431407', lineHeight: '1.6' }}>
+                  <li><strong>Espesores y Densidades:</strong> A diferencia de recubrimientos delgados, los morteros de poliuretano-cemento (como <em>BucaCrete</em>) habilitan un campo numérico para ingresar el espesor en milímetros (mm). La herramienta calcula los sacos exactos basándose en la densidad (kg/L) del producto para evitar errores de cálculo en obra.</li>
+                  <li><strong>Moneda y Descuentos:</strong> Soporta precios en <strong>MXN y USD</strong> con tipo de cambio editable. El toggle de "Mayorista" aplica automáticamente un 5% de descuento sobre todos los conceptos.</li>
+                  <li><strong>Exportación:</strong> El botón de exportación genera un PDF formal con membrete y enlaces clicables directo a las fichas técnicas para el cliente.</li>
+                </ul>
+              </div>
+
+              {/* Seccion 2 */}
+              <div style={{ padding: '20px', borderRadius: '12px', background: '#f5f3ff', border: '1px solid #e0e7ff' }}>
+                <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#5b21b6', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🧪 2. Gestión de Catálogo (Productos y Sistemas)
+                </h3>
+                <p style={{ margin: 0, fontSize: '13px', color: '#1e1b4b', lineHeight: '1.6' }}>
+                  Permite mantener actualizada la oferta técnica del portafolio comercial de BUCA:
+                </p>
+                <ul style={{ margin: '10px 0 0', paddingLeft: '20px', fontSize: '13px', color: '#1e1b4b', lineHeight: '1.6' }}>
+                  <li><strong>Productos:</strong> Altas, bajas y actualizaciones de precios, unidades y fichas técnicas.</li>
+                  <li><strong>Sistemas Multicapa:</strong> Paquetes pre-dosificados de recubrimiento (ej: Primario + Intermedio + Top Coat). Al cotizarse, el sistema calcula automáticamente los rendimientos sugeridos combinados y desglosa las líneas individuales de cotización.</li>
+                  <li><strong>Asistente IA (Gemini):</strong> Al subir la ficha técnica (TDS/SDS) en PDF de un nuevo producto, el asistente de IA lee el documento, extrae sus datos (espesores, densidades, rendimientos) y pre-llena el formulario side-by-side de forma inteligente para que el administrador solo valide y guarde.</li>
+                </ul>
+              </div>
+
+              {/* Seccion 3 */}
+              <div style={{ padding: '20px', borderRadius: '12px', background: '#f0fdf4', border: '1px solid #dcfce7' }}>
+                <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🎯 3. Prospección, Diagnóstico y Seguimiento Comercial
+                </h3>
+                <p style={{ margin: 0, fontSize: '13px', color: '#14532d', lineHeight: '1.6' }}>
+                  Canaliza y califica el interés de los nuevos prospectos a través del portal:
+                </p>
+                <ul style={{ margin: '10px 0 0', paddingLeft: '20px', fontSize: '13px', color: '#14532d', lineHeight: '1.6' }}>
+                  <li><strong>Scoping Wizard (Diagnóstico en <code>/diagnostico</code>):</strong> Un cuestionario dinámico para el cliente final que ramifica las preguntas (tipo de llantas, sol, químicos) y sugiere la mejor solución técnica.</li>
+                  <li><strong>Filtro Anti-Spam:</strong> Bloquea automáticamente correos temporales, obscenidades, teclazos aleatorios y nombres falsos para asegurar la calidad de los leads en la base de datos.</li>
+                  <li><strong>Seguimiento de Asesores:</strong> Permite asignar vendedores, registrar bitácoras de llamadas, cotizaciones reales, y cambiar el estatus del proyecto (Nuevo, Contactado, Cotizado, Ganado, Perdido).</li>
+                  <li><strong>Fotos de Superficie:</strong> Las imágenes del piso cargadas por los clientes desde obra se almacenan en Supabase Storage y se visualizan directamente en la ficha del lead en formato miniatura interactiva.</li>
+                  <li><strong>Cotización Rápida:</strong> Un botón permite cargar toda la recomendación sugerida en la calculadora del cotizador con un solo clic.</li>
+                </ul>
+              </div>
+
+              {/* Seccion 4 */}
+              <div style={{ padding: '20px', borderRadius: '12px', background: '#f0f9ff', border: '1px solid #e0f2fe' }}>
+                <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 700, color: '#075985', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  🆔 4. Terminología e ID de los Prospectos (Códigos de Seguimiento)
+                </h3>
+                <p style={{ margin: '0 0 12px', fontSize: '13px', color: '#0c4a6e', lineHeight: '1.6' }}>
+                  El código de seguimiento generado por el sistema no es aleatorio. Comunica información clave del proyecto de forma directa:
+                </p>
+                <div style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', fontFamily: 'monospace', fontSize: '13px', color: '#334155', marginBottom: '16px', textAlign: 'center', fontWeight: 600 }}>
+                  BUCA - [AÑO][MES] - [SUPERFICIE] - [NECESIDAD] - [TRÁFICO] - [UBICACIÓN] - [SECUENCIAL] - [CLIENTE]
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', color: '#0c4a6e' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #bae6fd', textAlign: 'left' }}>
+                        <th style={{ padding: '8px', fontWeight: 700 }}>Segmento</th>
+                        <th style={{ padding: '8px', fontWeight: 700 }}>Significado</th>
+                        <th style={{ padding: '8px', fontWeight: 700 }}>Valores Comunes</th>
+                        <th style={{ padding: '8px', fontWeight: 700 }}>Ejemplo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ borderBottom: '1px solid #e0f2fe' }}>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>AÑO+MES</td>
+                        <td style={{ padding: '8px' }}>Periodo de Registro</td>
+                        <td style={{ padding: '8px' }}>Dígitos de año y mes (ej: <code>2606</code>)</td>
+                        <td style={{ padding: '8px' }}><code>2606</code> (Junio 2026)</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #e0f2fe' }}>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>SUPERFICIE</td>
+                        <td style={{ padding: '8px' }}>Tipo de Superficie</td>
+                        <td style={{ padding: '8px' }}><code>CF</code> (Concreto), <code>AC</code> (Asfalto), <code>MT</code> (Metal), <code>MR</code> (Muro), <code>XX</code> (Otro)</td>
+                        <td style={{ padding: '8px' }}><code>CF</code> (Concreto Piso)</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #e0f2fe' }}>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>NECESIDAD</td>
+                        <td style={{ padding: '8px' }}>Familia recomendada</td>
+                        <td style={{ padding: '8px' }}><code>EQ</code> (Epóxico Químico), <code>PU</code> (Poliuretano), <code>PX</code> (Epóxico Std), <code>AS</code> (Asesoría)</td>
+                        <td style={{ padding: '8px' }}><code>EQ</code> (BucaCrete / Químico)</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #e0f2fe' }}>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>TRÁFICO</td>
+                        <td style={{ padding: '8px' }}>Intensidad de uso</td>
+                        <td style={{ padding: '8px' }}><code>IN</code> (Industrial Severo), <code>HV</code> (Vehicular Pesado), <code>LD</code> (Peatonal), <code>NA</code> (Ninguno)</td>
+                        <td style={{ padding: '8px' }}><code>HV</code> (Tráfico Pesado)</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #e0f2fe' }}>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>UBICACIÓN</td>
+                        <td style={{ padding: '8px' }}>Zona física</td>
+                        <td style={{ padding: '8px' }}><code>INT</code> (Interior), <code>EXT</code> (Exterior), <code>AMB</code> (Ambos)</td>
+                        <td style={{ padding: '8px' }}><code>INT</code> (Interior)</td>
+                      </tr>
+                      <tr style={{ borderBottom: '1px solid #e0f2fe' }}>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>SECUENCIAL</td>
+                        <td style={{ padding: '8px' }}>Registro mensual</td>
+                        <td style={{ padding: '8px' }}>Dígitos de secuencia (ej: <code>001</code>, <code>042</code>, se resetea al iniciar el mes)</td>
+                        <td style={{ padding: '8px' }}><code>002</code> (2do prospecto del mes)</td>
+                      </tr>
+                      <tr>
+                        <td style={{ padding: '8px', fontWeight: 700 }}>CLIENTE</td>
+                        <td style={{ padding: '8px' }}>Siglas del Cliente</td>
+                        <td style={{ padding: '8px' }}>Primeras 3 letras del nombre o empresa (ej: <code>JUA</code>, <code>ACE</code>)</td>
+                        <td style={{ padding: '8px' }}><code>JUA</code> (Juan Pérez)</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p style={{ margin: '14px 0 0', fontSize: '13px', color: '#075985', fontStyle: 'italic', fontWeight: 600 }}>
+                  Código final del ejemplo: BUCA-2606-CF-EQ-HV-INT-002-JUA
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
