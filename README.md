@@ -97,13 +97,33 @@ La app corre en `http://localhost:3000`
 
 ---
 
-## 🔄 Flujo de Trabajo en Git (Políticas)
-Para mantener la estabilidad de la aplicación y evitar caídas accidentales en producción (`main`), el desarrollo sigue una política estricta de ramas y pull requests:
-* **`main` (Producción)**: Código estable. Commit directo prohibido. Solo recibe cambios desde `staging`.
-* **`staging` (Pre-producción)**: Entorno de pruebas y control de calidad (QA). Recibe cambios desde `dev`.
-* **`dev` (Desarrollo)**: Rama de integración de características.
-* **`feature/*` / `fix/*`**: Ramas temporales para el desarrollo de tareas específicas o solución de errores.
+## 🔄 Flujo de Trabajo en Git y Despliegue
 
-Para más detalles sobre cómo abrir ramas y pull requests, consulta la [Guía de Flujo de Trabajo de Git (git_workflow.md)](docs/git_workflow.md).
+Para mantener la estabilidad de la aplicación y evitar caídas accidentales en producción (`main`), el desarrollo del proyecto se rige bajo una estructura organizada de ramas:
+
+### 1. Modelo de Ramas Principal
+*   **`main` (Producción)**: Hospeda el código estable que utilizan los usuarios finales de BUCA. Se actualiza integrando los cambios aprobados desde `staging`.
+*   **`staging` (Pre-producción / QA)**: Entorno espejo para pruebas finales y control de calidad. Recibe integraciones desde `dev` para validación grupal.
+*   **`dev` (Desarrollo Activo)**: Rama de integración diaria. Sincroniza las características desarrolladas por el equipo.
+*   **`feature/*` y `fix/*`**: Ramas temporales creadas para implementar nuevas funcionalidades o solucionar bugs específicos.
+
+### 2. Flujo de Trabajo Estándar
+1.  **Issue**: Toda tarea inicia con un reporte de Issue en GitHub.
+2.  **Rama Local**: Se crea una rama temporal desde `dev` con el nombre `feature/issue-<num>-desc` o `fix/issue-<num>-desc`.
+3.  **Integración Continua**: Al completar el desarrollo, se abre un Pull Request (PR) hacia `dev` para revisión de código.
+4.  **Promoción de Entornos**: Sincronizaciones periódicas de `dev` a `staging` para pruebas de QA, y posteriormente de `staging` a `main` para lanzamiento final.
+
+### 3. Excepciones y Commits Directos (AI Assistant / Hotfixes)
+Aunque el flujo basado en Pull Requests es la norma general para el desarrollo de software, **se permite realizar commits y pushes directos a las ramas principales (`main`, `staging` o `dev`)** desde el asistente de IA (Antigravity) o por desarrolladores autorizados en los siguientes casos de excepción:
+*   **Actualizaciones de Documentación**: Modificaciones rápidas del archivo `README.md`, guías de migración o políticas de desarrollo (como este documento).
+*   **Hotfixes Críticos**: Correcciones urgentes de seguridad, fallos que bloqueen la operación de los usuarios o rotación de API Keys comprometidas.
+*   **Ajustes Menores Validados**: Cambios menores que no alteran la arquitectura de la base de datos o el comportamiento global y que ya han sido completamente comprobados de forma local.
+
+### 4. Integración CI/CD (Cloudflare)
+La infraestructura del repositorio de GitHub está vinculada a **Cloudflare Pages** para la compilación y despliegue automático:
+*   Cualquier actualización en `main` compila y actualiza instantáneamente el entorno productivo.
+*   Los pushes a `staging` y `dev` generan vistas previas aisladas (Preview Deployments), permitiendo al equipo probar las actualizaciones en la nube antes de mezclarlas permanentemente.
+
+Para más detalles detallados del flujo, nomenclatura y ejemplos, consulta la [Guía de Flujo de Trabajo en Git (git_workflow.md)](docs/git_workflow.md).
 
 
