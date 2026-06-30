@@ -139,7 +139,7 @@ export const FormularioDiagnostico: React.FC = () => {
   
   const [traficosSeleccionados, setTraficosSeleccionados] = useState<string[]>([])
   const [quimicos, setQuimicos] = useState<string>('')
-  const [areaM2, setAreaM2] = useState<number>(0)
+  const [areaM2, setAreaM2] = useState<number | ''>('')
   const [colorDeseado, setColorDeseado] = useState<string>('')
   const [colorDetalle, setColorDetalle] = useState<string>('')
 
@@ -432,7 +432,7 @@ export const FormularioDiagnostico: React.FC = () => {
       objetivos,
       trafico: traficosSeleccionados,
       quimicos,
-      area_m2: areaM2,
+      area_m2: areaM2 === '' ? 0 : areaM2,
       color_deseado: colorDeseado,
       color_detalle: colorDetalle,
       estado_concreto: queRecubrir === 'concrete_floor' 
@@ -741,9 +741,11 @@ export const FormularioDiagnostico: React.FC = () => {
             {/* Selected tags */}
             <div className="flex flex-wrap gap-2 pt-2">
               {objetivos.length === 0 ? (
-                <p className="text-[11px] text-amber-600 font-semibold italic bg-amber-50 border border-amber-100 rounded-lg p-2.5">
-                  💡 Por favor, agrega al menos un objetivo de la lista desplegable.
-                </p>
+                intentoAvanzar ? (
+                  <p className="text-[11px] text-amber-600 font-semibold italic bg-amber-50 border border-amber-100 rounded-lg p-2.5">
+                    💡 Por favor, agrega al menos un objetivo de la lista desplegable.
+                  </p>
+                ) : null
               ) : (
                 objetivos.map((obj, idx) => (
                   <span key={idx} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
@@ -842,12 +844,12 @@ export const FormularioDiagnostico: React.FC = () => {
               }}
             >
               <option value="">-- Seleccionar Estado --</option>
-              <option value="new">Nuevo sin pulir / Rugoso</option>
-              <option value="polished">Pulido / Muy liso (brillante)</option>
-              <option value="damaged">Dañado / Con grietas o baches</option>
-              <option value="contaminated">Contaminado con aceite o grasa</option>
-              <option value="peeling">Descascarado / Con desprendimiento</option>
-              <option value="humidity">Humedad ascendente / Salitre</option>
+              <option value="new">Excelente / Listo para recubrir (Nuevo o curado sin imperfecciones)</option>
+              <option value="polished">Sano / Sin grietas pero pulido o liso (Requiere perfil de anclaje)</option>
+              <option value="peeling">Aceptable / Desgaste leve o fisuras finas superficiales</option>
+              <option value="damaged">Dañado / Con grietas activas, baches o desprendimientos</option>
+              <option value="contaminated">Contaminado / Con manchas de grasa, aceite o químicos</option>
+              <option value="humidity">Humedad severa / Presencia de salitre o humedad ascendente</option>
               <option value="other">Otro estado especial</option>
             </select>
 
@@ -952,7 +954,14 @@ export const FormularioDiagnostico: React.FC = () => {
                 required
                 className="w-36 text-center text-xl font-bold font-mono px-3 py-2 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
                 value={areaM2}
-                onChange={e => setAreaM2(Math.max(0, Number(e.target.value)))}
+                onChange={e => {
+                  const val = e.target.value
+                  if (val === '') {
+                    setAreaM2('')
+                  } else {
+                    setAreaM2(Math.max(0, Number(val)))
+                  }
+                }}
               />
               <span className="text-lg font-bold text-gray-600">m²</span>
             </div>
@@ -1065,7 +1074,7 @@ export const FormularioDiagnostico: React.FC = () => {
       case 'frecuencia_quimica':
         return !!frecuenciaQuimica
       case 'area_m2':
-        return areaM2 > 0
+        return typeof areaM2 === 'number' && areaM2 > 0
       case 'color':
         return !!colorDeseado && (colorDeseado !== 'entonacion' || !!colorDetalle.trim())
       default:
@@ -1187,7 +1196,7 @@ export const FormularioDiagnostico: React.FC = () => {
         }
         return ''
       case 'area_m2':
-        if (areaM2 <= 0) {
+        if (areaM2 === '' || areaM2 <= 0) {
           return 'La dimensión de la obra debe ser mayor a 0 m².'
         }
         return ''
@@ -1324,7 +1333,7 @@ export const FormularioDiagnostico: React.FC = () => {
                   setRadiacionUv('')
                   setTipoRuedas('')
                   setFrecuenciaQuimica('')
-                  setAreaM2(0)
+                  setAreaM2('')
                   setColorDeseado('')
                   setColorDetalle('')
                   setRecProductos([])
