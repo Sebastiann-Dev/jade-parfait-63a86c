@@ -4,9 +4,11 @@ import { Link } from '@tanstack/react-router'
 import {
   fetchProductosSupabase,
   fetchSistemasSupabase,
+  fetchSistemaProductosSupabase,
   saveProspectoSupabase,
   uploadDocToS3,
   generarCodigoSeguimiento,
+  supabase,
   type Prospecto,
   type Sistema
 } from '../supabase'
@@ -65,6 +67,34 @@ export const FormularioDiagnostico: React.FC = () => {
   const [proyectoNombreError, setProyectoNombreError] = useState('')
   const [mostrarErroresContacto, setMostrarErroresContacto] = useState(false)
   const [intentoAvanzar, setIntentoAvanzar] = useState(false)
+
+  // System Details Modal State
+  const [selectedSystemForModal, setSelectedSystemForModal] = useState<any>(null)
+  const [systemProductsLoading, setSystemProductsLoading] = useState(false)
+  const [selectedSystemProducts, setSelectedSystemProducts] = useState<any[]>([])
+
+  const openSystemModal = async (sys: any) => {
+    setSelectedSystemForModal(sys)
+    setSystemProductsLoading(true)
+    setSelectedSystemProducts([])
+    try {
+      const rels = await fetchSistemaProductosSupabase(sys.id)
+      const mapped = rels.map(r => {
+        const prod = productos.find(p => p.id === r.producto_id)
+        if (!prod) return null
+        return {
+          ...prod,
+          orden: r.orden,
+          consumo_por_m2: r.consumo_por_m2
+        }
+      }).filter(Boolean)
+      setSelectedSystemProducts(mapped)
+    } catch (err) {
+      console.error("Error loading system products for modal:", err)
+    } finally {
+      setSystemProductsLoading(false)
+    }
+  }
 
   const [spamFilters, setSpamFilters] = useState<{ disposableDomains: string[], profanities: string[] } | null>(null)
 
@@ -1369,7 +1399,14 @@ export const FormularioDiagnostico: React.FC = () => {
                           <h5 className="font-bold text-sm text-purple-900">{sys.nombre}</h5>
                           <p className="text-xs text-gray-600 mt-1">{sys.descripcion || 'Estructura multicapa de alta resistencia diseñada para las condiciones especificadas.'}</p>
                         </div>
-                        <div className="shrink-0 flex gap-2">
+                        <div className="shrink-0 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => openSystemModal(sys)}
+                            className="px-3.5 py-2 bg-white hover:bg-gray-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+                          >
+                            Ver Ficha
+                          </button>
                           <Link
                             to={`/?sistemaId=${sys.id}&cliente=${encodeURIComponent(clienteNombre)}&proyecto=${encodeURIComponent(proyectoNombre)}`}
                             className="px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl transition shadow-sm"
@@ -1393,11 +1430,28 @@ export const FormularioDiagnostico: React.FC = () => {
                           <h5 className="font-bold text-sm text-blue-900">{p.nombre}</h5>
                           <p className="text-[11px] text-gray-500 mt-1 line-clamp-2">{p.nota}</p>
                         </div>
-                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                          <span className="text-xs font-bold text-gray-600 font-mono">${p.precio} {p.moneda}</span>
+                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-end gap-2">
+                          {((p as any).ficha_tecnica_s3key || (p as any).ficha_tecnica_url) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const s3key = (p as any).ficha_tecnica_s3key
+                                const legacyUrl = (p as any).ficha_tecnica_url
+                                const url = s3key 
+                                  ? supabase.storage.from('product-docs').getPublicUrl(s3key).data.publicUrl
+                                  : legacyUrl
+                                if (url) {
+                                  window.open(url, '_blank', 'noreferrer')
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-white hover:bg-gray-50 border border-blue-200 text-blue-700 text-xs font-bold rounded-lg transition cursor-pointer"
+                            >
+                              Ver Ficha
+                            </button>
+                          )}
                           <Link
                             to={`/?productoNombre=${encodeURIComponent(p.nombre)}&cliente=${encodeURIComponent(clienteNombre)}&proyecto=${encodeURIComponent(proyectoNombre)}`}
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition"
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition font-sans"
                           >
                             Cotizar
                           </Link>
@@ -1454,6 +1508,87 @@ export const FormularioDiagnostico: React.FC = () => {
             </div>
           </div>
         </main>
+
+        {/* System Details Modal */}
+        {selectedSystemForModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <div className="bg-white rounded-3xl max-w-lg w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 text-left">
+              {/* Modal Header */}
+              <div className="px-6 py-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                <div>
+                  <h3 className="font-bold text-slate-800 text-base">{selectedSystemForModal.nombre}</h3>
+                  <span className="text-[10px] text-purple-650 font-bold uppercase tracking-wider block mt-0.5">Ficha de Sistema Multicapa</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSystemForModal(null)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition cursor-pointer font-bold text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto space-y-4 font-sans">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Descripción del Sistema:</h4>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    {selectedSystemForModal.descripcion || 'Estructura de recubrimiento multicapa de alta ingeniería.'}
+                  </p>
+                </div>
+
+                <div className="border-t border-slate-100 pt-4">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Productos que componen este sistema:</h4>
+                  {systemProductsLoading ? (
+                    <div className="text-center py-6 text-sm text-slate-400">Cargando componentes del sistema...</div>
+                  ) : selectedSystemProducts.length === 0 ? (
+                    <div className="text-center py-6 text-sm text-slate-400">No hay productos vinculados en este sistema.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedSystemProducts.map(p => (
+                        <div key={p.id} className="p-3 border border-slate-150 bg-slate-50/50 rounded-2xl flex items-center justify-between gap-3">
+                          <div>
+                            <h5 className="font-bold text-xs text-slate-800">{p.nombre}</h5>
+                            <span className="text-[10px] text-slate-450 block mt-0.5">Paso en la aplicación: #{p.orden}</span>
+                          </div>
+                          {p.ficha_tecnica_s3key || p.ficha_tecnica_url ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = p.ficha_tecnica_s3key
+                                  ? supabase.storage.from('product-docs').getPublicUrl(p.ficha_tecnica_s3key).data.publicUrl
+                                  : p.ficha_tecnica_url;
+                                if (url) {
+                                  window.open(url, '_blank', 'noreferrer')
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[10px] font-bold rounded-lg border border-blue-200 transition cursor-pointer"
+                            >
+                              Ficha PDF
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-400 italic">Sin Ficha</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSystemForModal(null)}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     )
   }
