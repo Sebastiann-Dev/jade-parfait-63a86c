@@ -6,21 +6,11 @@ import {
   fetchSistemasSupabase,
   saveProspectoSupabase,
   uploadDocToS3,
+  generarCodigoSeguimiento,
   type Prospecto,
   type Sistema
 } from '../supabase'
 import { type Producto } from '../data/productos'
-
-// Generate a random tracking code like BUCA-2026-A1B2
-function generarCodigoSeguimiento(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-  let randomPart = ''
-  for (let i = 0; i < 4; i++) {
-    randomPart += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  const year = new Date().getFullYear()
-  return `BUCA-${year}-${randomPart}`
-}
 
 const FALLBACK_DOMINIOS = [
   'yopmail.com', 'mailinator.com', 'tempmail.com', '10minutemail.com',
@@ -421,13 +411,23 @@ export const FormularioDiagnostico: React.FC = () => {
   const enviarDiagnostico = async () => {
     setGuardando(true)
     setErrorEnvio('')
-    const codigo = generarCodigoSeguimiento()
 
     const { systems, products } = sabeLoQueBusca === 'si'
       ? { systems: [], products: [] }
       : calcularRecomendaciones()
     setRecSistemas(systems)
     setRecProductos(products)
+
+    const codigo = await generarCodigoSeguimiento({
+      clienteNombre,
+      sabeLoQueBusca,
+      queRecubrir,
+      ubicacion,
+      traficosSeleccionados,
+      quimicos,
+      recomendadosSys: systems,
+      recomendadosProds: products
+    })
 
     const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
 

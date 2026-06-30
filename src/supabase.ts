@@ -434,3 +434,112 @@ export async function updateProspectoSupabase(
   }
 }
 
+/**
+ * Genera un código de seguimiento estandarizado e inteligente.
+ * Estructura: BUCA-[AÑO][MES]-[SUP]-[NECS]-[TRAF]-[ZONA]-[SEQ]-[CLIENTE]
+ * Ejemplo: BUCA-2606-CF-EQ-HV-INT-001-JON
+ */
+export async function generarCodigoSeguimiento(params: {
+  clienteNombre: string;
+  sabeLoQueBusca: string;
+  queRecubrir?: string;
+  ubicacion?: string;
+  traficosSeleccionados?: string[];
+  quimicos?: string;
+  recomendadosSys?: any[];
+  recomendadosProds?: any[];
+}): Promise<string> {
+  const date = new Date()
+  const yy = String(date.getFullYear()).substring(2)
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const period = `${yy}${mm}`
+
+  // 1. Superficie (SUP)
+  let sup = 'XX'
+  if (params.sabeLoQueBusca === 'no' && params.queRecubrir) {
+    const q = params.queRecubrir
+    if (q === 'concrete_floor') sup = 'CF'
+    else if (q === 'asphalt_concrete') sup = 'AC'
+    else if (q === 'metal_steel') sup = 'MT'
+    else if (q === 'walls_ceilings') sup = 'MR'
+    else if (q === 'tanks_cisterns') sup = 'TQ'
+    else if (q === 'wood') sup = 'WD'
+  }
+
+  // 2. Necesidad/Familia (NECS)
+  let necs = 'AS'
+  if (params.sabeLoQueBusca === 'no') {
+    const items = [
+      ...(params.recomendadosSys || []).map(s => s.nombre || ''),
+      ...(params.recomendadosProds || []).map(p => p.nombre || '')
+    ].map(n => n.toLowerCase())
+
+    const hasMatch = (keywords: string[]) => 
+      items.some(item => keywords.some(kw => item.includes(kw)))
+
+    if (hasMatch(['crete', 'quimico', 'química', 'severe', 'mor'])) {
+      necs = 'EQ' // Epóxico Químico / Altas cargas
+    } else if (hasMatch(['thane', 'uv', 'poliuretano'])) {
+      necs = 'PU' // Poliuretano UV
+    } else if (hasMatch(['autonivelante', 'nivel'])) {
+      necs = 'NV' // Autonivelante
+    } else if (hasMatch(['epox', 'epóx'])) {
+      necs = 'PX' // Epóxico Estándar
+    } else if (hasMatch(['imper', 'elast'])) {
+      necs = 'IM' // Impermeabilizante
+    } else if (hasMatch(['anti', 'primer', 'anticorrosivo'])) {
+      necs = 'PR' // Anticorrosivo / Primer
+    }
+  }
+
+  // 3. Tráfico (TRAF)
+  let traf = 'NA'
+  if (params.sabeLoQueBusca === 'no' && params.traficosSeleccionados && params.traficosSeleccionados.length > 0) {
+    const t = params.traficosSeleccionados
+    if (t.includes('severe')) traf = 'IN'
+    else if (t.includes('heavy')) traf = 'HV'
+    else if (t.includes('moderate') || t.includes('light')) traf = 'LD'
+  }
+
+  // 4. Ubicación (ZONA)
+  let zona = 'INT'
+  if (params.sabeLoQueBusca === 'no' && params.ubicacion) {
+    const u = params.ubicacion
+    if (u === 'exterior') zona = 'EXT'
+    else if (u === 'both') zona = 'AMB'
+  }
+
+  // 5. Secuencial del mes (SEQ)
+  let seqStr = ''
+  try {
+    const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
+    
+    const { count, error } = await supabase
+      .from('prospectos_diagnostico')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', startOfMonth.toISOString())
+
+    if (error) throw error
+    const nextSeq = (count || 0) + 1
+    seqStr = String(nextSeq).padStart(3, '0')
+  } catch (e) {
+    console.error("Error getting monthly sequence, falling back to random numbers:", e)
+    seqStr = String(Math.floor(100 + Math.random() * 900))
+  }
+
+  // 6. Abreviatura de Cliente (CLIENTE)
+  let cli = 'XXX'
+  if (params.clienteNombre) {
+    const cleaned = params.clienteNombre
+      .toUpperCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Z0-9]/g, '')
+    if (cleaned.length > 0) {
+      cli = cleaned.substring(0, 3).padEnd(3, 'X')
+    }
+  }
+
+  return `BUCA-${period}-${sup}-${necs}-${traf}-${zona}-${seqStr}-${cli}`
+}
+
