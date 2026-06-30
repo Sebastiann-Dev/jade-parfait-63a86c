@@ -318,9 +318,17 @@ function AdminPage() {
     if (activePdfPreview === 'ficha_tecnica') {
       activeFile = fichaTecnicaFile
       activeUrl = formData.ficha_tecnica_url
+      // Fall back to Supabase Storage public URL if no legacy URL
+      if (!activeUrl && formData.ficha_tecnica_s3key) {
+        activeUrl = supabase.storage.from('product-docs').getPublicUrl(formData.ficha_tecnica_s3key).data.publicUrl
+      }
     } else if (activePdfPreview === 'ficha_seguridad') {
       activeFile = fichaSeguridadFile
       activeUrl = formData.ficha_seguridad_url
+      // Fall back to Supabase Storage public URL if no legacy URL
+      if (!activeUrl && formData.ficha_seguridad_s3key) {
+        activeUrl = supabase.storage.from('product-docs').getPublicUrl(formData.ficha_seguridad_s3key).data.publicUrl
+      }
     }
 
     if (!activeFile && !activeUrl) {
@@ -1126,8 +1134,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       }
     }
 
-    const hasTds = !!data.ficha_tecnica_url || !!fichaTecnicaFile
-    const hasSds = !!data.ficha_seguridad_url || !!fichaSeguridadFile
+    const hasTds = !!data.ficha_tecnica_url || !!data.ficha_tecnica_s3key || !!fichaTecnicaFile
+    const hasSds = !!data.ficha_seguridad_url || !!data.ficha_seguridad_s3key || !!fichaSeguridadFile
 
     if (!hasTds) {
       missing.push("Ficha Técnica (TDS) PDF")
@@ -2596,38 +2604,14 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   }
 
                   if (s3Key) {
-                    // Documento en S3: generar Presigned URL y abrir en nueva pestaña
+                    // Documento en Supabase Storage: obtener URL pública y mostrarlo en iframe
+                    const publicUrl = supabase.storage.from('product-docs').getPublicUrl(s3Key).data.publicUrl
                     return (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', padding: '24px' }}>
-                        <span style={{ fontSize: '36px' }}>🔒</span>
-                        <p style={{ fontSize: '13px', color: '#475569', textAlign: 'center', fontWeight: 600 }}>
-                          Este documento está almacenado de forma segura en S3.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            try {
-                              const url = await requestDownloadUrl(s3Key)
-                              window.open(url, '_blank', 'noreferrer')
-                            } catch (err: any) {
-                              alert('❌ Error al generar enlace: ' + (err.message || 'Intenta de nuevo.'))
-                            }
-                          }}
-                          style={{
-                            padding: '8px 20px',
-                            background: '#0369a1',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '8px',
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          👁️ Abrir PDF (enlace seguro)
-                        </button>
-                        <p style={{ fontSize: '11px', color: '#94a3b8' }}>El enlace expirará en 15 minutos.</p>
-                      </div>
+                      <iframe
+                        src={publicUrl}
+                        title="PDF Preview"
+                        style={{ width: '100%', height: '100%', border: 'none', minHeight: '450px' }}
+                      />
                     )
                   }
 

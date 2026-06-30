@@ -242,12 +242,15 @@ export async function deleteSistemaSupabase(id: string): Promise<void> {
   }
 }
 
-// ─── AWS S3 — Almacenamiento de Documentos con Presigned URLs ─────────────────
-// El archivo NUNCA pasa por nuestro servidor. El flujo es:
-//   1. requestUploadUrl()   → llama al servidor TanStack Start para obtener la Presigned PUT URL
-//   2. uploadFileToS3()     → el navegador sube el File directamente a S3 vía HTTP PUT
-//   3. Guardar s3Key en Supabase (nunca la URL completa)
-//   4. requestDownloadUrl() → llama al servidor para obtener Presigned GET URL temporal (15 min)
+// ─── Supabase Storage — Almacenamiento de Documentos ─────────────────────────
+// Todos los archivos (PDFs y fotos) se guardan en el bucket 'product-docs' de
+// Supabase Storage. El flujo es:
+//   1. uploadDocToS3()      → sube el archivo a Supabase Storage y retorna el path relativo
+//   2. El path relativo (key) se guarda en Supabase (nunca la URL completa)
+//   3. requestDownloadUrl() → convierte el path en URL pública de Supabase Storage
+//
+// Nota: Los nombres de las funciones conservan la nomenclatura original ('s3') 
+// para compatibilidad. La migración real a AWS S3 se realizará en una fase futura.
 
 export type DocTipo = 'ficha_tecnica' | 'ficha_seguridad' | 'cotizacion_referencia' | 'foto_superficie'
 
@@ -338,7 +341,8 @@ export async function uploadPdfProducto(
 }
 
 /**
- * @deprecated Usar deleteS3Object() (importar de src/server/s3.ts en server functions) en su lugar.
+ * Elimina un documento de Supabase Storage.
+ * Intenta eliminar variantes con extensión .pdf y .PDF.
  */
 export async function deletePdfProducto(
   productoId: string,
