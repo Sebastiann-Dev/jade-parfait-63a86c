@@ -1,50 +1,57 @@
-# Documentación Interna: Proyectos a Futuro (Estimación Avanzada por CSP)
+# Proyectos a Futuro y Plan de Madurez (Roadmap Técnico)
 
-Este documento archiva los conceptos de estimación avanzada basados en el perfil de superficie del concreto para futuras fases de la herramienta.
-
-## 1. Perfil de Superficie del Concreto (CSP)
-
-El **Concrete Surface Profile (CSP)** es una clasificación estandarizada por el *International Concrete Repair Institute (ICRI)* que define la rugosidad de la superficie del concreto en una escala del 1 al 9:
-
-| Nivel CSP | Textura Común | Método de Preparación |
-| :--- | :--- | :--- |
-| **CSP 1** | Ácido (muy liso) | Lavado con ácido |
-| **CSP 2** | Lijado ligero | Lijadora de disco |
-| **CSP 3** | Desbastado fino | Desbastadora de diamante |
-| **CSP 4** | Granallado ligero | Granalladora (Shotblasting) |
-| **CSP 5** | Granallado medio | Granalladora |
-| **CSP 6** | Escarificado ligero | Escarificadora |
-| **CSP 7** | Escarificado medio | Escarificadora |
-| **CSP 8** | Hidrodemolición | Chorro de agua a alta presión |
-| **CSP 9** | Desbastado profundo | Martillo neumático / Rotomartillo |
+Este documento registra los proyectos de optimización, automatización e infraestructura previstos para las siguientes fases de la plataforma BUCA Recubrimientos.
 
 ---
 
-## 2. Impacto en el Consumo de Material (Mermas)
+## 🚀 FASE 2: Corto/Mediano Plazo (Primeras Semanas de Uso)
 
-A mayor nivel de CSP, el concreto presenta valles más profundos. Esto requiere rellenar más volumen con resinas primarias o morteros antes de lograr una superficie lisa.
+Estas características mejoran la operación del equipo de ventas y proporcionan las herramientas de análisis iniciales para dirección.
 
-### Multiplicador de Consumo Adicional Teórico
-Cuando la herramienta madure, se podría implementar una matriz de ajuste automático del rendimiento para capas base o autonivelantes:
+### 1. Historial de Cotizaciones en Admin
+- **Propósito:** Crear una interfaz de visualización en el panel `/admin` para listar todas las cotizaciones guardadas.
+- **Detalle:** Permitirá a dirección y ventas filtrar cotizaciones por vendedor, rango de fechas, cliente y estados de conversión.
+- **Acceso:** Permitirá descargar el PDF de cotización generado en cualquier momento a partir de su ID.
 
-```
-[Área Cotizada] x [Rendimiento Teórico] x [Factor CSP]
-```
+### 2. Autenticación y Asignación Automática de Vendedor
+- **Propósito:** Identificar automáticamente qué vendedor está usando la herramienta para asociar su nombre/email a las cotizaciones.
+- **Detalle:** Utilizar la sesión de Supabase Auth en el cotizador principal (`/`) para rellenar de forma automática el campo "Vendedor" y registrar la autoría en la base de datos.
 
-Donde el **Factor CSP** incrementa la cantidad de material:
-*   **CSP 1 - 2:** +5% de merma (superficie lisa).
-*   **CSP 3 - 4:** +10% a 15% de merma (estándar para la mayoría de sistemas industriales).
-*   **CSP 5 - 6:** +20% a 30% de merma (requiere capas de renivelación gruesas).
-*   **CSP 7 - 9:** +40% o más (casos de reparación severa).
+### 3. CI/CD con GitHub Actions
+- **Propósito:** Configurar un pipeline de integración y despliegue continuo en el archivo `.github/workflows/deploy.yml`.
+- **Detalle:** Compilar la aplicación y desplegarla automáticamente en Cloudflare Workers usando Wrangler cada vez que se haga push a la rama `main`.
+
+### 4. Entorno de Staging (Pruebas Seguras)
+- **Propósito:** Disponer de una base de pruebas independiente de la producción.
+- **Detalle:** Configurar despliegues automáticos de previsualización ("Preview Deployments") en Cloudflare vinculados a la rama `dev` con su propia base de datos de testeo.
 
 ---
 
-## 3. Migración de Almacenamiento a AWS S3 (Próxima Fase)
+## 🧠 FASE 3: Mediano/Largo Plazo (Madurez Tecnológica)
 
-Actualmente, todos los documentos (fichas técnicas, hojas de seguridad y cotizaciones de referencia) y las fotos de superficie del diagnóstico se almacenan en **Supabase Storage** (dentro del bucket `product-docs`), lo cual permite un desarrollo rápido y sin costes de infraestructura adicionales durante la fase de validación de mercado.
+Proyectos de optimización avanzada de código, algoritmos inteligentes y telemetría de producción.
 
-Como proyecto de madurez para el sistema, se tiene planificada la migración hacia **AWS S3** bajo la siguiente arquitectura propuesta:
-- **Subida Directa desde Cliente:** Uso de URLs de subida firmadas (`PUT` presigned URLs) generadas por el servidor de TanStack Start para que los navegadores suban archivos grandes directo a AWS, previniendo transferencias de red y cuellos de botella en el servidor principal.
-- **Acceso Privado y Seguro:** Generación de enlaces temporales (`GET` presigned URLs) con expiración de 15 minutos para descargas y visualizaciones, manteniendo los recursos ocultos ante indexadores y accesos no autorizados.
-- **Políticas de Ciclo de Vida:** Archivar reportes e imágenes antiguas automáticamente a Glacier para reducir costos de almacenamiento.
-- **Auditoría:** Registro automático de metadatos en la base de datos vinculando el S3 Key (`ficha_tecnica_s3key`, `foto_superficie_s3key`, etc.) con los ID de productos y prospectos correspondientes.
+### 1. Sistema Dinámico de Recomendación por Matriz de Pesos (Fórmula Adaptable)
+- **Propósito:** Automatizar el motor de recomendaciones en lugar de usar condicionales e ifs estáticos.
+- **Detalle:** 
+  - Diseñar una estructura matricial donde cada producto cuente con coeficientes de idoneidad (pesos) en base a su resistencia química, tráfico y tipo de sustrato.
+  - Al ingresar respuestas en el diagnóstico, estas actúan como ponderadores.
+  - Cuando los vendedores guarden las cotizaciones (y modifiquen los productos recomendados), el sistema recopilará ese feedback para re-calcular los coeficientes de peso y optimizar la predicción futura.
+
+### 2. Monitoreo de Errores en Producción (Sentry/LogRocket)
+- **Propósito:** Detectar fallos en el navegador de los asesores en tiempo real.
+- **Detalle:** Envolver el enrutador en `__root.tsx` con el SDK de Sentry para capturar excepciones no controladas, fallas de conexión con Supabase o de consulta con Gemini.
+
+### 3. Refactorización del Monolito `/admin` y Modularización
+- **Propósito:** Dividir el código de `admin.tsx` (actualmente de ~210 KB) en sub-componentes independientes y reutilizables.
+- **Detalle:** 
+  - Separar los módulos de: Gestión de Productos (CRUD), Sistemas Multicapa, Consola de Extracción IA (Gemini), Portal de Prospección (Leads) y la Guía de Uso.
+  - Esto evitará conflictos de combinación de ramas y facilitará la mantenibilidad.
+
+### 4. Perfil de Superficie del Concreto (CSP)
+- **Propósito:** Ajustar mermas precisas basadas en la rugosidad física del concreto.
+- **Detalle:** Implementar un selector de CSP (del 1 al 9, según la escala ICRI) para aplicar multiplicadores dinámicos teóricos a capas base y morteros de renivelación.
+
+### 5. Migración a AWS S3
+- **Propósito:** Migrar el almacenamiento de documentos técnicos y fotos del bucket de Supabase a AWS S3.
+- **Detalle:** Mantener la subida directa a través de presigned URLs temporales de carga y descarga con expiración de 15 minutos para maximizar la seguridad y escalabilidad del almacenamiento a largo plazo.

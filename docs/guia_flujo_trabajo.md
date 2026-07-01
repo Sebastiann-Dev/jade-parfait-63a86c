@@ -31,21 +31,23 @@ Desde el panel de administración (`/admin`), el equipo técnico mantiene actual
 
 ## 3. Asistente de Diagnóstico (Scoping Wizard en `/diagnostico`)
 
-Es la puerta de entrada para clientes finales y prospectores:
+Es una herramienta estratégica diseñada para el **vendedor**, utilizada durante el levantamiento técnico y llamada de perfilado con el cliente:
 
-*   Un cuestionario dinámico paso a paso que ramifica las preguntas según la situación real de la obra (exposición al sol, tráfico pesado, contacto químico, tipo de llantas de montacargas, etc.).
+*   **Scoping Dinámico:** Un cuestionario paso a paso que ramifica las preguntas según la situación real de la obra (exposición al sol, tráfico pesado, contacto químico, tipo de llantas de montacargas, etc.).
 *   **Filtro Anti-Spam:** Valida en tiempo real y bloquea correos temporales, groserías y teclazos aleatorios (`asdfgh`).
-*   **Motor de Recomendaciones:** Sugiere automáticamente los sistemas o productos idóneos que solucionan la necesidad del cliente y genera un código de seguimiento inteligente.
+*   **Generación de Recomendaciones y Código:** Sugiere los sistemas o productos idóneos de forma automática y genera un código de seguimiento inteligente.
+*   **Cambio de Estado Automático:** Al finalizar el diagnóstico y guardar el prospecto, el sistema registra la entrada en Supabase y cambia su estado automáticamente de `Nuevo` a **`Contactado`**.
 
 ---
 
 ## 4. Portal de Prospectos y Seguimiento Comercial
 
-Permite al equipo de ventas gestionar los leads del asistente de diagnóstico:
+Permite al equipo de ventas gestionar los leads y automatizar el ciclo de cotización sin fricciones:
 
-*   **Bitácora de Ventas:** Permite asignar asesores, actualizar el estatus de la cotización (Nuevo, Contactado, Cotizado, Ganado, Perdido) y registrar notas de seguimiento.
-*   **Visualización de Evidencia:** Muestra en pantalla la foto de la superficie cargada por el cliente desde la obra (almacenada en Supabase Storage).
-*   **Carga Directa al Cotizador:** Con un solo botón, el asesor puede jalar toda la recomendación sugerida por el diagnóstico a la calculadora principal para generar la propuesta formal de inmediato.
+*   **Bitácora de Ventas:** Visualización y edición del asesor asignado, notas de seguimiento y estado del lead (Nuevo, Contactado, Cotizado, Ganado, Perdido).
+*   **Visualización de Evidencia:** Acceso inmediato a la ficha técnica de los productos recomendados y a la foto de la superficie cargada por el vendedor durante el scoping (almacenada en Supabase Storage).
+*   **Carga Directa al Cotizador:** Con un solo botón ("Cotizar"), el vendedor carga toda la recomendación del diagnóstico directamente al Cotizador principal (`/`), arrastrando el código de seguimiento del prospecto.
+*   **Cambio a Estado Cotizado:** Una vez que el vendedor personaliza el presupuesto en la calculadora y presiona **"Guardar Cotización"**, la cotización se persiste en la base de datos y el estado del lead cambia automáticamente a **`Cotizado`**.
 
 ---
 
