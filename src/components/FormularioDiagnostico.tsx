@@ -1387,7 +1387,7 @@ export const FormularioDiagnostico: React.FC = () => {
 
             {/* Recommendation block */}
             <div className="border-t border-gray-150 pt-6 text-left space-y-6">
-              <h3 className="text-base font-bold text-gray-800">🛠️ Sistemas y Productos Recomendados:</h3>
+              <h3 className="text-base font-bold text-gray-800"> Sistemas y Productos Recomendados:</h3>
               
               {recSistemas.length > 0 && (
                 <div className="space-y-3">
