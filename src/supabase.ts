@@ -28,7 +28,7 @@ export async function saveProductoSupabase(producto: Omit<Producto, 'id'> & { es
       .from('productos')
       .insert([producto])
       .select();
-      
+
     if (error) throw error;
     return data[0]?.id;
   } catch (error) {
@@ -75,7 +75,7 @@ export async function deleteProductoSupabase(id: string) {
       .from('productos')
       .delete()
       .eq('id', id);
-      
+
     if (error) throw error;
   } catch (error) {
     console.error("Error deleting product:", error);
@@ -126,7 +126,7 @@ export async function fetchSistemasSupabase(): Promise<Sistema[]> {
       .from('sistemas')
       .select('*')
       .order('nombre', { ascending: true });
-      
+
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -142,7 +142,7 @@ export async function fetchSistemaProductosSupabase(sistemaId: string): Promise<
       .select('*')
       .eq('sistema_id', sistemaId)
       .order('orden', { ascending: true });
-      
+
     if (error) throw error;
     return data || [];
   } catch (error) {
@@ -161,7 +161,7 @@ export async function saveSistemaSupabase(
       .from('sistemas')
       .insert([{ nombre, descripcion }])
       .select();
-      
+
     if (sistemaError) throw sistemaError;
     const sistemaId = sistemaData[0]?.id;
     if (!sistemaId) throw new Error("Could not retrieve inserted system ID");
@@ -198,7 +198,7 @@ export async function updateSistemaSupabase(
       .from('sistemas')
       .update({ nombre, descripcion })
       .eq('id', id);
-      
+
     if (sistemaError) throw sistemaError;
 
     const { error: deleteError } = await supabase
@@ -234,7 +234,7 @@ export async function deleteSistemaSupabase(id: string): Promise<void> {
       .from('sistemas')
       .delete()
       .eq('id', id);
-      
+
     if (error) throw error;
   } catch (error) {
     console.error("Error deleting system:", error);
@@ -305,9 +305,9 @@ export async function uploadDocToS3(
 
   const { error: uploadError } = await supabase.storage
     .from('product-docs')
-    .upload(path, file, { 
-      upsert: true, 
-      contentType: file.type || 'application/pdf' 
+    .upload(path, file, {
+      upsert: true,
+      contentType: file.type || 'application/pdf'
     })
 
   if (uploadError) throw uploadError
@@ -474,7 +474,7 @@ export async function generarCodigoSeguimiento(params: {
       ...(params.recomendadosProds || []).map(p => p.nombre || '')
     ].map(n => n.toLowerCase())
 
-    const hasMatch = (keywords: string[]) => 
+    const hasMatch = (keywords: string[]) =>
       items.some(item => keywords.some(kw => item.includes(kw)))
 
     if (hasMatch(['crete', 'quimico', 'química', 'severe', 'mor'])) {
@@ -513,7 +513,7 @@ export async function generarCodigoSeguimiento(params: {
   let seqStr = ''
   try {
     const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
-    
+
     const { count, error } = await supabase
       .from('prospectos_diagnostico')
       .select('*', { count: 'exact', head: true })
