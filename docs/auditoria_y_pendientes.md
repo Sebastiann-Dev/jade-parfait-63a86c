@@ -1,6 +1,6 @@
 # Auditoría, Arquitectura de Estados y Pendientes de la Plataforma
 
-Este documento registra los hallazgos de la auditoría de julio de 2026, las definiciones del flujo de trabajo de ventas, las propuestas de infraestructura y la ruta tecnológica hacia un motor de recomendaciones dinámico por pesos.
+Este documento registra los hallazgos de la auditoría del primero de julio de 2026, las definiciones del flujo de trabajo de ventas, las propuestas de infraestructura y la ruta tecnológica hacia un motor de recomendaciones dinámico por pesos.
 
 ---
 
