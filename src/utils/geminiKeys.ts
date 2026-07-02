@@ -23,10 +23,10 @@ function decryptApiKey(encryptedStr: string): string {
 }
 
 const OBFUSCATED_KEYS = [
-  'Bj0tWj5ALh0OPyEWWy09BDYVAQw+I1UMHDoEPSBBPkQJCwoAXC1HCxgGBTJXICZRBTNPJyg=', // Clave Principal
-  'MCYrCwEAKw4fMjAiBAAbOBgiDzY2NREDBwIqOgcEMAQ/JzlEAD0VA0IoMTVXICZRBTNPJyg=', // Respaldo 1
-  'IDorCwgQOSAwJiArMUMTVQpMHRwONBMBLF1TIhsXUR5BBy1MOg0mFgMGODNXICZRBTNPJyg=', // Respaldo 2
-  'MAkHAxM2KkUuPigHKAM9MRw7QwI4CFAAWR8QLQMPRAcsGDYHEw8IAzMwPzJXICZRBTNPJyg=', // Respaldo 3
+  '', // Clave Principal
+  '', // Respaldo 1
+  '', // Respaldo 2
+  '', // Respaldo 3
 ]
 
 /** Array de claves Gemini desofuscadas y listas para usar */
