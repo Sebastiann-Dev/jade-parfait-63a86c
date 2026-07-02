@@ -543,3 +543,161 @@ export async function generarCodigoSeguimiento(params: {
   return `BUCA-${period}-${sup}-${necs}-${traf}-${zona}-${seqStr}-${cli}`
 }
 
+
+// ─── Cotizaciones — Persistencia Completa ─────────────────────────────────────
+
+export interface ItemCotizacion {
+  producto_id?: string;
+  producto_nombre_original: string;
+  cantidad: number;
+  unidad: string;
+  precio_unitario: number;
+  moneda: string;
+  total: number;
+  metros_cuadrados?: number;
+}
+
+export interface CotizacionCompleta {
+  id?: string;
+  cliente: string;
+  proyecto: string;
+  fecha: string;
+  area_total_m2?: number;
+  monto_total: number;
+  vendedor_email?: string;
+  prospecto_codigo?: string;
+  estado_cotizacion: string;
+  notas?: string;
+  tipo_cambio?: number;
+  es_minorista?: boolean;
+  descuento_porcentaje?: number;
+  estado_piso?: string;
+  pdf_storage_key?: string;
+  archivo_url?: string;
+  created_at?: string;
+  updated_at?: string;
+  items?: ItemCotizacion[];
+}
+
+/**
+ * Guarda una cotización completa (cabecera + líneas de producto) en Supabase.
+ * Retorna el ID UUID de la cotización creada.
+ */
+export async function saveCotizacionSupabase(
+  cotizacion: Omit<CotizacionCompleta, 'id' | 'created_at' | 'updated_at'>
+): Promise<string> {
+  try {
+    const { items, ...cabecera } = cotizacion
+
+    const { data, error } = await supabase
+      .from('cotizaciones_historicas')
+      .insert([{
+        cliente:              cabecera.cliente,
+        proyecto:             cabecera.proyecto,
+        fecha:                cabecera.fecha,
+        area_total_m2:        cabecera.area_total_m2 ?? null,
+        monto_total:          cabecera.monto_total,
+        vendedor_email:       cabecera.vendedor_email ?? null,
+        prospecto_codigo:     cabecera.prospecto_codigo ?? null,
+        estado_cotizacion:    cabecera.estado_cotizacion,
+        notas:                cabecera.notas ?? null,
+        tipo_cambio:          cabecera.tipo_cambio ?? null,
+        es_minorista:         cabecera.es_minorista ?? true,
+        descuento_porcentaje: cabecera.descuento_porcentaje ?? 0,
+        estado_piso:          cabecera.estado_piso ?? 'ninguno',
+        pdf_storage_key:      cabecera.pdf_storage_key ?? null,
+        archivo_url:          cabecera.archivo_url ?? null,
+      }])
+      .select('id')
+
+    if (error) throw error
+    const cotizacionId: string = data[0]?.id
+    if (!cotizacionId) throw new Error('No se recibió el ID de la cotización creada')
+
+    if (items && items.length > 0) {
+      const payload = items.map(item => ({
+        cotizacion_id:            cotizacionId,
+        producto_id:              item.producto_id ?? null,
+        producto_nombre_original: item.producto_nombre_original,
+        cantidad:                 item.cantidad,
+        unidad:                   item.unidad,
+        precio_unitario:          item.precio_unitario,
+        moneda:                   item.moneda,
+        total:                    item.total,
+        metros_cuadrados:         item.metros_cuadrados ?? null,
+      }))
+
+      const { error: itemsError } = await supabase
+        .from('items_cotizacion_historica')
+        .insert(payload)
+
+      if (itemsError) throw itemsError
+    }
+
+    return cotizacionId
+  } catch (error) {
+    console.error('Error guardando cotización:', error)
+    throw error
+  }
+}
+
+/**
+ * Obtiene todas las cotizaciones guardadas para listado en Admin.
+ */
+export async function fetchCotizacionesSupabase(): Promise<CotizacionCompleta[]> {
+  try {
+    const { data, error } = await supabase
+      .from('cotizaciones_historicas')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error fetching cotizaciones:', error)
+    return []
+  }
+}
+
+/**
+ * Obtiene los items de una cotización específica.
+ */
+export async function fetchItemsCotizacionSupabase(cotizacionId: string): Promise<ItemCotizacion[]> {
+  try {
+    const { data, error } = await supabase
+      .from('items_cotizacion_historica')
+      .select('*')
+      .eq('cotizacion_id', cotizacionId)
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error fetching items cotización:', error)
+    return []
+  }
+}
+
+/**
+ * Actualiza el estado de una cotización (ej: 'Enviada', 'Aceptada', 'Rechazada').
+ */
+export async function updateEstadoCotizacionSupabase(
+  id: string,
+  estado: string,
+  extras?: { pdf_storage_key?: string; archivo_url?: string; notas?: string }
+): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from('cotizaciones_historicas')
+      .update({
+        estado_cotizacion: estado,
+        updated_at: new Date().toISOString(),
+        ...extras
+      })
+      .eq('id', id)
+
+    if (error) throw error
+  } catch (error) {
+    console.error('Error actualizando estado de cotización:', error)
+    throw error
+  }
+}

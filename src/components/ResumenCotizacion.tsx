@@ -1,7 +1,8 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { type Producto } from '../data/productos'
 import { generarPDF } from '../utils/generarPDF'
 import { formatMXN, formatNum, type EstadoPiso } from '../utils/format'
+import { saveCotizacionSupabase, type ItemCotizacion } from '../supabase'
 
 export interface LineaProducto {
   id: string
@@ -27,6 +28,8 @@ interface ResumenCotizacionProps {
   estadoPiso: EstadoPiso
   eliminarLinea: (id: string) => void
   editarLinea: (linea: LineaProducto) => void
+  prospectoCodigo?: string   // vinculación opcional con diagnóstico
+  vendedorEmail?: string     // para identificar al vendedor
 }
 
 // formatMXN y formatNum importados desde '../utils/format'
@@ -43,11 +46,67 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
   descuentoPorcentaje,
   estadoPiso,
   eliminarLinea,
-  editarLinea
+  editarLinea,
+  prospectoCodigo,
+  vendedorEmail,
 }) => {
   const totalProyecto = useMemo(() => {
     return lineas.reduce((sum, l) => sum + l.totalMXN, 0)
   }, [lineas])
+
+  const [guardando, setGuardando] = useState(false)
+  const [mensajeGuardado, setMensajeGuardado] = useState<{ texto: string; tipo: 'ok' | 'error' } | null>(null)
+  const [cotizacionId, setCotizacionId] = useState<string | null>(null)
+
+  async function handleGuardarCotizacion() {
+    if (lineas.length === 0) return
+    setGuardando(true)
+    setMensajeGuardado(null)
+    try {
+      const areaTotal = lineas.reduce((sum, l) => sum + (l.metros || 0), 0)
+
+      // Convertir lineas a items del formato de Supabase
+      const items: ItemCotizacion[] = lineas.map(l => ({
+        producto_id:             (l.producto as any).id ?? undefined,
+        producto_nombre_original: l.producto.nombre,
+        cantidad:                l.cantidad,
+        unidad:                  l.producto.unidad,
+        precio_unitario:         l.precioUnitario,
+        moneda:                  l.producto.moneda || 'MXN',
+        total:                   l.totalMXN,
+        metros_cuadrados:        l.metros || undefined,
+      }))
+
+      // Parsear fecha del formato "DD de MMMM de YYYY" → "YYYY-MM-DD"
+      const hoy = new Date()
+      const fechaISO = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+
+      const id = await saveCotizacionSupabase({
+        cliente:              clienteNombre || 'Sin nombre',
+        proyecto:             proyectoNombre || 'Sin proyecto',
+        fecha:                fechaISO,
+        area_total_m2:        areaTotal > 0 ? areaTotal : undefined,
+        monto_total:          totalProyecto,
+        vendedor_email:       vendedorEmail || undefined,
+        prospecto_codigo:     prospectoCodigo || undefined,
+        estado_cotizacion:    'Borrador',
+        notas:                notasProyecto || undefined,
+        tipo_cambio:          tipoCambio,
+        es_minorista:         esMinorista,
+        descuento_porcentaje: descuentoPorcentaje,
+        estado_piso:          estadoPiso,
+        items,
+      })
+
+      setCotizacionId(id)
+      setMensajeGuardado({ texto: `Cotización guardada correctamente${prospectoCodigo ? ` · Vinculada a ${prospectoCodigo}` : ''}`, tipo: 'ok' })
+    } catch (err: any) {
+      console.error(err)
+      setMensajeGuardado({ texto: `Error al guardar: ${err.message || 'intenta de nuevo'}`, tipo: 'error' })
+    } finally {
+      setGuardando(false)
+    }
+  }
 
   if (lineas.length === 0) {
     return (
@@ -62,7 +121,7 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
     <div className="buca-card">
       <div className="flex items-center justify-between mb-4 print:hidden">
         <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Cotización del proyecto</h2>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap justify-end">
           <button
             onClick={() => setLineas([])}
             className="text-xs text-red-400 hover:text-red-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
@@ -76,7 +135,7 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
             🖨️ Imprimir
           </button>
           <button
-          onClick={() => generarPDF({
+            onClick={() => generarPDF({
               clienteNombre,
               proyectoNombre,
               notasProyecto,
@@ -88,12 +147,43 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
               lineas,
               totalProyecto
             })}
-            className="buca-btn-primary text-sm"
+            className="buca-btn-secondary text-sm"
           >
             📄 Exportar PDF
           </button>
+          <button
+            id="btn-guardar-cotizacion"
+            onClick={handleGuardarCotizacion}
+            disabled={guardando}
+            className="buca-btn-primary text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: cotizacionId ? '#16a34a' : undefined }}
+          >
+            {guardando ? '⏳ Guardando...' : cotizacionId ? '✅ Guardada' : '💾 Guardar Cotización'}
+          </button>
         </div>
       </div>
+
+      {/* Feedback de guardado */}
+      {mensajeGuardado && (
+        <div
+          className="mb-4 px-4 py-2 rounded-lg text-sm font-medium print:hidden"
+          style={{
+            background: mensajeGuardado.tipo === 'ok' ? '#f0fdf4' : '#fef2f2',
+            color: mensajeGuardado.tipo === 'ok' ? '#15803d' : '#dc2626',
+            border: `1px solid ${mensajeGuardado.tipo === 'ok' ? '#bbf7d0' : '#fecaca'}`
+          }}
+        >
+          {mensajeGuardado.texto}
+        </div>
+      )}
+
+      {/* Vinculación activa con prospecto */}
+      {prospectoCodigo && (
+        <div className="mb-3 px-3 py-1.5 rounded-lg text-xs font-medium print:hidden"
+          style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>
+          Vinculando con prospecto: <span className="font-mono font-bold">{prospectoCodigo}</span>
+        </div>
+      )}
 
       {/* Print header */}
       <div className="hidden print:flex items-center justify-between mb-4">
@@ -182,7 +272,7 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
                   )}
                 </td>
                 <td className="py-3 px-2 text-right text-gray-500 font-medium">
-                  {l.producto.densidadRecomendada 
+                  {l.producto.densidadRecomendada
                     ? `${l.producto.densidadRecomendada} (${l.producto.densidad_conversion || 1.0} kg/L)`
                     : `${l.producto.densidad_conversion || 1.0} kg/L`}
                 </td>

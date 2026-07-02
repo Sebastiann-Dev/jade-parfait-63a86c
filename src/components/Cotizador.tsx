@@ -79,6 +79,7 @@ export default function Cotizador() {
   const [clienteNombre, setClienteNombre] = useState('')
   const [proyectoNombre, setProyectoNombre] = useState('')
   const [notasProyecto, setNotasProyecto] = useState('')
+  const [prospectoCodigo, setProspectoCodigo] = useState<string | undefined>(undefined)
   const busquedaRef = useRef<HTMLDivElement>(null)
 
   const [estadoPiso, setEstadoPiso] = useState<EstadoPiso>('ninguno')
@@ -224,6 +225,12 @@ export default function Cotizador() {
       const paramProyecto = params.get('proyecto')
       if (paramProyecto) {
         setProyectoNombre(decodeURIComponent(paramProyecto))
+      }
+
+      // Código de seguimiento del prospecto para vincular la cotización al diagnóstico
+      const paramCodigo = params.get('codigo')
+      if (paramCodigo) {
+        setProspectoCodigo(decodeURIComponent(paramCodigo))
       }
 
       const targetSysId = params.get('sistemaId')
@@ -1184,6 +1191,7 @@ export default function Cotizador() {
           estadoPiso={estadoPiso}
           eliminarLinea={eliminarLinea}
           editarLinea={editarLinea}
+          prospectoCodigo={prospectoCodigo}
         />
 
         {/* Footer legend */}
