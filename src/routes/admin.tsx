@@ -20,7 +20,7 @@ import {
   type SistemaProducto
 } from '../supabase'
 import { Producto } from '../data/productos'
-import { GEMINI_KEYS, getMaskedKey } from '../utils/geminiKeys'
+import { callGeminiServer } from '../utils/geminiServer'
 import { LeadPortal } from '../components/LeadPortal'
 
 export const Route = createFileRoute('/admin')({
@@ -95,9 +95,6 @@ function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones:
   }
   return { numPartes: 2, presentaciones: [] }
 }
-
-// decryptApiKey, OBFUSCATED_KEYS, PRECONFIGURED_KEYS y getMaskedKey importados desde '../utils/geminiKeys'
-const PRECONFIGURED_KEYS = GEMINI_KEYS
 
 interface SearchableProductSelectProps {
   productos: any[]
@@ -258,7 +255,6 @@ function AdminPage() {
   const [cotizacionReferenciaFile, setCotizacionReferenciaFile] = useState<File | null>(null)
   const [useCotizacionReferencia, setUseCotizacionReferencia] = useState(false)
   const [activePdfPreview, setActivePdfPreview] = useState<'ficha_tecnica' | 'ficha_seguridad' | null>(null)
-  const [activeKeyIndex, setActiveKeyIndex] = useState<number>(0)
   const [isExtracting, setIsExtracting] = useState(false)
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | undefined>(undefined)
 
@@ -363,128 +359,60 @@ REGLA DE GUARDRAIL CRÍTICA: Queda estrictamente prohibido alucinar, inventar, d
 
 Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No incluyas bloques de código Markdown (como \`\`\`json), comentarios, ni texto introductorio.`
 
-      // Try API Keys sequentially to support automatic rate-limit/error fallback
-      let success = false
-      let lastErrorMsg = ''
-
-      for (let i = 0; i < GEMINI_KEYS.length; i++) {
-        const currentKeyIndex = (activeKeyIndex + i) % GEMINI_KEYS.length
-        const currentKey = GEMINI_KEYS[currentKeyIndex]
-
-        try {
-          let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${currentKey}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      inlineData: {
-                        data: base64Data,
-                        mimeType: 'application/pdf'
-                      }
-                    },
-                    {
-                      text: prompt
-                    }
-                  ]
+      const res = await callGeminiServer({
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: 'application/pdf'
                 }
-              ],
-              generationConfig: {
-                responseMimeType: "application/json"
-              }
-            })
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}))
-            const errorMsg = errorData.error?.message || `HTTP ${response.status}`
-            console.warn(`Error con gemini-3.1-flash-lite: ${errorMsg}. Intentando fallback a gemini-2.5-flash-lite...`)
-
-            response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${currentKey}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                contents: [
-                  {
-                    parts: [
-                      {
-                        inlineData: {
-                          data: base64Data,
-                          mimeType: 'application/pdf'
-                        }
-                      },
-                      {
-                        text: prompt
-                      }
-                    ]
-                  }
-                ],
-                generationConfig: {
-                  responseMimeType: "application/json"
-                }
-              })
-            })
-
-            if (!response.ok) {
-              const errorDataFallback = await response.json().catch(() => ({}))
-              throw new Error(errorDataFallback.error?.message || `HTTP ${response.status}`)
-            }
+              {
+                text: prompt
+              }
+            ]
           }
-
-          const resJson = await response.json()
-          const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text
-
-          if (!textResponse) {
-            throw new Error('La respuesta de Gemini no contiene texto.')
-          }
-
-          let extractedData: any
-          try {
-            extractedData = JSON.parse(textResponse.trim())
-          } catch (e) {
-            let cleanText = textResponse.trim()
-            if (cleanText.startsWith('```')) {
-              cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim()
-            }
-            extractedData = JSON.parse(cleanText)
-          }
-
-          // Update active index and form data on success
-          setActiveKeyIndex(currentKeyIndex)
-          setFormData((prev: any) => ({
-            ...prev,
-            nombre: extractedData.nombre || prev.nombre,
-            nota: extractedData.nota || prev.nota,
-            tieneRendimiento: extractedData.tieneRendimiento !== undefined ? extractedData.tieneRendimiento : prev.tieneRendimiento,
-            rendimiento: extractedData.rendimiento !== null && extractedData.rendimiento !== undefined ? String(extractedData.rendimiento) : prev.rendimiento,
-            espesorRecomendado: extractedData.espesorRecomendado || prev.espesorRecomendado,
-            manosRecomendadas: extractedData.manosRecomendadas || prev.manosRecomendadas,
-            densidadRecomendada: extractedData.densidadRecomendada || prev.densidadRecomendada,
-            densidad_conversion: typeof extractedData.densidad_conversion === 'number' ? extractedData.densidad_conversion : parseFloat(extractedData.densidad_conversion) || prev.densidad_conversion || 1.0,
-            pros: extractedData.pros || prev.pros,
-            cons: extractedData.cons || prev.cons,
-            cuidadoCon: extractedData.cuidadoCon || prev.cuidadoCon,
-            proporcionesMezcla: extractedData.proporcionesMezcla || prev.proporcionesMezcla,
-          }))
-
-          success = true
-          alert("🎉 Información extraída con éxito de la ficha técnica/seguridad. Los campos han sido rellenados en el formulario de la izquierda. Por favor, revísalos y guarda el producto.")
-          break // Exit key rotation loop
-        } catch (err: any) {
-          console.warn(`Error con la API Key en índice ${currentKeyIndex}:`, err.message)
-          lastErrorMsg = err.message || 'Error desconocido'
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
         }
+      });
+
+      const textResponse = res.text;
+      if (!textResponse) {
+        throw new Error('La respuesta de Gemini no contiene texto.');
       }
 
-      if (!success) {
-        throw new Error(`Todas las API Keys fallaron. Último error: ${lastErrorMsg}`)
+      let extractedData: any;
+      try {
+        extractedData = JSON.parse(textResponse.trim());
+      } catch (e) {
+        let cleanText = textResponse.trim();
+        if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
+        }
+        extractedData = JSON.parse(cleanText);
       }
+
+      setFormData((prev: any) => ({
+        ...prev,
+        nombre: extractedData.nombre || prev.nombre,
+        nota: extractedData.nota || prev.nota,
+        tieneRendimiento: extractedData.tieneRendimiento !== undefined ? extractedData.tieneRendimiento : prev.tieneRendimiento,
+        rendimiento: extractedData.rendimiento !== null && extractedData.rendimiento !== undefined ? String(extractedData.rendimiento) : prev.rendimiento,
+        espesorRecomendado: extractedData.espesorRecomendado || prev.espesorRecomendado,
+        manosRecomendadas: extractedData.manosRecomendadas || prev.manosRecomendadas,
+        densidadRecomendada: extractedData.densidadRecomendada || prev.densidadRecomendada,
+        densidad_conversion: typeof extractedData.densidad_conversion === 'number' ? extractedData.densidad_conversion : parseFloat(extractedData.densidad_conversion) || prev.densidad_conversion || 1.0,
+        pros: extractedData.pros || prev.pros,
+        cons: extractedData.cons || prev.cons,
+        cuidadoCon: extractedData.cuidadoCon || prev.cuidadoCon,
+        proporcionesMezcla: extractedData.proporcionesMezcla || prev.proporcionesMezcla,
+      }));
+
+      alert("🎉 Información extraída con éxito de la ficha técnica/seguridad. Los campos han sido rellenados en el formulario de la izquierda. Por favor, revísalos y guarda el producto.");
 
     } catch (error: any) {
       console.error(error)
@@ -651,110 +579,44 @@ REGLA DE GUARDRAIL CRÍTICA: Queda estrictamente prohibido alucinar, inventar, d
 
 Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No incluyas bloques de código Markdown (como \`\`\`json), comentarios, ni texto introductorio.`;
 
-    let success = false;
-    let lastErrorMsg = '';
-    let extractedData: any = null;
-    const errorsTrace: string[] = [];
+    try {
+      const res = await callGeminiServer({
+        contents: [
+          {
+            parts: [
+              {
+                inlineData: {
+                  data: base64Data,
+                  mimeType: 'application/pdf'
+                }
+              },
+              {
+                text: prompt
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      });
 
-    let currentKeyIndex = activeKeyIndex;
-    for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
-      const targetIndex = (currentKeyIndex + i) % PRECONFIGURED_KEYS.length;
-      const currentKey = PRECONFIGURED_KEYS[targetIndex];
+      const textResponse = res.text;
+      if (!textResponse) {
+        throw new Error('La respuesta de Gemini no contiene texto.');
+      }
 
       try {
-        let response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${currentKey}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    inlineData: {
-                      data: base64Data,
-                      mimeType: 'application/pdf'
-                    }
-                  },
-                  {
-                    text: prompt
-                  }
-                ]
-              }
-            ],
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          const errorMsg = errorData.error?.message || `HTTP ${response.status}`;
-          console.warn(`Error con gemini-3.1-flash-lite: ${errorMsg}. Intentando fallback a gemini-2.5-flash-lite...`);
-
-          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${currentKey}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [
-                    {
-                      inlineData: {
-                        data: base64Data,
-                        mimeType: 'application/pdf'
-                      }
-                    },
-                    {
-                      text: prompt
-                    }
-                  ]
-                }
-              ],
-              generationConfig: {
-                responseMimeType: "application/json"
-              }
-            })
-          });
-
-          if (!response.ok) {
-            const errorDataFallback = await response.json().catch(() => ({}));
-            throw new Error(errorDataFallback.error?.message || `HTTP ${response.status}`);
-          }
+        extractedData = JSON.parse(textResponse.trim());
+      } catch (e) {
+        let cleanText = textResponse.trim();
+        if (cleanText.startsWith('```')) {
+          cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
         }
-
-        const resJson = await response.json();
-        const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!textResponse) {
-          throw new Error('La respuesta de Gemini no contiene texto.');
-        }
-
-        try {
-          extractedData = JSON.parse(textResponse.trim());
-        } catch (e) {
-          let cleanText = textResponse.trim();
-          if (cleanText.startsWith('```')) {
-            cleanText = cleanText.replace(/^```json\s*/, '').replace(/```$/, '').trim();
-          }
-          extractedData = JSON.parse(cleanText);
-        }
-
-        setActiveKeyIndex(targetIndex);
-        success = true;
-        break;
-      } catch (err: any) {
-        const errMsg = err.message || 'Error desconocido';
-        errorsTrace.push(`Llave ${targetIndex + 1}: ❌ (${errMsg})`);
-        lastErrorMsg = errMsg;
+        extractedData = JSON.parse(cleanText);
       }
-    }
-
-    if (!success) {
-      throw new Error(`Todas las llaves fallaron. [Detalle: ${errorsTrace.join(' · ')}]`);
+    } catch (err: any) {
+      throw new Error(`Error en el servidor al analizar ficha: ${err.message || err}`);
     }
 
     return extractedData;
@@ -2420,10 +2282,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ fontFamily: 'monospace', fontSize: '12px', color: '#334155', background: '#e0f2fe', padding: '6px 10px', borderRadius: '6px', border: '1px solid #bae6fd' }}>
-                    {getMaskedKey(PRECONFIGURED_KEYS[activeKeyIndex] || '')}
+                    Servidor Seguro Cloudflare / Node
                   </div>
                   <div style={{ fontSize: '11px', color: '#047857', fontWeight: 600 }}>
-                    ✅ API Key integrada y protegida
+                    ✅ API Key integrada y protegida en el Servidor
                   </div>
                 </div>
               </div>

@@ -1,34 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { type Producto } from '../data/productos'
 import { fetchSistemaProductosSupabase, type Sistema } from '../supabase'
-import { GEMINI_KEYS } from '../utils/geminiKeys'
-
-// PRECONFIGURED_KEYS alias para compatibilidad con el resto del componente
-const PRECONFIGURED_KEYS = GEMINI_KEYS
-
-async function testKey(apiKey: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${apiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: "Responde unicamente con un punto: ." }] }]
-      })
-    });
-    if (!response.ok) {
-      const errJson = await response.json().catch(() => ({}));
-      return { success: false, error: errJson.error?.message || `HTTP ${response.status}` };
-    }
-    const resJson = await response.json();
-    const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-    const isOk = !!textResponse && textResponse.trim().includes('.');
-    return { success: isOk, error: isOk ? undefined : 'Respuesta no contiene un punto' };
-  } catch (e: any) {
-    return { success: false, error: e.message || 'Error de conexión' };
-  }
-}
+import { callGeminiServer } from '../utils/geminiServer'
 
 function parseMarkdown(text: string) {
   if (!text) return null;
@@ -271,57 +244,18 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
         }))
       ];
 
-      let activeKey: string | null = null;
-      let activeKeyIndex = chatActiveKeyIndex;
-      const checkTrace: string[] = [];
-
-      // Sistema por capas (pre-flight check): verificar con una consulta barata "." si la key está activa
-      for (let i = 0; i < PRECONFIGURED_KEYS.length; i++) {
-        const targetIndex = (chatActiveKeyIndex + i) % PRECONFIGURED_KEYS.length;
-        const currentKey = PRECONFIGURED_KEYS[targetIndex];
-
-        const testResult = await testKey(currentKey);
-        checkTrace.push(`Llave ${targetIndex + 1}: ${testResult.success ? '🟢' : `❌ (${testResult.error || 'Inactiva'})`}`);
-        
-        if (testResult.success) {
-          activeKey = currentKey;
-          activeKeyIndex = targetIndex;
-          break;
-        } else {
-          console.warn(`[Chat Fallback] Key ${targetIndex} reportó error o límite de cuota: ${testResult.error}`);
+      const res = await callGeminiServer({
+        contents: formattedContents,
+        systemInstruction: {
+          parts: [{ text: contextPrompt }]
         }
-      }
-
-      if (!activeKey) {
-        throw new Error(`Todas las API Keys de Gemini han alcanzado su límite de cuota (RPM/RPD). [Diagnóstico: ${checkTrace.join(' · ')}]. Por favor, intenta de nuevo en un minuto.`);
-      }
-
-      // Procedemos a hacer la consulta real usando la key que pasó la verificación
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent?key=${activeKey}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          contents: formattedContents,
-          systemInstruction: {
-            parts: [{ text: contextPrompt }]
-          }
-        })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
-      }
-
-      const resJson = await response.json();
-      const textResponse = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      const textResponse = res.text;
       if (!textResponse) {
         throw new Error('No se recibió respuesta en texto.');
       }
 
-      setChatActiveKeyIndex(activeKeyIndex);
       const horaResponse = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
       setChatHistorial(prev => [...prev, { remitente: 'ia', texto: textResponse, hora: horaResponse }]);
     } catch (err: any) {
@@ -329,7 +263,7 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
       const horaError = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
       setChatHistorial(prev => [...prev, { 
         remitente: 'ia', 
-        texto: `❌ Error al conectar con el Asistente Técnico: ${err.message || 'Todas las API Keys de Gemini han alcanzado su límite de cuota.'}`, 
+        texto: `❌ Error al conectar con el Asistente Técnico: ${err.message || 'Error de procesamiento en el servidor.'}`, 
         hora: horaError 
       }]);
     } finally {
