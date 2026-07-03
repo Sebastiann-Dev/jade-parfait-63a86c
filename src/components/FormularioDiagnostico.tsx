@@ -6,6 +6,8 @@ import {
   fetchSistemasSupabase,
   fetchSistemaProductosSupabase,
   saveProspectoSupabase,
+  updateProspectoSupabase,
+  fetchProspectoByCodigoSupabase,
   uploadDocToS3,
   generarCodigoSeguimiento,
   supabase,
@@ -55,6 +57,12 @@ export const FormularioDiagnostico: React.FC = () => {
   const [guardando, setGuardando] = useState(false)
   const [codigoGenerado, setCodigoGenerado] = useState<string>('')
   const [errorEnvio, setErrorEnvio] = useState<string>('')
+
+  // Resume & Completeness States
+  const [prospectoId, setProspectoId] = useState<string | null>(null)
+  const [mostrarModalIncompleto, setMostrarModalIncompleto] = useState(false)
+  const [preguntasFaltantes, setPreguntasFaltantes] = useState<string[]>([])
+  const [mostrarAlertaIncompleto, setMostrarAlertaIncompleto] = useState(false)
 
   // Contact Info
   const [clienteNombre, setClienteNombre] = useState('')
@@ -151,73 +159,295 @@ export const FormularioDiagnostico: React.FC = () => {
   const [recProductos, setRecProductos] = useState<Producto[]>([])
 
   useEffect(() => {
-    async function loadCatalog() {
+    async function loadCatalogAndResume() {
       try {
         setLoadingCatalog(true)
         const prods = await fetchProductosSupabase(false)
         const sys = await fetchSistemasSupabase()
         setProductos(prods)
         setSistemas(sys)
+
+        // Resume check
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('resume') || params.get('codigo');
+        if (code) {
+          const prospecto = await fetchProspectoByCodigoSupabase(code);
+          if (prospecto) {
+            setProspectoId(prospecto.id);
+            setClienteNombre(prospecto.cliente_nombre || '');
+            setProyectoNombre(prospecto.proyecto_nombre || '');
+            setTelefono(prospecto.telefono || '');
+            setEmail(prospecto.email || '');
+            setCodigoGenerado(prospecto.codigo_seguimiento);
+            
+            // Populate answers
+            const resp = prospecto.respuestas || {};
+            setSabeLoQueBusca(resp.sabe_lo_que_busca || '');
+            setSabeLoQueBuscaDetalle(resp.sabe_lo_que_busca_detalle || '');
+            
+            const parseOtro = (val: string) => {
+              if (val && val.startsWith("Otro: ")) {
+                return { main: "other", detail: val.substring(6) };
+              }
+              return { main: val || "", detail: "" };
+            };
+            
+            const qRec = parseOtro(resp.que_recubrir);
+            setQueRecubrir(qRec.main);
+            setQueRecubrirDetalle(qRec.detail);
+            
+            setUbicacion(resp.ubicacion || '');
+            setObjetivos(resp.objetivos || []);
+            setTraficosSeleccionados(resp.trafico || []);
+            setQuimicos(resp.quimicos || '');
+            
+            const estCon = parseOtro(resp.estado_concreto);
+            setEstadoConcreto(estCon.main);
+            setEstadoConcretoDetalle(estCon.detail);
+            
+            setRadiacionUv(resp.radiacion_uv || '');
+            setTipoRuedas(resp.tipo_ruedas || '');
+            setFrecuenciaQuimica(resp.frecuencia_quimica || '');
+            
+            if (resp.area_m2 !== undefined) {
+              setAreaM2(resp.area_m2 === 0 ? '' : resp.area_m2);
+            }
+            
+            setColorDeseado(resp.color_deseado || '');
+            setColorDetalle(resp.color_detalle || '');
+            setFotoSuperficieS3Key(resp.foto_superficie_s3key || '');
+            
+            if (resp.completado === false) {
+              setMostrarAlertaIncompleto(true);
+            }
+          }
+        } else {
+          // Check localStorage draft
+          const saved = localStorage.getItem('buca_wizard_draft');
+          if (saved) {
+            try {
+              const draft = JSON.parse(saved);
+              if (draft.clienteNombre) setClienteNombre(draft.clienteNombre);
+              if (draft.proyectoNombre) setProyectoNombre(draft.proyectoNombre);
+              if (draft.telefono) setTelefono(draft.telefono);
+              if (draft.email) setEmail(draft.email);
+              if (draft.sabeLoQueBusca) setSabeLoQueBusca(draft.sabeLoQueBusca);
+              if (draft.sabeLoQueBuscaDetalle) setSabeLoQueBuscaDetalle(draft.sabeLoQueBuscaDetalle);
+              if (draft.queRecubrir) setQueRecubrir(draft.queRecubrir);
+              if (draft.queRecubrirDetalle) setQueRecubrirDetalle(draft.queRecubrirDetalle);
+              if (draft.ubicacion) setUbicacion(draft.ubicacion);
+              if (draft.objetivos) setObjetivos(draft.objetivos);
+              if (draft.traficosSeleccionados) setTraficosSeleccionados(draft.traficosSeleccionados);
+              if (draft.quimicos) setQuimicos(draft.quimicos);
+              if (draft.estadoConcreto) setEstadoConcreto(draft.estadoConcreto);
+              if (draft.estadoConcretoDetalle) setEstadoConcretoDetalle(draft.estadoConcretoDetalle);
+              if (draft.radiacionUv) setRadiacionUv(draft.radiacionUv);
+              if (draft.tipoRuedas) setTipoRuedas(draft.tipoRuedas);
+              if (draft.frecuenciaQuimica) setFrecuenciaQuimica(draft.frecuenciaQuimica);
+              if (draft.areaM2 !== undefined) setAreaM2(draft.areaM2);
+              if (draft.colorDeseado) setColorDeseado(draft.colorDeseado);
+              if (draft.colorDetalle) setColorDetalle(draft.colorDetalle);
+              if (draft.fotoSuperficieS3Key) setFotoSuperficieS3Key(draft.fotoSuperficieS3Key);
+              if (draft.paso !== undefined) setPaso(draft.paso);
+            } catch (err) {
+              console.error("Error reading draft from localStorage:", err);
+            }
+          }
+        }
       } catch (e) {
-        console.error("Error loading catalog for diagnostic form:", e)
+        console.error("Error loading catalog or resuming:", e)
       } finally {
         setLoadingCatalog(false)
       }
     }
-    loadCatalog()
+    loadCatalogAndResume()
   }, [])
 
-  // Build the dynamic list of questions/steps
-  const obtenerPasosActivos = () => {
-    const pasos = [
-      { id: 'contacto', titulo: 'Información del Proyecto' },
-      { id: 'sabe_lo_que_quiere', titulo: '¿Ya sabes qué buscas?' }
-    ]
-
-    if (sabeLoQueBusca === 'si') {
-      // Fast-track: few questions for customer profile
-      pasos.push(
-        { id: 'area_m2', titulo: 'Dimensión de la Obra' },
-        { id: 'color', titulo: 'Color Solicitado' }
-      )
-    } else if (sabeLoQueBusca === 'no') {
-      // Detailed diagnostics
-      pasos.push(
-        { id: 'que_recubrir', titulo: '¿Qué deseas recubrir?' },
-        { id: 'ubicacion', titulo: '¿Dónde estará ubicado?' },
-        { id: 'objetivos', titulo: '¿Cuáles son tus objetivos?' },
-        { id: 'trafico', titulo: '¿Estará expuesto a tráfico?' },
-        { id: 'quimicos', titulo: '¿Contacto con químicos o aceites?' }
-      )
-
-      if (queRecubrir === 'concrete_floor' || queRecubrir === 'asphalt_concrete') {
-        pasos.push({ id: 'estado_concreto', titulo: 'Estado del Concreto' })
-      }
-
-      if (ubicacion === 'exterior' || ubicacion === 'both') {
-        pasos.push({ id: 'radiacion_uv', titulo: 'Exposición Solar (UV)' })
-      }
-
-      const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
-      if (esTraficoIntenso) {
-        pasos.push({ id: 'tipo_ruedas', titulo: 'Tipo de Tránsito y Ruedas' })
-      }
-
-      if (quimicos && quimicos !== 'no') {
-        pasos.push({ id: 'frecuencia_quimica', titulo: 'Frecuencia de Exposición Química' })
-      }
-
-      pasos.push(
-        { id: 'area_m2', titulo: 'Dimensión de la Obra' },
-        { id: 'color', titulo: 'Color Solicitado' }
-      )
+  useEffect(() => {
+    // Save draft if we are not on the success/result page (paso < totalPasos)
+    if (paso < totalPasos) {
+      const draft = {
+        clienteNombre,
+        proyectoNombre,
+        telefono,
+        email,
+        sabeLoQueBusca,
+        sabeLoQueBuscaDetalle,
+        queRecubrir,
+        queRecubrirDetalle,
+        ubicacion,
+        objetivos,
+        traficosSeleccionados,
+        quimicos,
+        estadoConcreto,
+        estadoConcretoDetalle,
+        radiacionUv,
+        tipoRuedas,
+        frecuenciaQuimica,
+        areaM2,
+        colorDeseado,
+        colorDetalle,
+        fotoSuperficieS3Key,
+        paso
+      };
+      localStorage.setItem('buca_wizard_draft', JSON.stringify(draft));
     }
+  }, [
+    clienteNombre,
+    proyectoNombre,
+    telefono,
+    email,
+    sabeLoQueBusca,
+    sabeLoQueBuscaDetalle,
+    queRecubrir,
+    queRecubrirDetalle,
+    ubicacion,
+    objetivos,
+    traficosSeleccionados,
+    quimicos,
+    estadoConcreto,
+    estadoConcretoDetalle,
+    radiacionUv,
+    tipoRuedas,
+    frecuenciaQuimica,
+    areaM2,
+    colorDeseado,
+    colorDetalle,
+    fotoSuperficieS3Key,
+    paso
+  ]);
 
-    return pasos
+  // Static list of all 13 questions/steps - grouped by related questions
+  const obtenerPasosActivos = () => {
+    return [
+      { id: 'contacto', titulo: 'Información del Proyecto' },
+      { id: 'sabe_lo_que_quiere', titulo: '¿Ya sabes qué buscas?' },
+      { id: 'que_recubrir', titulo: '¿Qué deseas recubrir?' },
+      { id: 'estado_concreto', titulo: 'Estado del Concreto' },
+      { id: 'ubicacion', titulo: '¿Dónde estará ubicado?' },
+      { id: 'radiacion_uv', titulo: 'Exposición Solar (UV)' },
+      { id: 'objetivos', titulo: '¿Cuáles son tus objetivos?' },
+      { id: 'trafico', titulo: '¿Estará expuesto a tráfico?' },
+      { id: 'tipo_ruedas', titulo: 'Tipo de Tránsito y Ruedas' },
+      { id: 'quimicos', titulo: '¿Contacto con químicos o aceites?' },
+      { id: 'frecuencia_quimica', titulo: 'Frecuencia de Exposición Química' },
+      { id: 'area_m2', titulo: 'Dimensión de la Obra' },
+      { id: 'color', titulo: 'Color Solicitado' }
+    ]
   }
 
   const pasosActivos = obtenerPasosActivos()
   const totalPasos = pasosActivos.length
+
+  const esPasoRequerido = (stepId: string) => {
+    if (stepId === 'contacto' || stepId === 'sabe_lo_que_quiere') return true
+    if (sabeLoQueBusca === 'si') {
+      return stepId === 'area_m2' || stepId === 'color'
+    }
+    if (sabeLoQueBusca === 'no') {
+      if (
+        stepId === 'que_recubrir' ||
+        stepId === 'ubicacion' ||
+        stepId === 'objetivos' ||
+        stepId === 'trafico' ||
+        stepId === 'quimicos' ||
+        stepId === 'area_m2' ||
+        stepId === 'color'
+      ) {
+        return true
+      }
+      if (stepId === 'estado_concreto') {
+        return queRecubrir === 'concrete_floor' || queRecubrir === 'asphalt_concrete'
+      }
+      if (stepId === 'radiacion_uv') {
+        return ubicacion === 'exterior' || ubicacion === 'both'
+      }
+      const esTraficoIntenso = traficosSeleccionados.includes('heavy') || traficosSeleccionados.includes('severe')
+      if (stepId === 'tipo_ruedas') {
+        return esTraficoIntenso
+      }
+      if (stepId === 'frecuencia_quimica') {
+        return !!quimicos && quimicos !== 'no'
+      }
+    }
+    return false
+  }
+
+  const estaRespondido = (stepId: string) => {
+    switch (stepId) {
+      case 'contacto':
+        return clienteNombre.trim().length >= 3 && proyectoNombre.trim().length >= 3
+      case 'sabe_lo_que_quiere':
+        return !!sabeLoQueBusca && (sabeLoQueBusca !== 'si' || !!sabeLoQueBuscaDetalle.trim())
+      case 'que_recubrir':
+        return !!queRecubrir && (queRecubrir !== 'other' || !!queRecubrirDetalle.trim())
+      case 'ubicacion':
+        return !!ubicacion
+      case 'objetivos':
+        return objetivos.length > 0
+      case 'trafico':
+        return traficosSeleccionados.length > 0
+      case 'quimicos':
+        return !!quimicos
+      case 'estado_concreto':
+        return !!estadoConcreto && (estadoConcreto !== 'other' || !!estadoConcretoDetalle.trim())
+      case 'radiacion_uv':
+        return !!radiacionUv
+      case 'tipo_ruedas':
+        return !!tipoRuedas
+      case 'frecuencia_quimica':
+        return !!frecuenciaQuimica
+      case 'area_m2':
+        return typeof areaM2 === 'number' && areaM2 > 0
+      case 'color':
+        return colorDeseado !== 'entonacion' || !!colorDetalle.trim()
+      default:
+        return false
+    }
+  }
+
+  const obtenerPasoSiguiente = (actual: number) => {
+    for (let i = actual + 1; i < totalPasos; i++) {
+      if (esPasoRequerido(pasosActivos[i].id)) {
+        return i
+      }
+    }
+    return totalPasos - 1
+  }
+
+  const obtenerPasoAnterior = (actual: number) => {
+    for (let i = actual - 1; i >= 0; i--) {
+      if (esPasoRequerido(pasosActivos[i].id)) {
+        return i
+      }
+    }
+    return 0
+  }
+
+  const obtenerPrimerPasoIncompleto = () => {
+    const req = [
+      'contacto',
+      'sabe_lo_que_quiere',
+      'que_recubrir',
+      'ubicacion',
+      'objetivos',
+      'trafico',
+      'quimicos',
+      'estado_concreto',
+      'radiacion_uv',
+      'tipo_ruedas',
+      'frecuencia_quimica',
+      'area_m2',
+      'color'
+    ]
+    for (const stepId of req) {
+      if (esPasoRequerido(stepId) && !estaRespondido(stepId)) {
+        const idx = pasosActivos.findIndex(p => p.id === stepId)
+        if (idx !== -1) return idx
+      }
+    }
+    return -1
+  }
 
   const handleFotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -237,113 +467,43 @@ export const FormularioDiagnostico: React.FC = () => {
   }
 
   const handleSiguiente = () => {
-    const pasoActual = pasosActivos[paso]
-    if (pasoActual.id === 'contacto') {
-      const cleanDigits = telefono.replace(/\D/g, '')
-      const isOnlyDigits = /^[0-9\s\-()+]*$/.test(telefono)
-      const esTelefonoValido = !telefono.trim() || (isOnlyDigits && cleanDigits.length === 10)
-      const esEmailValido = !email.trim() || (
-        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email.trim()) &&
-        !email.trim().toLowerCase().endsWith('@gmail.co') &&
-        !email.trim().toLowerCase().endsWith('@hotmail.co') &&
-        !email.trim().toLowerCase().endsWith('@outlook.co')
-      )
-
-      let hasError = false
-
-      // Validar Cliente Nombre
-      const nombreLimpio = clienteNombre.trim()
-      if (!nombreLimpio) {
-        setClienteNombreError('El nombre del cliente es obligatorio.')
-        hasError = true
-      } else if (nombreLimpio.length < 3) {
-        setClienteNombreError('El nombre del cliente debe tener al menos 3 caracteres.')
-        hasError = true
-      } else if (/^\d+$/.test(nombreLimpio)) {
-        setClienteNombreError('El nombre del cliente no puede consistir únicamente de números.')
-        hasError = true
-      } else if (contienePalabrasProhibidas(nombreLimpio)) {
-        setClienteNombreError('El nombre contiene palabras no permitidas o de prueba.')
-        hasError = true
-      } else if (esKeyboardMash(nombreLimpio)) {
-        setClienteNombreError('El nombre parece ser inválido o aleatorio.')
-        hasError = true
-      } else {
-        setClienteNombreError('')
-      }
-
-      // Validar Proyecto Nombre
-      const proyectoLimpio = proyectoNombre.trim()
-      if (!proyectoLimpio) {
-        setProyectoNombreError('El nombre del proyecto es obligatorio.')
-        hasError = true
-      } else if (proyectoLimpio.length < 3) {
-        setProyectoNombreError('El nombre del proyecto debe tener al menos 3 caracteres.')
-        hasError = true
-      } else if (/^\d+$/.test(proyectoLimpio)) {
-        setProyectoNombreError('El nombre del proyecto no puede consistir únicamente de números.')
-        hasError = true
-      } else if (contienePalabrasProhibidas(proyectoLimpio)) {
-        setProyectoNombreError('El nombre del proyecto contiene palabras no permitidas o de prueba.')
-        hasError = true
-      } else if (esKeyboardMash(proyectoLimpio)) {
-        setProyectoNombreError('El nombre del proyecto parece ser ficticio o aleatorio.')
-        hasError = true
-      } else {
-        setProyectoNombreError('')
-      }
-
-      if (telefono.trim() && !esTelefonoValido) {
-        setTelefonoError('El teléfono debe tener exactamente 10 dígitos.')
-        hasError = true
-      } else {
-        setTelefonoError('')
-      }
-
-      if (email.trim()) {
-        if (!esEmailValido) {
-          if (email.trim().toLowerCase().endsWith('@gmail.co') || email.trim().toLowerCase().endsWith('@hotmail.co') || email.trim().toLowerCase().endsWith('@outlook.co')) {
-            setEmailError(`¿Quisiste decir ${email.trim().split('@')[0]}@${email.trim().split('@')[1]}m?`)
-          } else {
-            setEmailError('Por favor ingresa un correo electrónico válido.')
-          }
-          hasError = true
-        } else if (esCorreoTemporal(email)) {
-          setEmailError('No se permiten correos de proveedores temporales o sospechosos de spam.')
-          hasError = true
-        } else {
-          setEmailError('')
-        }
-      } else {
-        setEmailError('')
-      }
-
-      setMostrarErroresContacto(true)
-
-      if (hasError) {
-        return // Block navigation
-      }
-    }
-
-    if (!validarPaso()) {
-      setIntentoAvanzar(true)
-      return // Block navigation
-    }
-
-    // Reset warnings on successful step transition
-    setIntentoAvanzar(false)
-
+    // Navigate freely to the next required step or try to finalize if we are on the last step
+    const siguiente = obtenerPasoSiguiente(paso)
     if (paso < totalPasos - 1) {
-      setPaso(paso + 1)
+      setPaso(siguiente)
     } else {
-      enviarDiagnostico()
+      handleFinalizarIntento()
     }
   }
 
   const handleAtras = () => {
-    setIntentoAvanzar(false)
+    const anterior = obtenerPasoAnterior(paso)
     if (paso > 0) {
-      setPaso(paso - 1)
+      setPaso(anterior)
+    }
+  }
+
+  const handleFinalizarIntento = () => {
+    // 1. Basic validation: Cliente & Proyecto are mandatory in Step 1
+    if (!clienteNombre.trim() || !proyectoNombre.trim()) {
+      alert("Por favor completa el Nombre del Cliente y el Nombre del Proyecto en el Paso 1 para poder guardar.");
+      setPaso(0);
+      return;
+    }
+    
+    // 2. Check missing required questions
+    const faltantes: string[] = [];
+    pasosActivos.forEach((p, idx) => {
+      if (esPasoRequerido(p.id) && !estaRespondido(p.id)) {
+        faltantes.push(`${idx + 1}. ${p.titulo}`);
+      }
+    });
+
+    if (faltantes.length > 0) {
+      setPreguntasFaltantes(faltantes);
+      setMostrarModalIncompleto(true);
+    } else {
+      enviarDiagnostico(true); // Save as complete
     }
   }
 
@@ -438,17 +598,17 @@ export const FormularioDiagnostico: React.FC = () => {
     return { systems: recomendadosSys, products: recomendadosProds }
   }
 
-  const enviarDiagnostico = async () => {
+  const enviarDiagnostico = async (esCompleto: boolean) => {
     setGuardando(true)
     setErrorEnvio('')
 
-    const { systems, products } = sabeLoQueBusca === 'si'
+    const { systems, products } = (sabeLoQueBusca === 'si' || !esCompleto)
       ? { systems: [], products: [] }
       : calcularRecomendaciones()
     setRecSistemas(systems)
     setRecProductos(products)
 
-    const codigo = await generarCodigoSeguimiento({
+    const codigo = codigoGenerado || await generarCodigoSeguimiento({
       clienteNombre,
       sabeLoQueBusca,
       queRecubrir,
@@ -478,7 +638,8 @@ export const FormularioDiagnostico: React.FC = () => {
       radiacion_uv: (sabeLoQueBusca === 'no' && (ubicacion === 'exterior' || ubicacion === 'both')) ? radiacionUv : undefined,
       tipo_ruedas: (sabeLoQueBusca === 'no' && esTraficoIntenso) ? tipoRuedas : undefined,
       frecuencia_quimica: (sabeLoQueBusca === 'no' && quimicos && quimicos !== 'no') ? frecuenciaQuimica : undefined,
-      foto_superficie_s3key: fotoSuperficieS3Key || undefined
+      foto_superficie_s3key: fotoSuperficieS3Key || undefined,
+      completado: esCompleto
     }
 
     const recomendaciones = [
@@ -487,19 +648,31 @@ export const FormularioDiagnostico: React.FC = () => {
     ]
 
     try {
-      await saveProspectoSupabase({
-        codigo_seguimiento: codigo,
-        cliente_nombre: clienteNombre,
-        proyecto_nombre: proyectoNombre,
-        telefono: telefono || null,
-        email: email || null,
-        respuestas,
-        recomendaciones,
-        campos_vendedor: {},
-        estado: 'Nuevo'
-      })
+      if (prospectoId) {
+        await updateProspectoSupabase(prospectoId, {
+          cliente_nombre: clienteNombre,
+          proyecto_nombre: proyectoNombre,
+          telefono: telefono || null,
+          email: email || null,
+          respuestas,
+          recomendaciones
+        })
+      } else {
+        await saveProspectoSupabase({
+          codigo_seguimiento: codigo,
+          cliente_nombre: clienteNombre,
+          proyecto_nombre: proyectoNombre,
+          telefono: telefono || null,
+          email: email || null,
+          respuestas,
+          recomendaciones,
+          campos_vendedor: {},
+          estado: 'Nuevo'
+        })
+      }
 
       setCodigoGenerado(codigo)
+      localStorage.removeItem('buca_wizard_draft')
       setPaso(totalPasos) // Move to result page
     } catch (e: any) {
       console.error("Error saving project scoping diagnostic:", e)
@@ -1499,7 +1672,10 @@ export const FormularioDiagnostico: React.FC = () => {
                   setRecProductos([])
                   setRecSistemas([])
                   setCodigoGenerado('')
+                  setProspectoId(null)
+                  setMostrarAlertaIncompleto(false)
                   setMostrarErroresContacto(false)
+                  localStorage.removeItem('buca_wizard_draft')
                 }}
                 className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-sm text-center"
               >
@@ -1600,7 +1776,7 @@ export const FormularioDiagnostico: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
       <header className="buca-header shadow-md">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="buca-logo-mark"><span>B</span></div>
             <div>
@@ -1614,45 +1790,106 @@ export const FormularioDiagnostico: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 max-w-3xl w-full mx-auto px-4 py-8 flex items-center justify-center">
+      <main className="flex-1 max-w-5xl w-full mx-auto px-4 py-8 flex items-center justify-center">
         {loadingCatalog ? (
           <div className="py-20 flex flex-col items-center justify-center space-y-4">
             <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-blue-600 font-semibold animate-pulse text-sm">Cargando base de datos técnica...</p>
           </div>
         ) : (
-          <div className="bg-white w-full rounded-3xl border border-gray-150 p-6 md:p-8 shadow-2xl flex flex-col space-y-6">
+          <div className="bg-white w-full rounded-3xl border border-gray-150 p-6 md:p-8 shadow-2xl flex flex-col space-y-5">
             
-            {/* Progress indicator */}
-            <div className="space-y-2 shrink-0">
-              <div className="flex justify-between items-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                <span>Paso {paso + 1} de {totalPasos}</span>
-                <span>{porcentajeProgreso}% Completado</span>
+            {/* Resume Alert Banner if applicable */}
+            {mostrarAlertaIncompleto && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-2xl text-xs font-semibold flex items-center justify-between animate-fade-in shrink-0">
+                <div className="flex items-center gap-2">
+                  <span>⚠️ Este diagnóstico técnico está guardado como <strong>INCOMPLETO</strong>.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const primerIncompleto = obtenerPrimerPasoIncompleto();
+                    if (primerIncompleto !== -1) {
+                      setPaso(primerIncompleto);
+                    }
+                    setMostrarAlertaIncompleto(false);
+                  }}
+                  className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[10px] transition shadow-sm cursor-pointer"
+                >
+                  Ir a la primera pregunta pendiente
+                </button>
               </div>
-              <div className="w-full h-1.5 bg-gray-150 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-blue-500 to-indigo-600 transition-all duration-300 rounded-full" 
-                  style={{ width: `${porcentajeProgreso}%` }} 
-                />
-              </div>
+            )}
+
+            {/* Static 13-question navigation numbered bar */}
+            <div className="flex flex-wrap items-center gap-2 py-3 bg-gray-50 border border-gray-150 px-4 rounded-2xl overflow-x-auto shrink-0 select-none">
+              {pasosActivos.map((p, idx) => {
+                const isCurrent = idx === paso;
+                const isAnswered = estaRespondido(p.id);
+                const isReq = esPasoRequerido(p.id);
+                
+                let btnStyle = "w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition duration-200 cursor-pointer ";
+                if (isCurrent) {
+                  btnStyle += "bg-blue-600 text-white ring-2 ring-blue-300 shadow-md";
+                } else if (isAnswered) {
+                  btnStyle += "bg-green-100 text-green-700 hover:bg-green-200 border border-green-200";
+                } else {
+                  btnStyle += "bg-gray-100 text-gray-400 hover:bg-gray-200 border border-gray-200";
+                }
+
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setPaso(idx);
+                      setIntentoAvanzar(false);
+                    }}
+                    className={btnStyle}
+                    title={`${idx + 1}. ${p.titulo} ${isReq ? '(Requerido)' : '(Opcional)'}`}
+                  >
+                    {idx + 1}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Error Message if submit fails */}
             {errorEnvio && (
-              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs font-semibold">
+              <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs font-semibold shrink-0">
                 Error: {errorEnvio}
               </div>
             )}
 
-            {/* Question title */}
-            <div className="space-y-1.5 shrink-0">
-              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                {pasoActual.titulo}
-              </h2>
+            {/* Question title & Buttons pegados en la esquina superior derecha */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-150 pb-3.5 shrink-0">
+              <div className="space-y-1">
+                <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                  Paso {paso + 1}: {pasoActual.titulo}
+                </h2>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleAtras}
+                  disabled={paso === 0 || guardando}
+                  className="px-4.5 py-2 border border-gray-250 hover:bg-gray-50 text-gray-600 font-semibold text-xs rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none"
+                >
+                  Atrás
+                </button>
+                <button
+                  type="button"
+                  onClick={paso === totalPasos - 1 ? handleFinalizarIntento : handleSiguiente}
+                  disabled={guardando}
+                  className="px-5.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none transform active:scale-95 animate-in fade-in"
+                >
+                  {guardando ? 'Guardando...' : (paso === totalPasos - 1 ? 'Finalizar' : 'Siguiente')}
+                </button>
+              </div>
             </div>
 
-            {/* Question UI body */}
-            <div className="flex-1 overflow-y-auto min-h-[180px] max-h-[420px] py-1">
+            {/* Question UI body with restricted height and custom scroll to avoid page scroll */}
+            <div className="flex-1 overflow-y-auto min-h-[160px] max-h-[340px] py-1 pr-1">
               {renderContenidoPaso()}
             </div>
 
@@ -1663,30 +1900,54 @@ export const FormularioDiagnostico: React.FC = () => {
               </div>
             ) : null}
 
-            {/* Navigation buttons */}
-            <div className="pt-4 border-t border-gray-150 flex justify-between gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={handleAtras}
-                disabled={paso === 0 || guardando}
-                className="px-5 py-3 border border-gray-255 hover:bg-gray-50 text-gray-600 font-semibold text-xs rounded-xl transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none"
-              >
-                Atrás
-              </button>
-
-              <button
-                type="button"
-                onClick={handleSiguiente}
-                disabled={guardando}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer select-none transform active:scale-95"
-              >
-                {guardando ? 'Guardando...' : (paso === totalPasos - 1 ? 'Finalizar y Ver Recomendación' : 'Siguiente')}
-              </button>
-            </div>
-
           </div>
         )}
       </main>
+
+      {/* Confirmation Modal for Incomplete Diagnostic */}
+      {mostrarModalIncompleto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-slate-100 animate-in fade-in zoom-in duration-200 text-left">
+            <div className="space-y-2">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                ⚠️ Diagnóstico Incompleto
+              </h3>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Aún no has respondido todas las preguntas requeridas para este tipo de proyecto. Si finalizas ahora, el diagnóstico se guardará como <strong>Incompleto</strong>.
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-3.5 space-y-2 max-h-40 overflow-y-auto">
+              <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Preguntas pendientes:</span>
+              <ul className="space-y-1 text-xs text-amber-800 font-medium list-disc list-inside">
+                {preguntasFaltantes.map((f, i) => (
+                  <li key={i}>{f}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setMostrarModalIncompleto(false)}
+                className="flex-1 py-2.5 border border-gray-250 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Volver a Responder
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setMostrarModalIncompleto(false);
+                  await enviarDiagnostico(false); // Save as incomplete
+                }}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition shadow-md cursor-pointer"
+              >
+                Guardar Incompleto
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

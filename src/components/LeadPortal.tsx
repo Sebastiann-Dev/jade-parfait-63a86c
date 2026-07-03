@@ -34,6 +34,7 @@ export const LeadPortal: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [filtroEstado, setFiltroEstado] = useState('Todos')
+  const [filtroCompletado, setFiltroCompletado] = useState('Todos')
   const [prospectoSeleccionado, setProspectoSeleccionado] = useState<Prospecto | null>(null)
   
   // Editable fields for vendor details
@@ -258,8 +259,51 @@ export const LeadPortal: React.FC = () => {
       p.codigo_seguimiento.toLowerCase().includes(busqueda.toLowerCase())
     
     const cumpleEstado = filtroEstado === 'Todos' || p.estado === filtroEstado
-    return cumpleBusqueda && cumpleEstado
+
+    const esComp = p.respuestas?.completado !== false
+    const cumpleCompletado = filtroCompletado === 'Todos' ||
+      (filtroCompletado === 'Completo' && esComp) ||
+      (filtroCompletado === 'Incompleto' && !esComp)
+
+    return cumpleBusqueda && cumpleEstado && cumpleCompletado
   })
+
+  const obtenerPreguntasFaltantesLead = (p: Prospecto) => {
+    const resp = p.respuestas || {};
+    const sabeLoQueBusca = resp.sabe_lo_que_busca || '';
+    const queRecubrir = resp.que_recubrir || '';
+    const ubicacion = resp.ubicacion || '';
+    const objetivos = resp.objetivos || [];
+    const trafico = resp.trafico || [];
+    const quimicos = resp.quimicos || '';
+    const estadoConcreto = resp.estado_concreto || '';
+    const areaM2 = resp.area_m2 || '';
+    const colorDeseado = resp.color_deseado || '';
+    const colorDetalle = resp.color_detalle || '';
+    const radiacionUv = resp.radiacion_uv || '';
+    const tipoRuedas = resp.tipo_ruedas || '';
+    const frecuenciaQuimica = resp.frecuencia_quimica || '';
+
+    const steps = [
+      { id: 'contacto', titulo: 'Información del Proyecto', check: () => p.cliente_nombre.trim().length >= 3 && p.proyecto_nombre.trim().length >= 3, req: true },
+      { id: 'sabe_lo_que_quiere', titulo: '¿Ya sabes qué buscas?', check: () => !!sabeLoQueBusca, req: true },
+      { id: 'que_recubrir', titulo: '¿Qué deseas recubrir?', check: () => !!queRecubrir, req: sabeLoQueBusca === 'no' },
+      { id: 'ubicacion', titulo: '¿Dónde estará ubicado?', check: () => !!ubicacion, req: sabeLoQueBusca === 'no' },
+      { id: 'objetivos', titulo: '¿Cuáles son tus objetivos?', check: () => objetivos.length > 0, req: sabeLoQueBusca === 'no' },
+      { id: 'trafico', titulo: '¿Estará expuesto a tráfico?', check: () => trafico.length > 0, req: sabeLoQueBusca === 'no' },
+      { id: 'quimicos', titulo: '¿Contacto con químicos o aceites?', check: () => !!quimicos, req: sabeLoQueBusca === 'no' },
+      { id: 'estado_concreto', titulo: 'Estado del Concreto', check: () => !!estadoConcreto, req: sabeLoQueBusca === 'no' && (queRecubrir === 'concrete_floor' || queRecubrir === 'asphalt_concrete') },
+      { id: 'radiacion_uv', titulo: 'Exposición Solar (UV)', check: () => !!radiacionUv, req: sabeLoQueBusca === 'no' && (ubicacion === 'exterior' || ubicacion === 'both') },
+      { id: 'tipo_ruedas', titulo: 'Tipo de Tránsito y Ruedas', check: () => !!tipoRuedas, req: sabeLoQueBusca === 'no' && (trafico.includes('heavy') || trafico.includes('severe')) },
+      { id: 'frecuencia_quimica', titulo: 'Frecuencia de Exposición Química', check: () => !!frecuenciaQuimica, req: sabeLoQueBusca === 'no' && !!quimicos && quimicos !== 'no' },
+      { id: 'area_m2', titulo: 'Dimensión de la Obra', check: () => typeof areaM2 === 'number' && areaM2 > 0, req: true },
+      { id: 'color', titulo: 'Color Solicitado', check: () => colorDeseado !== 'entonacion' || !!colorDetalle.trim(), req: true },
+    ];
+
+    return steps
+      .filter(s => s.req && !s.check())
+      .map(s => s.titulo);
+  };
 
   // Format date helper
   const formatearFecha = (fechaStr?: string) => {
@@ -303,6 +347,16 @@ export const LeadPortal: React.FC = () => {
               <option value="Cotizado">Cotizado</option>
               <option value="Cerrado Ganado">Cerrado Ganado</option>
               <option value="Cerrado Perdido">Cerrado Perdido</option>
+            </select>
+
+            <select
+              className="text-xs px-3 py-2 border border-gray-200 rounded-xl bg-white outline-none focus:border-blue-400 font-medium cursor-pointer"
+              value={filtroCompletado}
+              onChange={e => setFiltroCompletado(e.target.value)}
+            >
+              <option value="Todos">Todos (Completo/Incompleto)</option>
+              <option value="Completo">Completos</option>
+              <option value="Incompleto">Incompletos</option>
             </select>
 
             <button
@@ -375,12 +429,21 @@ export const LeadPortal: React.FC = () => {
                         <td className="px-4 py-3.5 text-gray-500 whitespace-nowrap">
                           {formatearFecha(p.created_at)}
                         </td>
-                        <td className="px-4 py-3.5">
-                          <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider ${
-                            badgeStyles[p.estado] || 'bg-gray-100 text-gray-600'
-                          }`}>
-                            {p.estado}
-                          </span>
+                        <td className="px-4 py-3.5 whitespace-nowrap">
+                          <div className="flex flex-col gap-1">
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider text-center ${
+                              badgeStyles[p.estado] || 'bg-gray-100 text-gray-600'
+                            }`}>
+                              {p.estado}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase tracking-wider text-center ${
+                              p.respuestas?.completado !== false
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {p.respuestas?.completado !== false ? 'Completo' : 'Incompleto'}
+                            </span>
+                          </div>
                         </td>
                         <td className="px-4 py-3.5 text-right">
                           <button
@@ -425,6 +488,64 @@ export const LeadPortal: React.FC = () => {
             {prospectoSeleccionado.email && <p><strong className="text-gray-700">Email:</strong> <a href={`mailto:${prospectoSeleccionado.email}`} className="text-blue-600 hover:underline">{prospectoSeleccionado.email}</a></p>}
             <p><strong className="text-gray-700">Registrado:</strong> {formatearFecha(prospectoSeleccionado.created_at)}</p>
           </div>
+
+          {prospectoSeleccionado.respuestas?.completado === false && (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl text-xs space-y-3 animate-fade-in">
+              <div className="flex items-center gap-1.5 font-bold">
+                <span>⚠️ Diagnóstico Técnico Incompleto</span>
+              </div>
+              
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">Preguntas pendientes:</span>
+                <ul className="list-disc list-inside space-y-0.5 text-amber-900 font-medium">
+                  {obtenerPreguntasFaltantesLead(prospectoSeleccionado).map((q, idx) => (
+                    <li key={idx}>{q}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="pt-2 flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/diagnostico?resume=${prospectoSeleccionado.codigo_seguimiento}`
+                      navigator.clipboard.writeText(url)
+                        .then(() => alert('¡Enlace de reanudación copiado!'))
+                        .catch(() => alert('No se pudo copiar el enlace'))
+                    }}
+                    className="flex-1 py-2 bg-white hover:bg-gray-150 border border-amber-300 text-amber-700 font-bold rounded-xl transition shadow-sm cursor-pointer text-center text-[10px]"
+                  >
+                    🔗 Enlace Recordatorio
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/diagnostico?resume=${prospectoSeleccionado.codigo_seguimiento}`
+                      window.open(url, '_blank')
+                    }}
+                    className="flex-1 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl transition shadow-sm cursor-pointer text-center text-[10px]"
+                  >
+                    Ir a Completar
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/diagnostico?resume=${prospectoSeleccionado.codigo_seguimiento}`
+                    const message = `Hola ${prospectoSeleccionado.cliente_nombre}, notamos que no terminaste de contestar el diagnóstico técnico para tu proyecto '${prospectoSeleccionado.proyecto_nombre}'. Puedes continuarlo y completarlo aquí: ${url}`
+                    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
+                  }}
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition shadow-sm cursor-pointer text-center text-[10px] flex items-center justify-center gap-1.5"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="bi bi-whatsapp" viewBox="0 0 16 16">
+                    <path d="M13.601 2.326A7.85 7.85 0 0 0 8 0a7.86 7.86 0 0 0-7.864 7.867 7.83 7.83 0 0 0 1.017 3.891L0 16l4.37-1.142A7.8 7.8 0 0 0 8 15.76c4.329 0 7.86-3.531 7.86-7.863a7.8 7.8 0 0 0-2.259-5.61m-2.11 8.877c-.19-.097-1.128-.556-1.303-.62-.176-.065-.303-.097-.432.096-.128.192-.497.62-.609.749-.112.128-.224.145-.415.048-.19-.097-.8-.295-1.523-.94-1.562-1.393-2.015-1.92-2.127-2.112-.112-.19-.012-.293.084-.39.087-.087.193-.225.29-.338.096-.113.128-.192.193-.322.065-.13.033-.243-.016-.34-.049-.097-.432-1.04-.593-1.428-.156-.381-.312-.33-.432-.336-.112-.006-.24-.006-.368-.006-.128 0-.34.048-.518.242-.178.193-.68.664-.68 1.62s.699 1.879.797 2.01c.097.13 1.37 2.1 3.32 2.946.464.2.823.32 1.107.41.467.149.893.128 1.228.077.373-.057 1.129-.462 1.288-.909.16-.447.16-.83.112-.91-.048-.08-.176-.128-.368-.225"/>
+                  </svg>
+                  <span>Recordar por WhatsApp</span>
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Diagnostic Tab */}
           <div className="space-y-3">
