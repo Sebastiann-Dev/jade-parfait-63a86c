@@ -295,7 +295,6 @@ REGLAS DE TONO:
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-blue-600 animate-pulse">
-        <div className="text-4xl mb-3">📊</div>
         <p className="text-sm font-semibold">Cargando métricas y análisis de cotizaciones...</p>
       </div>
     )
@@ -304,7 +303,7 @@ REGLAS DE TONO:
   if (errorMsg) {
     return (
       <div className="p-6 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-center space-y-3">
-        <p className="text-sm font-bold">⚠️ Error de conexión con Supabase</p>
+        <p className="text-sm font-bold">Error de conexión con Supabase</p>
         <p className="text-xs text-red-500">{errorMsg}</p>
         <button onClick={loadData} className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition">
           Reintentar Cargar
@@ -360,7 +359,7 @@ REGLAS DE TONO:
           {/* VENDORS TABLE */}
           <div className="bg-white rounded-3xl border border-gray-150 p-5 shadow-sm">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-              <span>👤</span> Desempeño Comercial por Asesor
+              Desempeño Comercial por Asesor
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
@@ -404,7 +403,7 @@ REGLAS DE TONO:
           {/* TOP PRODUCTS DEMAND */}
           <div className="bg-white rounded-3xl border border-gray-150 p-5 shadow-sm">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-              <span>📦</span> Demanda de Productos (Top de Rotación en Cotizaciones)
+              Demanda de Productos (Top de Rotación en Cotizaciones)
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
@@ -455,7 +454,7 @@ REGLAS DE TONO:
                 <h3 className="text-xs font-bold text-indigo-300 uppercase tracking-widest">IA Executive Analyst</h3>
                 <h4 className="text-sm font-bold text-white mt-1 leading-tight">Reporte Estratégico BUCA</h4>
               </div>
-              <span className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-lg font-bold">🤖</span>
+              <span className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-sm font-bold">AI</span>
             </div>
 
             <p className="text-[11px] text-slate-300 leading-relaxed">
@@ -467,7 +466,7 @@ REGLAS DE TONO:
               disabled={generandoReporte || cotizaciones.length === 0}
               className="w-full py-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold text-xs rounded-2xl transition disabled:opacity-40 disabled:cursor-not-allowed shadow-md cursor-pointer select-none"
             >
-              {generandoReporte ? "⏳ Analizando con Gemini..." : "✨ Generar Reporte con IA"}
+              {generandoReporte ? "Analizando con Gemini..." : "Generar Reporte con IA"}
             </button>
 
             {reporteIA && (
@@ -482,7 +481,7 @@ REGLAS DE TONO:
                     }}
                     className="text-[10px] text-slate-400 hover:text-white transition font-semibold"
                   >
-                    📋 Copiar texto
+                    Copiar texto
                   </button>
                 </div>
                 <div className="text-[11px] text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
@@ -495,7 +494,7 @@ REGLAS DE TONO:
           {/* FLOOR CONDITIONS METRICS */}
           <div className="bg-white rounded-3xl border border-gray-150 p-5 shadow-sm">
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-              <span>📐</span> Incidencia de Mermas por Estado del Piso
+              Incidencia de Mermas por Estado del Piso
             </h3>
             <div className="space-y-3">
               {metricasEstadoPiso.map(p => (
@@ -517,7 +516,7 @@ REGLAS DE TONO:
       {/* 3. DISCREPANCIES NOTES FEED */}
       <div className="bg-white rounded-3xl border border-gray-150 p-5 shadow-sm">
         <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
-          <span>🔍</span> Análisis de Discrepancias y Ajustes de Costo Recientes
+          Análisis de Discrepancias y Ajustes de Costo Recientes
         </h3>
         <div className="divide-y divide-gray-50">
           {discrepanciasNotas.map(n => (
