@@ -467,7 +467,19 @@ export const FormularioDiagnostico: React.FC = () => {
   }
 
   const handleSiguiente = () => {
-    // Navigate freely to the next required step or try to finalize if we are on the last step
+    const pasoActual = pasosActivos[paso]
+    if (pasoActual.id === 'contacto') {
+      setMostrarErroresContacto(true)
+    }
+
+    if (!validarPaso()) {
+      setIntentoAvanzar(true)
+      return // Block navigation
+    }
+
+    setIntentoAvanzar(false)
+
+    // Navigate to the next required step or try to finalize if we are on the last step
     const siguiente = obtenerPasoSiguiente(paso)
     if (paso < totalPasos - 1) {
       setPaso(siguiente)
