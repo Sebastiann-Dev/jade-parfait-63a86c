@@ -159,7 +159,8 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
               descuentoPorcentaje,
               estadoPiso,
               lineas,
-              totalProyecto
+              totalProyecto,
+              vendedorEmail
             })}
             className="buca-btn-secondary text-sm"
           >

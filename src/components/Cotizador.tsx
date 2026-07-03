@@ -7,6 +7,15 @@ import { ChatAsistente } from './ChatAsistente'
 import { ResumenCotizacion, type LineaProducto } from './ResumenCotizacion'
 import { formatMXN, formatNum, getMermaFactor, type EstadoPiso } from '../utils/format'
 
+export const obtenerNombreVendedor = (email?: string): string => {
+  if (!email) return ''
+  if (email === 'sebastian.grajales.rmzz@gmail.com') return 'Sebastian Grajales'
+  if (email === 'ventas1@bucamx.com') return 'Ventas BUCA 1'
+  if (email === 'ventas2@bucamx.com') return 'Ventas BUCA 2'
+  if (email === 'oficina@bucamx.com') return 'Oficina'
+  return email
+}
+
 function calcularLinea(
   producto: Producto,
   metros: number,
@@ -546,13 +555,18 @@ export default function Cotizador() {
               />
             </div>
             <div>
-              <label className="buca-label">Cotizado por (Email Asesor/Vendedor)</label>
-              <input
-                className="buca-input"
-                placeholder="ejemplo@buca.mx"
+              <label className="buca-label">Cotizado por (Asesor/Vendedor)</label>
+              <select
+                className="buca-input text-sm"
                 value={vendedorEmail}
                 onChange={e => setVendedorEmail(e.target.value)}
-              />
+              >
+                <option value="">-- Seleccionar Asesor --</option>
+                <option value="sebastian.grajales.rmzz@gmail.com">Sebastian Grajales</option>
+                <option value="ventas1@bucamx.com">Ventas BUCA 1</option>
+                <option value="ventas2@bucamx.com">Ventas BUCA 2</option>
+                <option value="oficina@bucamx.com">Oficina</option>
+              </select>
             </div>
             {/* Notas del proyecto */}
             <div className="sm:col-span-3">
@@ -643,7 +657,7 @@ export default function Cotizador() {
         <div className="hidden print:block border-b pb-3 mb-4">
           {clienteNombre && <p><span className="font-semibold">Cliente:</span> {clienteNombre}</p>}
           {proyectoNombre && <p><span className="font-semibold">Proyecto:</span> {proyectoNombre}</p>}
-          {vendedorEmail && <p><span className="font-semibold">Cotizado por:</span> {vendedorEmail}</p>}
+          {vendedorEmail && <p><span className="font-semibold">Cotizado por:</span> {obtenerNombreVendedor(vendedorEmail)}</p>}
           {notasProyecto && <p><span className="font-semibold">Notas:</span> {notasProyecto}</p>}
           <p><span className="font-semibold">Tipo de cliente:</span> {esMinorista ? 'Minorista' : `Mayorista (−${descuentoPorcentaje}%)`}</p>
           <p><span className="font-semibold">Estado del piso:</span> {estadoPiso === 'liso' ? 'Liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Rugoso (+15% merma)' : estadoPiso === 'estandar' ? 'Estándar (+10% merma)' : 'Sin merma (0%)'}</p>

@@ -12,15 +12,25 @@ interface CotizacionData {
   estadoPiso: EstadoPiso
   lineas: LineaProducto[]
   totalProyecto: number
+  vendedorEmail?: string
 }
 
 // formatMXN y formatNum importados desde './format'
+
+export const obtenerNombreVendedor = (email?: string): string => {
+  if (!email) return ''
+  if (email === 'sebastian.grajales.rmzz@gmail.com') return 'Sebastian Grajales'
+  if (email === 'ventas1@bucamx.com') return 'Ventas BUCA 1'
+  if (email === 'ventas2@bucamx.com') return 'Ventas BUCA 2'
+  if (email === 'oficina@bucamx.com') return 'Oficina'
+  return email
+}
 
 export function generarPDF(data: CotizacionData) {
   const {
     clienteNombre, proyectoNombre, notasProyecto, fechaHoy,
     tipoCambio, esMinorista, descuentoPorcentaje, estadoPiso,
-    lineas, totalProyecto
+    lineas, totalProyecto, vendedorEmail
   } = data
 
   const mermaLabel = estadoPiso === 'liso' ? 'Piso liso (+5% merma)'
@@ -185,6 +195,7 @@ export function generarPDF(data: CotizacionData) {
       <h2>COTIZACIÓN</h2>
       <p>Fecha: ${fechaHoy}</p>
       <p>Tipo de cambio: $${tipoCambio} MXN/USD</p>
+      ${vendedorEmail ? `<p>Cotizado por: ${obtenerNombreVendedor(vendedorEmail)}</p>` : ''}
     </div>
   </div>
 
