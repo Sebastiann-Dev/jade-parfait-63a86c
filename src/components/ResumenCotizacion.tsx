@@ -66,16 +66,30 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
       const areaTotal = lineas.reduce((sum, l) => sum + (l.metros || 0), 0)
 
       // Convertir lineas a items del formato de Supabase
-      const items: ItemCotizacion[] = lineas.map(l => ({
-        producto_id:             (l.producto as any).id ?? undefined,
-        producto_nombre_original: l.producto.nombre,
-        cantidad:                l.cantidad,
-        unidad:                  l.producto.unidad,
-        precio_unitario:         l.precioUnitario,
-        moneda:                  l.producto.moneda || 'MXN',
-        total:                   l.totalMXN,
-        metros_cuadrados:        l.metros || undefined,
-      }))
+      const items: ItemCotizacion[] = lineas.map(l => {
+        const dens = l.producto.densidad_conversion || 1.0
+        const uni = l.producto.unidad.toLowerCase()
+        let conversionStr = ''
+        if (dens > 0 && dens !== 1.0) {
+          if (uni === 'kg') {
+            conversionStr = ` | ${(l.cantidad / dens).toFixed(1)} L`
+          } else if (uni === 'l' || uni === 'litro' || uni === 'litros') {
+            conversionStr = ` | ${(l.cantidad * dens).toFixed(1)} kg`
+          }
+        }
+        const espesorStr = l.espesor ? ` | Espesor: ${l.espesor} mm` : ''
+
+        return {
+          producto_id:             (l.producto as any).id ?? undefined,
+          producto_nombre_original: `${l.producto.nombre}${espesorStr}${conversionStr}`,
+          cantidad:                l.cantidad,
+          unidad:                  l.producto.unidad,
+          precio_unitario:         l.precioUnitario,
+          moneda:                  l.producto.moneda || 'MXN',
+          total:                   l.totalMXN,
+          metros_cuadrados:        l.metros || undefined,
+        }
+      })
 
       // Parsear fecha del formato "DD de MMMM de YYYY" → "YYYY-MM-DD"
       const hoy = new Date()
@@ -220,6 +234,11 @@ export const ResumenCotizacion: React.FC<ResumenCotizacionProps> = ({
                     )}
                   </div>
                   <div className="text-xs text-gray-400">{l.producto.nota}</div>
+                  {l.espesor && (
+                    <div className="text-xs font-semibold text-blue-600 mt-0.5">
+                      📐 Espesor: {l.espesor} mm
+                    </div>
+                  )}
                   {l.producto.tieneRendimiento && l.metros > 0 && (
                     <div className="text-xs text-blue-400 mt-0.5">
                       {formatNum(l.metros)} m² (Rendimiento: {(() => {

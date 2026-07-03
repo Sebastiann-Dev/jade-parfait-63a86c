@@ -80,7 +80,17 @@ export default function Cotizador() {
   const [proyectoNombre, setProyectoNombre] = useState('')
   const [notasProyecto, setNotasProyecto] = useState('')
   const [prospectoCodigo, setProspectoCodigo] = useState<string | undefined>(undefined)
+  const [vendedorEmail, setVendedorEmail] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('buca_cotizador_vendedor_email') || ''
+    }
+    return ''
+  })
   const busquedaRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    localStorage.setItem('buca_cotizador_vendedor_email', vendedorEmail)
+  }, [vendedorEmail])
 
   const [estadoPiso, setEstadoPiso] = useState<EstadoPiso>('ninguno')
   const [espesorMm, setEspesorMm] = useState<string>('')
@@ -346,7 +356,8 @@ export default function Cotizador() {
       precioUnitario: preview.precioUnitario,
       totalMXN: preview.totalMXN,
       esMinorista,
-      presentacion: presentacionSeleccionada
+      presentacion: presentacionSeleccionada,
+      espesor: espesorMm ? parseFloat(espesorMm) : undefined
     }
     setLineas(prev => [...prev, linea])
     setMetros('')
@@ -415,10 +426,14 @@ export default function Cotizador() {
     seleccionarProducto(linea.producto)
     if (linea.producto.tieneRendimiento) {
       setMetros(String(linea.metros))
-      const dens = linea.producto.densidad_conversion || parseFloat(linea.producto.densidadRecomendada || '0')
-      if (linea.producto.rendimiento && dens > 0) {
-        const calcEspesor = linea.producto.cantRef / (linea.producto.rendimiento * dens)
-        setEspesorMm(String(Math.round(calcEspesor * 10) / 10))
+      if (linea.espesor) {
+        setEspesorMm(String(linea.espesor))
+      } else {
+        const dens = linea.producto.densidad_conversion || parseFloat(linea.producto.densidadRecomendada || '0')
+        if (linea.producto.rendimiento && dens > 0) {
+          const calcEspesor = linea.producto.cantRef / (linea.producto.rendimiento * dens)
+          setEspesorMm(String(Math.round(calcEspesor * 10) / 10))
+        }
       }
     } else {
       setCantidadManual(String(linea.cantidad))
@@ -511,7 +526,7 @@ export default function Cotizador() {
         <div className="buca-card print:hidden">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Configuración de cotización</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {/* Cliente / Proyecto */}
+            {/* Cliente / Proyecto / Vendedor */}
             <div>
               <label className="buca-label">Cliente</label>
               <input
@@ -528,6 +543,15 @@ export default function Cotizador() {
                 placeholder="Descripción del proyecto"
                 value={proyectoNombre}
                 onChange={e => setProyectoNombre(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="buca-label">Cotizado por (Email Asesor/Vendedor)</label>
+              <input
+                className="buca-input"
+                placeholder="ejemplo@buca.mx"
+                value={vendedorEmail}
+                onChange={e => setVendedorEmail(e.target.value)}
               />
             </div>
             {/* Notas del proyecto */}
@@ -619,6 +643,7 @@ export default function Cotizador() {
         <div className="hidden print:block border-b pb-3 mb-4">
           {clienteNombre && <p><span className="font-semibold">Cliente:</span> {clienteNombre}</p>}
           {proyectoNombre && <p><span className="font-semibold">Proyecto:</span> {proyectoNombre}</p>}
+          {vendedorEmail && <p><span className="font-semibold">Cotizado por:</span> {vendedorEmail}</p>}
           {notasProyecto && <p><span className="font-semibold">Notas:</span> {notasProyecto}</p>}
           <p><span className="font-semibold">Tipo de cliente:</span> {esMinorista ? 'Minorista' : `Mayorista (−${descuentoPorcentaje}%)`}</p>
           <p><span className="font-semibold">Estado del piso:</span> {estadoPiso === 'liso' ? 'Liso (+5% merma)' : estadoPiso === 'rugoso' ? 'Rugoso (+15% merma)' : estadoPiso === 'estandar' ? 'Estándar (+10% merma)' : 'Sin merma (0%)'}</p>
@@ -798,18 +823,20 @@ export default function Cotizador() {
                             <span className="absolute top-1/2 -translate-y-1/2 text-gray-400 text-sm" style={{right: '26px'}}>m²</span>
                           </div>
 
-                          {/* Espesor requerido para morteros/productos con densidad */}
-                          {productoSeleccionadoConRendimientoDinamico.densidadRecomendada && (
+                          {/* Espesor para productos con rendimiento (espesor es opcional si no tiene densidad recomendada) */}
+                          {productoSeleccionadoConRendimientoDinamico.tieneRendimiento && (
                             <div className="mt-3">
-                              <label className="buca-label" style={{color: '#1d4ed8', fontWeight: 700}}>Espesor requerido (mm)</label>
+                              <label className="buca-label" style={{color: '#1d4ed8', fontWeight: 700}}>
+                                Espesor {productoSeleccionadoConRendimientoDinamico.densidadRecomendada ? 'Requerido' : '(Opcional)'} (mm)
+                              </label>
                               <div className="relative">
                                 <input
                                   type="number"
                                   className="buca-input"
                                   style={{paddingRight: '56px'}}
-                                  placeholder="Ej. 6"
+                                  placeholder={productoSeleccionadoConRendimientoDinamico.densidadRecomendada ? "Ej. 6" : "Ej. 2"}
                                   min="0.1"
-                                  step="0.5"
+                                  step="0.1"
                                   value={espesorMm}
                                   onChange={e => setEspesorMm(e.target.value)}
                                 />
@@ -1192,6 +1219,7 @@ export default function Cotizador() {
           eliminarLinea={eliminarLinea}
           editarLinea={editarLinea}
           prospectoCodigo={prospectoCodigo}
+          vendedorEmail={vendedorEmail}
         />
 
         {/* Footer legend */}

@@ -46,6 +46,7 @@ export function generarPDF(data: CotizacionData) {
       <tr style="background:${idx % 2 === 0 ? '#f8fafc' : 'white'}; border-bottom:1px solid #e2e8f0;">
         <td style="padding:10px 12px; font-size:13px; color:#1e293b;">
           <strong>${l.producto.nombre}</strong>
+          ${l.espesor ? `<br><span style="font-size:11px;color:#2563eb;font-weight:700;">📐 Espesor: ${l.espesor} mm</span>` : ''}
           ${l.producto.nota ? `<br><span style="font-size:11px;color:#64748b;">${l.producto.nota}</span>` : ''}
           ${l.producto.densidad_conversion && l.producto.densidad_conversion !== 1.0 ? `<br><span style="font-size:10px;color:#059669;font-weight:500;">⚖️ Densidad de conversión: ${l.producto.densidad_conversion} kg/L</span>` : ''}
           ${docLinks ? `<br><span style="font-size:11px;margin-top:2px;display:inline-block;">${docLinks}</span>` : ''}
