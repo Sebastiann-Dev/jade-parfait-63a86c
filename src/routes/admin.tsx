@@ -22,6 +22,7 @@ import {
 import { Producto } from '../data/productos'
 import { callGeminiServer } from '../utils/geminiServer'
 import { LeadPortal } from '../components/LeadPortal'
+import { MetricasPortal } from '../components/MetricasPortal'
 
 export const Route = createFileRoute('/admin')({
   validateSearch: (search: Record<string, unknown>) => {
@@ -490,8 +491,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
 
   // Systems state variables and migration
   const { tab, action } = Route.useSearch()
-  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion' | 'prospectos' | 'guia'>(
-    tab === 'sistemas' || tab === 'migracion' || tab === 'prospectos' || tab === 'guia' ? tab : 'productos'
+  const [currentTab, setCurrentTab] = useState<'productos' | 'sistemas' | 'migracion' | 'prospectos' | 'metricas' | 'guia'>(
+    tab === 'sistemas' || tab === 'migracion' || tab === 'prospectos' || tab === 'metricas' || tab === 'guia' ? tab : 'productos'
   )
   const [colaMigracion, setColaMigracion] = useState<FilaMigracion[]>([])
   const [procesandoCola, setProcesandoCola] = useState(false)
@@ -1366,9 +1367,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   ? (loadingSistemas ? 'Cargando sistemas...' : `${sistemas.length} sistemas en la base de datos`)
                   : currentTab === 'prospectos'
                     ? 'Seguimiento y perfilamiento de cotizaciones'
-                    : currentTab === 'guia'
-                      ? 'Guía comercial y manual de operaciones del sistema'
-                      : 'Importación masiva de fichas técnicas'}
+                    : currentTab === 'metricas'
+                      ? 'Indicadores financieros, demanda de productos y reportes de IA'
+                      : currentTab === 'guia'
+                        ? 'Guía comercial y manual de operaciones del sistema'
+                        : 'Importación masiva de fichas técnicas'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -1486,7 +1489,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               transition: 'all 0.2s'
             }}
           >
-            📥 Importación Masiva (Drag & Drop)
+            Importación Masiva
           </button>
           <button
             onClick={() => setCurrentTab('prospectos')}
@@ -1502,6 +1505,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             }}
           >
             Prospectos y Necesidades
+          </button>
+          <button
+            onClick={() => setCurrentTab('metricas')}
+            style={{
+              padding: '8px 16px',
+              background: currentTab === 'metricas' ? '#6366f1' : 'transparent',
+              color: currentTab === 'metricas' ? 'white' : '#475569',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            Métricas y Reportes
           </button>
           <button
             onClick={() => setCurrentTab('guia')}
@@ -3704,6 +3722,15 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
               Bandeja de Prospectos y Perfilamiento de Proyectos
             </h2>
             <LeadPortal />
+          </div>
+        )}
+
+        {currentTab === 'metricas' && (
+          <div style={{ animation: 'fadeIn 0.3s ease', background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
+            <h2 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 700, color: '#6366f1', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              Métricas Comerciales y Reportes Estratégicos con IA
+            </h2>
+            <MetricasPortal />
           </div>
         )}
 
