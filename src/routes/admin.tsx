@@ -891,11 +891,9 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
   }, [])
 
   useEffect(() => {
-    if (user) {
-      loadProductos()
-      loadSistemas()
-    }
-  }, [user])
+    loadProductos()
+    loadSistemas()
+  }, [])
 
   async function handleAuth(e: React.FormEvent) {
     e.preventDefault()
@@ -1263,95 +1261,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     }
   }
 
-  if (authChecking) {
-    return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', color: '#2563eb', fontFamily: 'sans-serif' }}>
-          <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔐</div>
-          <p style={{ fontWeight: 600, color: '#1e293b' }}>Verificando sesión...</p>
-        </div>
-      </div>
-    )
-  }
 
-  if (!user) {
-    return (
-      <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'sans-serif' }}>
-        <div style={{ maxWidth: '400px', width: '100%', background: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 10px 25px -5px rgba(37, 99, 235, 0.1), 0 8px 10px -6px rgba(37, 99, 235, 0.1)', border: '1px solid #bfdbfe', margin: 'auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <div style={{ width: '48px', height: '48px', background: '#2563eb', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '12px', fontSize: '20px', fontWeight: 800, margin: '0 auto 12px' }}>🔐</div>
-            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>Panel de Administración</h1>
-            <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Acceso exclusivo para personal autorizado</p>
-          </div>
-
-          {authError && (
-            <div style={{ background: '#fee2e2', color: '#991b1b', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
-              ⚠️ {authError}
-            </div>
-          )}
-
-          {mensaje && (
-            <div style={{ background: '#dcfce7', color: '#166534', padding: '10px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, marginBottom: '16px' }}>
-              {mensaje.texto}
-            </div>
-          )}
-
-          <form onSubmit={handleAuth} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Correo Electrónico *</label>
-              <input
-                type="email"
-                required
-                value={authEmail}
-                onChange={e => setAuthEmail(e.target.value)}
-                placeholder=""
-                style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#374151', marginBottom: '6px' }}>Contraseña *</label>
-              <input
-                type="password"
-                required
-                value={authPassword}
-                onChange={e => setAuthPassword(e.target.value)}
-                placeholder="••••••••"
-                style={{ width: '100%', height: '38px', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '13px', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={authLoading}
-              style={{ width: '100%', height: '40px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'background 0.2s' }}
-            >
-              {authLoading ? 'Procesando...' : (authIsSignUp ? 'Registrarse' : 'Iniciar Sesión')}
-            </button>
-          </form>
-
-          <div style={{ marginTop: '20px', textAlign: 'center', borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
-            <button
-              onClick={() => {
-                setAuthIsSignUp(!authIsSignUp)
-                setAuthError('')
-              }}
-              style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-            >
-              {authIsSignUp ? '¿Ya tienes cuenta? Inicia sesión' : '¿No tienes cuenta? Regístrate'}
-            </button>
-          </div>
-
-          <div style={{ marginTop: '16px', textAlign: 'center' }}>
-            <Link to="/" style={{ fontSize: '12px', color: '#64748b', textDecoration: 'none' }}>
-              ← Volver al Cotizador
-            </Link>
-          </div>
-
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', padding: '24px', fontFamily: 'sans-serif' }}>
