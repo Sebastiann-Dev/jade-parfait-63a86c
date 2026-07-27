@@ -21,6 +21,7 @@ import {
 } from '../supabase'
 import { Producto } from '../data/productos'
 import { callGeminiServer } from '../utils/geminiServer'
+import { parseGoogleDriveFolder, fetchDriveFileBase64 } from '../utils/googleDriveServer'
 import { LeadPortal } from '../components/LeadPortal'
 import { MetricasPortal } from '../components/MetricasPortal'
 
@@ -73,6 +74,8 @@ interface FilaMigracion {
   pdfUrl?: string;
   propuesta?: any;
   yaExisteEnBd?: boolean;
+  driveWebViewLink?: string;
+  subfolderPath?: string;
 }
 
 function parseKitInfo(kitInfoStr?: string): { numPartes: number; presentaciones: any[] } {
@@ -552,12 +555,100 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     return mejorMatch;
   }
 
-  function determinarTipoDocArchivo(filename: string): 'ficha_tecnica' | 'ficha_seguridad' {
-    const fname = filename.toLowerCase();
-    if (fname.includes("msds") || fname.includes("sds") || fname.includes("seguridad") || fname.includes("safety")) {
-      return 'ficha_seguridad';
+  // Google Drive Mass Import States
+  const [driveUrlInput, setDriveUrlInput] = useState('')
+  const [isScanningDrive, setIsScanningDrive] = useState(false)
+  const [driveScanStatus, setDriveScanStatus] = useState('')
+
+  function base64ToFile(base64: string, filename: string, mimeType: string): File {
+    const byteCharacters = atob(base64)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
     }
-    return 'ficha_tecnica';
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: mimeType })
+    return new File([blob], filename, { type: mimeType })
+  }
+
+  async function handleEscanearCarpetaDrive(e: React.FormEvent) {
+    e.preventDefault()
+    if (!driveUrlInput.trim()) {
+      showMsg('❌ Por favor, ingresa un enlace o ID de carpeta de Google Drive', 'error')
+      return
+    }
+
+    setIsScanningDrive(true)
+    setDriveScanStatus('Escaneando estructura y subcarpetas de Google Drive...')
+
+    try {
+      const res = await parseGoogleDriveFolder({ data: { driveUrl: driveUrlInput.trim() } })
+      
+      if (!res || !res.files || res.files.length === 0) {
+        showMsg('⚠️ No se encontraron archivos PDF o Word compatibles en la carpeta de Drive', 'error')
+        if (res.warnings && res.warnings.length > 0) {
+          alert(res.warnings.join('\n'))
+        }
+        setIsScanningDrive(false)
+        return
+      }
+
+      setDriveScanStatus(`Descargando e interpretando ${res.files.length} archivos de Drive...`)
+
+      const nuevasFilas: FilaMigracion[] = []
+
+      for (let i = 0; i < res.files.length; i++) {
+        const item = res.files[i]
+        setDriveScanStatus(`Procesando (${i + 1}/${res.files.length}): ${item.name}...`)
+
+        try {
+          const downloadRes = await fetchDriveFileBase64({ data: { fileId: item.id, mimeType: item.mimeType } })
+          const fileObj = base64ToFile(downloadRes.base64Data, item.name, 'application/pdf')
+
+          const yaEnCola = colaMigracion.some(x => x.fileName === item.name || (x.driveWebViewLink && x.driveWebViewLink === item.webViewLink))
+          if (yaEnCola) continue
+
+          const pMatch = encontrarProductoPorNombreArchivo(item.name)
+          const tipo = item.tipoDoc || determinarTipoDocArchivo(item.name)
+
+          let yaExisteEnBd = false
+          if (pMatch) {
+            const urlExistente = tipo === 'ficha_tecnica' ? (pMatch.ficha_tecnica_s3key || pMatch.ficha_tecnica_url) : (pMatch.ficha_seguridad_s3key || pMatch.ficha_seguridad_url)
+            yaExisteEnBd = !!urlExistente
+          }
+
+          nuevasFilas.push({
+            id: `drive_${item.id}_${Date.now()}`,
+            fileName: item.name,
+            file: fileObj,
+            productoAsociado: pMatch,
+            tipoDoc: tipo,
+            estado: 'pre_analisis',
+            errorMsg: yaExisteEnBd ? 'Este documento ya está registrado para este producto en Supabase.' : undefined,
+            yaExisteEnBd,
+            driveWebViewLink: item.webViewLink,
+            subfolderPath: item.subfolderPath
+          })
+        } catch (err: any) {
+          console.warn(`Error procesando archivo ${item.name} de Drive:`, err)
+        }
+      }
+
+      if (nuevasFilas.length > 0) {
+        setColaMigracion(prev => [...prev, ...nuevasFilas])
+        showMsg(`✅ Se importaron ${nuevasFilas.length} archivos desde Google Drive a la cola de revisión`, 'ok')
+        setDriveUrlInput('')
+      } else {
+        showMsg('ℹ️ Todos los archivos de la carpeta ya estaban presentes en la cola', 'ok')
+      }
+
+    } catch (err: any) {
+      console.error(err)
+      alert(`❌ Error al conectar con Google Drive: ${err.message || 'Verifica que la carpeta sea pública.'}`)
+    } finally {
+      setIsScanningDrive(false)
+      setDriveScanStatus('')
+    }
   }
 
   async function extraerDatosPdfGemini(file: File): Promise<any> {
@@ -2905,11 +2996,83 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
             {/* Cabecera */}
             <div style={{ background: 'white', padding: '24px', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', border: '1px solid #bae6fd' }}>
               <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                📥 Importación de PDFs por Lotes (Arrastrar y Soltar)
+                📥 Importación de Fichas Técnicas por Lotes (Google Drive y PDFs)
               </h2>
               <p style={{ margin: '6px 0 0', fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>
-                Sube múltiples fichas técnicas (TDS) o de seguridad (SDS) en formato PDF al mismo tiempo. El sistema las asociará a tus productos actuales de BUCA por coincidencia de nombre o propondrá la creación de nuevos productos, extrayendo la información técnica con Gemini IA.
+                Sube múltiples fichas técnicas (TDS) o de seguridad (SDS) desde tu computadora o mediante un enlace de carpeta de Google Drive. El sistema detectará automáticamente si el producto ya existe en tu catálogo o extraerá los parámetros con Gemini IA para darlo de alta en estado borrador o completo.
               </p>
+            </div>
+
+            {/* Tarjeta de Importación desde Google Drive (Link de Carpeta) */}
+            <div style={{ background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', padding: '24px', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgba(2, 132, 199, 0.1)', border: '1px solid #7dd3fc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                <span style={{ fontSize: '24px' }}>📁</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#0369a1' }}>
+                    Importar desde Carpeta de Google Drive
+                  </h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#0284c7' }}>
+                    Pega el enlace de tu carpeta de Google Drive (escanea automáticamente subcarpetas con fichas en PDF, Word .docx o Google Docs).
+                  </p>
+                </div>
+              </div>
+
+              <form onSubmit={handleEscanearCarpetaDrive} style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="https://drive.google.com/drive/folders/1ABC..."
+                  value={driveUrlInput}
+                  onChange={e => setDriveUrlInput(e.target.value)}
+                  disabled={isScanningDrive}
+                  style={{
+                    flex: 1,
+                    minWidth: '280px',
+                    height: '42px',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #7dd3fc',
+                    fontSize: '13px',
+                    outline: 'none',
+                    background: 'white'
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={isScanningDrive}
+                  style={{
+                    height: '42px',
+                    padding: '0 20px',
+                    background: isScanningDrive ? '#94a3b8' : '#0284c7',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: isScanningDrive ? 'wait' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 2px 4px rgba(2, 132, 199, 0.2)'
+                  }}
+                >
+                  {isScanningDrive ? (
+                    <>
+                      <div style={{ width: '12px', height: '12px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                      Escaneando Drive...
+                    </>
+                  ) : (
+                    '🔍 Escanear Carpeta de Drive'
+                  )}
+                </button>
+              </form>
+
+              {driveScanStatus && (
+                <div style={{ marginTop: '12px', fontSize: '12px', color: '#0369a1', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ width: '10px', height: '10px', border: '2px solid #0284c7', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+                  {driveScanStatus}
+                </div>
+              )}
             </div>
 
             {/* Dropzone */}
@@ -3607,14 +3770,24 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           </div>
                         )}
 
-                        {/* Enlace de previsualización de PDF subido */}
-                        {item.pdfUrl && (
-                          <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
-                            <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: 600 }}>
-                              📄 Ver PDF cargado en Supabase Storage →
+                        {/* Enlaces de Google Drive y Supabase Storage */}
+                        <div style={{ fontSize: '11px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {item.subfolderPath && (
+                            <span style={{ background: '#f1f5f9', color: '#475569', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                              📁 Subcarpeta: {item.subfolderPath}
+                            </span>
+                          )}
+                          {item.driveWebViewLink && (
+                            <a href={item.driveWebViewLink} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              🔗 Abrir archivo original en Google Drive ↗
                             </a>
-                          </div>
-                        )}
+                          )}
+                          {item.pdfUrl && (
+                            <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#16a34a', textDecoration: 'none', fontWeight: 600 }}>
+                              📄 Ver PDF guardado en Supabase Storage →
+                            </a>
+                          )}
+                        </div>
 
                       </div>
                     );
