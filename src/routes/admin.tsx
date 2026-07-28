@@ -651,6 +651,24 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     }
   }
 
+  async function abrirDocumentoSupabase(s3Key: string) {
+    if (!s3Key) return
+    if (s3Key.startsWith('http://') || s3Key.startsWith('https://')) {
+      window.open(s3Key, '_blank', 'noreferrer')
+      return
+    }
+    try {
+      const url = await requestDownloadUrl(s3Key)
+      if (url) {
+        window.open(url, '_blank', 'noreferrer')
+      } else {
+        alert("No se pudo obtener la URL del documento en Supabase.")
+      }
+    } catch (err: any) {
+      alert('❌ Error al abrir documento en Supabase Storage: ' + (err.message || 'Intenta de nuevo.'))
+    }
+  }
+
   async function extraerDatosPdfGemini(file: File): Promise<any> {
     const base64Data = await fileToBase64(file);
     const prompt = `Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. Devuelve un objeto JSON con las siguientes claves (y los tipos de datos correspondientes):
@@ -3795,14 +3813,46 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             </span>
                           )}
                           {item.driveWebViewLink && (
-                            <a href={item.driveWebViewLink} target="_blank" rel="noopener noreferrer" style={{ color: '#0284c7', textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <a
+                              href={item.driveWebViewLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: '#0284c7',
+                                textDecoration: 'none',
+                                fontWeight: 700,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                background: '#f0f9ff',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                border: '1px solid #bae6fd'
+                              }}
+                            >
                               🔗 Abrir archivo original en Google Drive ↗
                             </a>
                           )}
-                          {item.pdfUrl && (
-                            <a href={item.pdfUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#16a34a', textDecoration: 'none', fontWeight: 600 }}>
-                              📄 Ver PDF guardado en Supabase Storage →
-                            </a>
+                          {item.pdfUrl && !item.pdfUrl.startsWith('s3_key_') && (
+                            <button
+                              type="button"
+                              onClick={() => abrirDocumentoSupabase(item.pdfUrl!)}
+                              style={{
+                                background: '#f0fdf4',
+                                color: '#15803d',
+                                border: '1px solid #bbf7d0',
+                                padding: '4px 10px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              📄 Ver PDF guardado en Supabase Storage ↗
+                            </button>
                           )}
                         </div>
 
