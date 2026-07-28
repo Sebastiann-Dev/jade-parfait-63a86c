@@ -305,11 +305,6 @@ function AdminPage() {
   }
 
   async function extraerConGemini() {
-    if (PRECONFIGURED_KEYS.length === 0) {
-      alert("No hay ninguna API Key de Gemini configurada en el sistema.")
-      return
-    }
-
     let activeFile: File | null = null
     let activeUrl: string | null = null
 
