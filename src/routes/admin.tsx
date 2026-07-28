@@ -651,7 +651,17 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     }
   }
 
-  async function abrirDocumentoSupabase(s3Key: string) {
+  async function abrirDocumentoSupabase(item: FilaMigracion) {
+    if (item.file) {
+      try {
+        const objectUrl = URL.createObjectURL(item.file)
+        window.open(objectUrl, '_blank')
+        return
+      } catch (e) {
+        // Fallback to s3Key download
+      }
+    }
+    const s3Key = item.pdfUrl
     if (!s3Key) return
     if (s3Key.startsWith('http://') || s3Key.startsWith('https://')) {
       window.open(s3Key, '_blank', 'noreferrer')
@@ -3946,10 +3956,10 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               🔗 Abrir archivo original en Google Drive ↗
                             </a>
                           )}
-                          {item.pdfUrl && !item.pdfUrl.startsWith('s3_key_') && (
+                          {item.pdfUrl && (
                             <button
                               type="button"
-                              onClick={() => abrirDocumentoSupabase(item.pdfUrl!)}
+                              onClick={() => abrirDocumentoSupabase(item)}
                               style={{
                                 background: '#f0fdf4',
                                 color: '#15803d',
