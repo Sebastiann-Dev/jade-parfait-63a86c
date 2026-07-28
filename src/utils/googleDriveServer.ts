@@ -130,20 +130,20 @@ async function scanPublicFolderWeb(folderId: string, currentPath: string = 'Carp
     const rawName = decodeHtmlEntities(match[2].trim())
     if (!processedIds.has(fId) && rawName) {
       const fnameLower = rawName.toLowerCase()
-      const isDoc = fnameLower.endsWith('.pdf') || fnameLower.endsWith('.docx') || fnameLower.endsWith('.doc')
+      const isPdf = fnameLower.endsWith('.pdf')
 
-      if (isDoc) {
+      if (isPdf) {
         processedIds.add(fId)
         files.push({
           id: fId,
           name: rawName,
-          mimeType: fnameLower.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          mimeType: 'application/pdf',
           subfolderPath: currentPath,
           webViewLink: `https://drive.google.com/file/d/${fId}/view`,
           webContentLink: `https://drive.google.com/uc?export=download&id=${fId}`,
           tipoDoc: determinarTipoDoc(rawName)
         })
-      } else if (!rawName.includes('.')) {
+      } else if (!rawName.includes('.') && !fnameLower.endsWith('.docx') && !fnameLower.endsWith('.doc')) {
         // Es una subcarpeta dentro del Drive
         subfoldersCount++
         processedIds.add(fId)
@@ -161,12 +161,12 @@ async function scanPublicFolderWeb(folderId: string, currentPath: string = 'Carp
     const rawName = decodeHtmlEntities(match[2].trim())
     if (!processedIds.has(fId) && rawName) {
       const fnameLower = rawName.toLowerCase()
-      if (fnameLower.endsWith('.pdf') || fnameLower.endsWith('.docx') || fnameLower.endsWith('.doc')) {
+      if (fnameLower.endsWith('.pdf')) {
         processedIds.add(fId)
         files.push({
           id: fId,
           name: rawName,
-          mimeType: fnameLower.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          mimeType: 'application/pdf',
           subfolderPath: currentPath,
           webViewLink: `https://drive.google.com/file/d/${fId}/view`,
           webContentLink: `https://drive.google.com/uc?export=download&id=${fId}`,
@@ -246,15 +246,13 @@ export const parseGoogleDriveFolder = createServerFn({ method: 'POST' })
             } else {
               const fname = item.name.toLowerCase()
               const isPdf = item.mimeType === 'application/pdf' || fname.endsWith('.pdf')
-              const isDocx = item.mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fname.endsWith('.docx') || fname.endsWith('.doc')
-              const isGDoc = item.mimeType === 'application/vnd.google-apps.document'
 
-              if ((isPdf || isDocx || isGDoc) && !processedIds.has(item.id)) {
+              if (isPdf && !processedIds.has(item.id)) {
                 processedIds.add(item.id)
                 filesFound.push({
                   id: item.id,
                   name: item.name,
-                  mimeType: item.mimeType,
+                  mimeType: 'application/pdf',
                   subfolderPath: currentPath || 'Carpeta Raíz',
                   webViewLink: item.webViewLink || `https://drive.google.com/file/d/${item.id}/view`,
                   webContentLink: item.webContentLink,
