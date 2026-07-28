@@ -272,11 +272,13 @@ REGLAS DE TONO:
 - Evita justificaciones vacías. Usa viñetas estructuradas.`
 
       const response = await callGeminiServer({
-        contents: [
-          {
-            parts: [{ text: prompt }]
-          }
-        ]
+        data: {
+          contents: [
+            {
+              parts: [{ text: prompt }]
+            }
+          ]
+        }
       })
 
       if (response && response.text) {

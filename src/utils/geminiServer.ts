@@ -16,8 +16,16 @@ export interface GeminiPayload {
  * y reintento automático ante límites de cuota (HTTP 429).
  */
 export const callGeminiServer = createServerFn({ method: 'POST' })
-  .validator((data: GeminiPayload) => data)
+  .validator((input: any) => input)
   .handler(async ({ data }) => {
+    // Resolve payload whether TanStack Start passed it wrapped as data or directly
+    const rawData = (data as any)?.data || data || {};
+    const payload: GeminiPayload = rawData.contents ? rawData : (rawData.data || rawData);
+
+    if (!payload.contents) {
+      throw new Error("No se recibieron datos de consulta ('contents') en el servidor.");
+    }
+
     const gAny = globalThis as any;
     const pEnv = (typeof process !== 'undefined' ? process.env : {}) || {};
     const metaEnv = (import.meta as any).env || {};
@@ -60,9 +68,9 @@ export const callGeminiServer = createServerFn({ method: 'POST' })
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                contents: data.contents,
-                systemInstruction: data.systemInstruction,
-                generationConfig: data.generationConfig
+                contents: payload.contents,
+                systemInstruction: payload.systemInstruction,
+                generationConfig: payload.generationConfig
               })
             });
 

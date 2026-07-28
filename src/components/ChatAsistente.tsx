@@ -245,9 +245,11 @@ REGLAS CRÍTICAS DE COMPORTAMIENTO:
       ];
 
       const res = await callGeminiServer({
-        contents: formattedContents,
-        systemInstruction: {
-          parts: [{ text: contextPrompt }]
+        data: {
+          contents: formattedContents,
+          systemInstruction: {
+            parts: [{ text: contextPrompt }]
+          }
         }
       });
 
