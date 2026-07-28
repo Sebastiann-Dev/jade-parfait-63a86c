@@ -870,7 +870,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
       } finally {
         setTimeout(() => {
           setProcesandoCola(false);
-        }, 1500);
+        }, 2500);
       }
     })();
   }, [colaMigracion, procesandoCola, productos]);
