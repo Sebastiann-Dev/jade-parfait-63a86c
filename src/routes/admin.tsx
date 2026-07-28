@@ -341,8 +341,8 @@ function AdminPage() {
       const prompt = `Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. Devuelve un objeto JSON con las siguientes claves (y los tipos de datos correspondientes):
 - nombre: string (nombre comercial corto del producto, ej. BucaTrafic, sin marcas como ®, TM)
 - nota: string (breve descripción de una línea de para qué sirve o qué es, ej. Pintura epóxica de altos sólidos para tráfico vehicular)
-- tieneRendimiento: boolean (true si se menciona rendimiento por m² o consumo por m²)
-- rendimiento: number o null (si tieneRendimiento es true, extrae el rendimiento promedio en m² por litro o por kilogramo. Por ejemplo, si dice "rendimiento de 4 a 6 m²/L", extrae 5. Si no aplica, null)
+- tieneRendimiento: boolean (true si la ficha menciona rendimiento, cobertura, consumo o dotación de material por metro cuadrado)
+- rendimiento: number o null (el valor numérico estimado de rendimiento en m² por litro, kg, galón o kit. Si dice "4 a 6 m²/L", extrae 5. Si dice "consumo de 0.20 L/m²", calcula 1 / 0.20 = 5. Si no se menciona consumo o rendimiento por m², retorna null)
 - espesorRecomendado: string o null (espesor de película recomendado en milésimas de pulgada (mils) o micras, ej: "4 a 6 mils" o "100-150 micras")
 - manosRecomendadas: string o null (número de capas o manos recomendadas, ej: "1 a 2 manos")
 - densidadRecomendada: string o null (densidad o peso específico, ej: "1.25 g/cm³")
@@ -677,8 +677,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
     const prompt = `Analiza esta ficha de producto y extrae la información para rellenar los siguientes campos. Devuelve un objeto JSON con las siguientes claves (y los tipos de datos correspondientes):
 - nombre: string (nombre comercial corto del producto, ej. BucaTrafic, sin marcas como ®, TM)
 - nota: string (breve descripción de una línea de para qué sirve o qué es, ej. Pintura epóxica de altos sólidos para tráfico vehicular)
-- tieneRendimiento: boolean (true si se menciona rendimiento por m² o consumo por m²)
-- rendimiento: number o null (si tieneRendimiento es true, extrae el rendimiento promedio en m² por litro o por kilogramo. Por ejemplo, si dice "rendimiento de 4 a 6 m²/L", extrae 5. Si no aplica, null)
+- tieneRendimiento: boolean (true si la ficha menciona rendimiento, cobertura, consumo o dotación de material por metro cuadrado)
+- rendimiento: number o null (el valor numérico estimado de rendimiento en m² por litro, kg, galón o kit. Si dice "4 a 6 m²/L", extrae 5. Si dice "consumo de 0.20 L/m²", calcula 1 / 0.20 = 5. Si no se menciona consumo o rendimiento por m², retorna null)
 - espesorRecomendado: string o null (espesor de película recomendado en milésimas de pulgada (mils) o micras, ej: "4 a 6 mils" o "100-150 micras")
 - manosRecomendadas: string o null (número de capas o manos recomendadas, ej: "1 a 2 manos")
 - densidadRecomendada: string o null (densidad o peso específico, ej: "1.25 g/cm³")
