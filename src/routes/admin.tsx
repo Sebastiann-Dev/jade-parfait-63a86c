@@ -3240,8 +3240,8 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   </button>
                 </div>
 
-                {/* Panel de control de Lote (Luz Verde / Descartar) */}
-                {colaMigracion.some(x => x.estado === 'pre_analisis') && (
+                {/* Panel de control de Lote (Luz Verde / Reintentar / Guardar Catálogo) */}
+                {colaMigracion.length > 0 && (
                   <div style={{
                     background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
                     border: '1px solid #bbf7d0',
@@ -3250,26 +3250,26 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '12px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02)'
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ fontSize: '24px' }}>🚦</span>
                       <div>
                         <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: '#14532d' }}>
-                          Revisión Preliminar de Lote (Luz Verde requerida)
+                          Control y Estado del Lote ({colaMigracion.length} Archivos)
                         </h4>
                         <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
-                          Detectamos <strong>{colaMigracion.filter(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd).length}</strong> nuevos y <strong>{colaMigracion.filter(x => x.estado === 'pre_analisis' && x.yaExisteEnBd).length}</strong> repetidos en la base de datos.
+                          <strong>{colaMigracion.filter(x => x.estado === 'completado').length}</strong> listos para guardar en catálogo | <strong>{colaMigracion.filter(x => x.estado === 'guardado').length}</strong> guardados en Supabase.
                         </p>
                       </div>
                     </div>
 
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      {colaMigracion.some(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd) && (
+                      {colaMigracion.some(x => x.estado === 'pre_analisis') && (
                         <button
                           type="button"
                           onClick={() => {
-                            setColaMigracion(prev => prev.map(x => x.estado === 'pre_analisis' && !x.yaExisteEnBd ? { ...x, estado: 'cola' } : x));
+                            setColaMigracion(prev => prev.map(x => x.estado === 'pre_analisis' ? { ...x, estado: 'cola' } : x));
                           }}
                           style={{
                             background: '#16a34a',
@@ -3287,7 +3287,62 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                             boxShadow: '0 2px 4px rgba(22, 163, 74, 0.2)'
                           }}
                         >
-                          🟢 Dar Luz Verde (Procesar Nuevos)
+                          🟢 Procesar e Iniciar Análisis de Lote
+                        </button>
+                      )}
+
+                      {colaMigracion.some(x => x.estado === 'completado' || x.estado === 'error') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setColaMigracion(prev => prev.map(x => x.estado !== 'guardado' ? { ...x, estado: 'cola', errorMsg: undefined } : x));
+                          }}
+                          style={{
+                            background: '#d97706',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(217, 119, 6, 0.2)'
+                          }}
+                        >
+                          🔄 Reintentar Análisis IA de Todo el Lote
+                        </button>
+                      )}
+
+                      {colaMigracion.some(x => x.propuesta && x.estado !== 'guardado') && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const pend = colaMigracion.filter(x => x.propuesta && x.estado !== 'guardado');
+                            for (const item of pend) {
+                              await aplicarPropuestaWeb(item);
+                            }
+                          }}
+                          style={{
+                            background: '#2563eb',
+                            color: 'white',
+                            border: 'none',
+                            padding: '8px 16px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 2px 4px rgba(37, 99, 235, 0.2)'
+                          }}
+                        >
+                          💾 Guardar Todos los Productos en Catálogo Supabase
                         </button>
                       )}
 
@@ -3436,7 +3491,57 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                               <span style={{ fontSize: '11px', color: '#16a34a', fontWeight: 700 }}>✅ Guardado exitosamente</span>
                             )}
                             {item.estado === 'completado' && (
-                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>🤖 Análisis listo</span>
+                              <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>🤖 Listo para guardar</span>
+                            )}
+
+                            {/* Botón de reintento de Gemini IA por fila */}
+                            {(item.estado === 'completado' || item.estado === 'error' || item.estado === 'pre_analisis') && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setColaMigracion(prev => prev.map(x => x.id === item.id ? { ...x, estado: 'cola', errorMsg: undefined } : x));
+                                }}
+                                style={{
+                                  padding: '4px 10px',
+                                  background: '#fef3c7',
+                                  color: '#b45309',
+                                  border: '1px solid #fde68a',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}
+                                title="Reintentar análisis con Gemini IA"
+                              >
+                                🔄 Reintentar IA
+                              </button>
+                            )}
+
+                            {/* Botón de guardar producto individual en Catálogo Supabase */}
+                            {item.propuesta && item.estado !== 'guardado' && (
+                              <button
+                                type="button"
+                                onClick={() => aplicarPropuestaWeb(item)}
+                                style={{
+                                  padding: '4px 12px',
+                                  background: '#16a34a',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  boxShadow: '0 1px 3px rgba(22, 163, 74, 0.3)'
+                                }}
+                              >
+                                💾 Guardar en Catálogo
+                              </button>
                             )}
 
                             {/* Botón de descarte individual */}
