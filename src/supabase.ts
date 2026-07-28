@@ -24,6 +24,18 @@ export async function fetchProductosSupabase(includeDrafts = false): Promise<(Pr
 
 function sanitizeProductoPayload(payload: any) {
   const clean = { ...payload }
+  if (clean.ficha_tecnica_s3key !== undefined) {
+    if (clean.ficha_tecnica_s3key) {
+      clean.ficha_tecnica_url = clean.ficha_tecnica_s3key
+    }
+    delete clean.ficha_tecnica_s3key
+  }
+  if (clean.ficha_seguridad_s3key !== undefined) {
+    if (clean.ficha_seguridad_s3key) {
+      clean.ficha_seguridad_url = clean.ficha_seguridad_s3key
+    }
+    delete clean.ficha_seguridad_s3key
+  }
   delete clean.cotizacion_referencia_s3key
   delete clean.cotizacion_referencia_url
   delete clean.id

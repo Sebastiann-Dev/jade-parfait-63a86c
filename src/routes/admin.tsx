@@ -760,13 +760,11 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         payload.rendimiento = null;
       }
 
-      // item.pdfUrl ya contiene el S3 Key (subido en el procesador de cola)
+      // Guardar la referencia del documento en las columnas reales de Supabase DB (ficha_tecnica_url / ficha_seguridad_url)
       if (item.tipoDoc === 'ficha_tecnica') {
-        payload.ficha_tecnica_s3key = item.pdfUrl || ''
-        payload.ficha_tecnica_url = null // Limpiar URL legacy
+        payload.ficha_tecnica_url = item.pdfUrl || ''
       } else {
-        payload.ficha_seguridad_s3key = item.pdfUrl || ''
-        payload.ficha_seguridad_url = null // Limpiar URL legacy
+        payload.ficha_seguridad_url = item.pdfUrl || ''
       }
 
       if (item.productoAsociado) {
@@ -785,13 +783,12 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
         };
         const nuevoId = await saveProductoSupabase(nuevoPayload);
 
-        // El s3Key ya fue subido en el procesador de cola — solo guardar la referencia
         if (item.pdfUrl) {
           const updatePayload: any = {};
           if (item.tipoDoc === 'ficha_tecnica') {
-            updatePayload.ficha_tecnica_s3key = item.pdfUrl;
+            updatePayload.ficha_tecnica_url = item.pdfUrl;
           } else {
-            updatePayload.ficha_seguridad_s3key = item.pdfUrl;
+            updatePayload.ficha_seguridad_url = item.pdfUrl;
           }
           await updateProductoSupabase(nuevoId, updatePayload);
         }
