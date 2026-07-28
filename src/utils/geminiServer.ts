@@ -19,11 +19,19 @@ export const callGeminiServer = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     // Obtener las llaves configuradas en el servidor de forma segura.
     // Soporta variables locales y de Cloudflare Bindings.
+    const gAny = globalThis as any;
+    const pEnv = (typeof process !== 'undefined' ? process.env : {}) || {};
+    const metaEnv = (import.meta as any).env || {};
+
     const rawKeys =
-      (process.env.VITE_GEMINI_API_KEY as string) ||
-      (globalThis as any).VITE_GEMINI_API_KEY ||
-      (process.env.GEMINI_API_KEY as string) ||
-      (globalThis as any).GEMINI_API_KEY ||
+      (pEnv.GEMINI_API_KEY as string) ||
+      (pEnv.VITE_GEMINI_API_KEY as string) ||
+      (metaEnv.GEMINI_API_KEY as string) ||
+      (metaEnv.VITE_GEMINI_API_KEY as string) ||
+      (gAny.GEMINI_API_KEY as string) ||
+      (gAny.VITE_GEMINI_API_KEY as string) ||
+      (gAny.env?.GEMINI_API_KEY as string) ||
+      (gAny.env?.VITE_GEMINI_API_KEY as string) ||
       '';
 
     // Soporte para múltiples llaves separadas por coma, punto y coma o espacio (rotación automática)
