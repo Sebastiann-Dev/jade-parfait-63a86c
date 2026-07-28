@@ -3259,7 +3259,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           Control y Estado del Lote ({colaMigracion.length} Archivos)
                         </h4>
                         <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#166534' }}>
-                          <strong>{colaMigracion.filter(x => x.estado === 'completado').length}</strong> listos para guardar en catálogo | <strong>{colaMigracion.filter(x => x.estado === 'guardado').length}</strong> guardados en Supabase.
+                          Detectamos <strong>{colaMigracion.filter(x => x.productoAsociado && !x.yaExisteEnBd).length}</strong> productos existentes sin PDF (se les adjuntará), <strong>{colaMigracion.filter(x => !x.productoAsociado).length}</strong> totalmente nuevos y <strong>{colaMigracion.filter(x => x.yaExisteEnBd).length}</strong> que ya tenían PDF en BD.
                         </p>
                       </div>
                     </div>
@@ -3428,21 +3428,29 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                           </div>
 
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            {/* Producto Asociado */}
+                            {/* Producto Asociado y detección de PDF previo */}
                             {item.productoAsociado ? (
-                              <span style={{ background: '#f0f9ff', color: '#0369a1', fontSize: '11px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px', border: '1px solid #7dd3fc' }}>
-                                🔗 Asociado a: {item.productoAsociado.nombre}
+                              <span style={{
+                                background: item.yaExisteEnBd ? '#fef3c7' : '#f0fdf4',
+                                color: item.yaExisteEnBd ? '#92400e' : '#15803d',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                padding: '4px 8px',
+                                borderRadius: '6px',
+                                border: `1px solid ${item.yaExisteEnBd ? '#fde68a' : '#bbf7d0'}`
+                              }}>
+                                🔗 Asociado a: {item.productoAsociado.nombre} {item.yaExisteEnBd ? '(Ya tiene PDF en BD)' : '🟢 (Sin PDF actual - Se adjuntará)'}
                               </span>
                             ) : (
-                              <span style={{ background: '#fef3c7', color: '#92400e', fontSize: '11px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+                              <span style={{ background: '#dbeafe', color: '#1e40af', fontSize: '11px', fontWeight: 600, padding: '4px 8px', borderRadius: '6px', border: '1px solid #bfdbfe' }}>
                                 ✨ Crear como NUEVO
                               </span>
                             )}
 
                             {/* Indicador de Estado */}
                             {item.estado === 'pre_analisis' && (
-                              <span style={{ fontSize: '11px', color: item.yaExisteEnBd ? '#b45309' : '#0369a1', fontWeight: 600 }}>
-                                {item.yaExisteEnBd ? '⚠️ Repetido en BD' : '⏳ Pendiente Luz Verde'}
+                              <span style={{ fontSize: '11px', color: item.yaExisteEnBd ? '#b45309' : '#047857', fontWeight: 600 }}>
+                                {item.yaExisteEnBd ? '⚠️ PDF ya registrado en BD' : (item.productoAsociado ? '🟢 Listo para adjuntar PDF' : '⏳ Pendiente Luz Verde')}
                               </span>
                             )}
                             {item.estado === 'cola' && (
