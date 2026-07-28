@@ -22,11 +22,20 @@ export async function fetchProductosSupabase(includeDrafts = false): Promise<(Pr
   }
 }
 
+function sanitizeProductoPayload(payload: any) {
+  const clean = { ...payload }
+  delete clean.cotizacion_referencia_s3key
+  delete clean.cotizacion_referencia_url
+  delete clean.id
+  return clean
+}
+
 export async function saveProductoSupabase(producto: Omit<Producto, 'id'> & { estado?: string; motivo_incompleto?: string }) {
   try {
+    const cleanPayload = sanitizeProductoPayload(producto)
     const { data, error } = await supabase
       .from('productos')
-      .insert([producto])
+      .insert([cleanPayload])
       .select();
 
     if (error) throw error;
@@ -43,10 +52,11 @@ export async function updateProductoSupabase(
   expectedUpdatedAt?: string
 ) {
   try {
+    const cleanPayload = sanitizeProductoPayload(data)
     let query = supabase
       .from('productos')
       .update({
-        ...data,
+        ...cleanPayload,
         updated_at: new Date().toISOString()
       })
       .eq('id', id);

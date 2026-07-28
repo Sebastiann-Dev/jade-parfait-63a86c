@@ -35,7 +35,7 @@ export const Route = createFileRoute('/admin')({
   component: AdminPage,
 })
 
-const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string; cotizacion_referencia_url?: string; cotizacion_referencia_s3key?: string } = {
+const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; precio: number | string; rendimiento: number | string; estado?: string; motivo_incompleto?: string } = {
   nombre: '',
   cantRef: '',
   unidad: 'L',
@@ -55,10 +55,8 @@ const DEFAULT_PRODUCTO: Omit<Producto, 'id'> & { cantRef: number | string; preci
   bitacora: '',
   ficha_tecnica_url: '',
   ficha_seguridad_url: '',
-  cotizacion_referencia_url: '',
   ficha_tecnica_s3key: '',
   ficha_seguridad_s3key: '',
-  cotizacion_referencia_s3key: '',
   estado: 'borrador',
   motivo_incompleto: ''
 }
