@@ -1,20 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { Producto } from './data/productos';
+import { saveProductoServer, updateProductoServer, deleteProductoServer } from './utils/productoServer';
 
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://flefgvaddvviayctxoou.supabase.co';
 const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 'sb_publishable_i1JKutd_pGnC2wGz49d8xQ_WDjy_FMs';
 
-const serviceRoleKey =
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY : '') ||
-  (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) ||
-  ['sb_secret_', 'LSvOO8Y8wWAkEjz1UHtUkQ', '_Qf-VK-7V'].join('');
-
 export const supabase = createClient(supabaseUrl, supabaseKey);
-export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function fetchProductosSupabase(includeDrafts = false): Promise<(Producto & { id: string, estado?: string, motivo_incompleto?: string, updated_at?: string })[]> {
   try {
-    let query = (supabaseAdmin || supabase).from('productos').select('*');
+    let query = supabase.from('productos').select('*');
     if (!includeDrafts) {
       query = query.or('estado.eq.completo,estado.is.null');
     }
@@ -49,17 +44,10 @@ function sanitizeProductoPayload(payload: any) {
 
 export async function saveProductoSupabase(producto: Omit<Producto, 'id'> & { estado?: string; motivo_incompleto?: string }) {
   try {
-    const cleanPayload = sanitizeProductoPayload(producto)
-    const client = supabaseAdmin || supabase
-    const { data, error } = await client
-      .from('productos')
-      .insert([cleanPayload])
-      .select();
-
-    if (error) throw error;
-    return data[0]?.id;
+    const res = await saveProductoServer({ data: producto });
+    return res.id;
   } catch (error) {
-    console.error("Error saving product:", error);
+    console.error("Error saving product via server function:", error);
     throw error;
   }
 }
@@ -70,45 +58,18 @@ export async function updateProductoSupabase(
   expectedUpdatedAt?: string
 ) {
   try {
-    const cleanPayload = sanitizeProductoPayload(data)
-    const client = supabaseAdmin || supabase
-    let query = client
-      .from('productos')
-      .update({
-        ...cleanPayload,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', id);
-
-    if (expectedUpdatedAt) {
-      query = query.eq('updated_at', expectedUpdatedAt);
-    }
-
-    const { data: updatedData, error } = await query.select();
-
-    if (error) throw error;
-
-    // Si esperábamos un timestamp específico y no se actualizó nada, hay conflicto de concurrencia
-    if (expectedUpdatedAt && (!updatedData || updatedData.length === 0)) {
-      throw new Error("CONCURRENCY_ERROR");
-    }
+    await updateProductoServer({ data: { id, data, expectedUpdatedAt } });
   } catch (error) {
-    console.error("Error updating product:", error);
+    console.error("Error updating product via server function:", error);
     throw error;
   }
 }
 
 export async function deleteProductoSupabase(id: string) {
   try {
-    const client = supabaseAdmin || supabase
-    const { error } = await client
-      .from('productos')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
+    await deleteProductoServer({ data: { id } });
   } catch (error) {
-    console.error("Error deleting product:", error);
+    console.error("Error deleting product via server function:", error);
     throw error;
   }
 }
