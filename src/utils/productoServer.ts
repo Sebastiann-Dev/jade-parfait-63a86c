@@ -27,14 +27,15 @@ function sanitizePayload(payload: any) {
 
 /**
  * Server function para insertar productos en Supabase.
+ * Llamada como: saveProductoServer(producto)
+ * En el handler, data = producto directamente.
  */
 export const saveProductoServer = createServerFn({ method: 'POST' })
   .validator((input: any) => input)
   .handler(async ({ data }) => {
-    // data es el objeto { data: producto } enviado desde supabase.ts
-    // extraemos el producto del campo 'data'
-    const producto = (data as any)?.data ?? data ?? {};
-    const cleanPayload = sanitizePayload(producto);
+    const cleanPayload = sanitizePayload(data);
+
+    console.log('[saveProductoServer] payload keys:', Object.keys(cleanPayload));
 
     const client = createClient(supabaseUrl, supabaseAnonKey);
     const { data: inserted, error } = await client
@@ -52,19 +53,21 @@ export const saveProductoServer = createServerFn({ method: 'POST' })
 
 /**
  * Server function para actualizar productos en Supabase.
+ * Llamada como: updateProductoServer({ id, updateData, expectedUpdatedAt })
+ * En el handler, data = { id, updateData, expectedUpdatedAt }
  */
 export const updateProductoServer = createServerFn({ method: 'POST' })
   .validator((input: any) => input)
   .handler(async ({ data }) => {
-    // data es el objeto { data: { id, data: updateData, expectedUpdatedAt } }
-    // enviado desde supabase.ts como: updateProductoServer({ data: { id, data, expectedUpdatedAt } })
-    const wrapper = (data as any)?.data ?? data ?? {};
-    const id: string = wrapper.id;
-    const updateData = wrapper.data;
-    const expectedUpdatedAt: string | undefined = wrapper.expectedUpdatedAt;
+    const d = data as any;
+    const id: string = d?.id;
+    const updateData = d?.updateData;
+    const expectedUpdatedAt: string | undefined = d?.expectedUpdatedAt;
+
+    console.log('[updateProductoServer] id:', id, '| keys:', updateData ? Object.keys(updateData) : 'none');
 
     if (!id) {
-      console.error("[updateProductoServer] Wrapper recibido:", JSON.stringify(wrapper));
+      console.error("[updateProductoServer] data recibido:", JSON.stringify(d));
       throw new Error("Se requiere el ID del producto para actualizar.");
     }
 
@@ -99,13 +102,16 @@ export const updateProductoServer = createServerFn({ method: 'POST' })
 
 /**
  * Server function para eliminar productos en Supabase.
+ * Llamada como: deleteProductoServer({ id })
+ * En el handler, data = { id }
  */
 export const deleteProductoServer = createServerFn({ method: 'POST' })
   .validator((input: any) => input)
   .handler(async ({ data }) => {
-    // data es el objeto { data: { id } } enviado desde supabase.ts
-    const wrapper = (data as any)?.data ?? data ?? {};
-    const id: string = wrapper.id ?? wrapper;
+    const d = data as any;
+    const id: string = d?.id;
+
+    console.log('[deleteProductoServer] id:', id);
 
     if (!id || typeof id !== 'string') {
       throw new Error("Se requiere el ID del producto para eliminar.");

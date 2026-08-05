@@ -44,7 +44,7 @@ function sanitizeProductoPayload(payload: any) {
 
 export async function saveProductoSupabase(producto: Omit<Producto, 'id'> & { estado?: string; motivo_incompleto?: string }) {
   try {
-    const res = await saveProductoServer({ data: producto });
+    const res = await saveProductoServer(producto as any);
     return res.id;
   } catch (error) {
     console.error("Error saving product via server function:", error);
@@ -58,7 +58,7 @@ export async function updateProductoSupabase(
   expectedUpdatedAt?: string
 ) {
   try {
-    await updateProductoServer({ data: { id, data, expectedUpdatedAt } });
+    await updateProductoServer({ id, updateData: data, expectedUpdatedAt } as any);
   } catch (error) {
     console.error("Error updating product via server function:", error);
     throw error;
@@ -67,7 +67,7 @@ export async function updateProductoSupabase(
 
 export async function deleteProductoSupabase(id: string) {
   try {
-    await deleteProductoServer({ data: { id } });
+    await deleteProductoServer({ id } as any);
   } catch (error) {
     console.error("Error deleting product via server function:", error);
     throw error;
