@@ -230,26 +230,31 @@ function determinarTipoDocArchivo(fileName: string): 'ficha_tecnica' | 'ficha_se
 function encontrarProductoPorNombreArchivo(fileName: string, listaProductos: Producto[]): Producto | null {
   if (!fileName || !listaProductos || listaProductos.length === 0) return null;
 
-  let cleanName = fileName
-    .replace(/\.(pdf|docx?|gdoc)$/i, '')
-    .replace(/^(tds|sds|msds|ficha\s*tecnica|ficha\s*de\s*seguridad|hoja\s*de\s*seguridad)\s*[-_:]*\s*/i, '')
-    .replace(/[-_]/g, ' ')
-    .trim()
-    .toLowerCase();
+  let nameClean = fileName.toLowerCase().replace(/_/g, " ").replace(/-/g, " ");
+  const stopWords = [".pdf", ".docx", ".doc", ".gdoc", "tds", "sds", "msds", "ficha", "tecnica", "seguridad", "hoja"];
+  stopWords.forEach(word => {
+    nameClean = nameClean.replaceAll(word, "");
+  });
+  nameClean = nameClean.trim();
 
-  if (!cleanName) return null;
+  if (!nameClean) return null;
 
-  // 1. Exact match
-  const exactMatch = listaProductos.find(p => p.nombre.toLowerCase().trim() === cleanName);
-  if (exactMatch) return exactMatch;
+  let mejorMatch: Producto | null = null;
+  let mejorScore = 0;
 
-  // 2. Substring match
-  const substringMatch = listaProductos.find(p => {
-    const pName = p.nombre.toLowerCase().trim();
-    return pName.length >= 3 && (cleanName.includes(pName) || pName.includes(cleanName));
+  listaProductos.forEach(p => {
+    if (!p.nombre) return;
+    const prodName = p.nombre.toLowerCase().trim();
+    if (prodName && (nameClean.includes(prodName) || prodName.includes(nameClean))) {
+      const score = nameClean.includes(prodName) ? prodName.length : nameClean.length;
+      if (score > mejorScore) {
+        mejorScore = score;
+        mejorMatch = p;
+      }
+    }
   });
 
-  return substringMatch || null;
+  return mejorMatch;
 }
 
 function AdminPage() {
