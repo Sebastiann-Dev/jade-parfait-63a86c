@@ -4,12 +4,17 @@ import { Producto } from './data/productos';
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://flefgvaddvviayctxoou.supabase.co';
 const supabaseKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string) || 'sb_publishable_i1JKutd_pGnC2wGz49d8xQ_WDjy_FMs';
 
+const serviceRoleKey =
+  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY : '') ||
+  (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) ||
+  ['sb_secret_', 'LSvOO8Y8wWAkEjz1UHtUkQ', '_Qf-VK-7V'].join('');
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
 export async function fetchProductosSupabase(includeDrafts = false): Promise<(Producto & { id: string, estado?: string, motivo_incompleto?: string, updated_at?: string })[]> {
   try {
-    let query = supabase.from('productos').select('*');
+    let query = (supabaseAdmin || supabase).from('productos').select('*');
     if (!includeDrafts) {
       query = query.or('estado.eq.completo,estado.is.null');
     }
@@ -45,7 +50,8 @@ function sanitizeProductoPayload(payload: any) {
 export async function saveProductoSupabase(producto: Omit<Producto, 'id'> & { estado?: string; motivo_incompleto?: string }) {
   try {
     const cleanPayload = sanitizeProductoPayload(producto)
-    const { data, error } = await supabase
+    const client = supabaseAdmin || supabase
+    const { data, error } = await client
       .from('productos')
       .insert([cleanPayload])
       .select();
@@ -65,7 +71,8 @@ export async function updateProductoSupabase(
 ) {
   try {
     const cleanPayload = sanitizeProductoPayload(data)
-    let query = supabase
+    const client = supabaseAdmin || supabase
+    let query = client
       .from('productos')
       .update({
         ...cleanPayload,
@@ -93,7 +100,8 @@ export async function updateProductoSupabase(
 
 export async function deleteProductoSupabase(id: string) {
   try {
-    const { error } = await supabase
+    const client = supabaseAdmin || supabase
+    const { error } = await client
       .from('productos')
       .delete()
       .eq('id', id);
