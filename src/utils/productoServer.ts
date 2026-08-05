@@ -1,12 +1,11 @@
 import { createServerFn } from '@tanstack/react-start'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string) || 'https://flefgvaddvviayctxoou.supabase.co';
-
-const serviceRoleKey =
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY : '') ||
-  (import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY as string) ||
-  ['sb_secret_', 'LSvOO8Y8wWAkEjz1UHtUkQ', '_Qf-VK-7V'].join('');
+// Nota: La tabla 'productos' tiene RLS desactivado en Supabase,
+// por lo que la anon key tiene permisos completos para INSERT/UPDATE/DELETE.
+// NO se necesita service_role key.
+const supabaseUrl = 'https://flefgvaddvviayctxoou.supabase.co';
+const supabaseAnonKey = 'sb_publishable_i1JKutd_pGnC2wGz49d8xQ_WDjy_FMs';
 
 function sanitizePayload(payload: any) {
   const clean = { ...payload };
@@ -29,7 +28,8 @@ function sanitizePayload(payload: any) {
 }
 
 /**
- * Server function para insertar productos en Supabase usando service_role en el servidor.
+ * Server function para insertar productos en Supabase.
+ * Usa anon key porque la tabla productos tiene RLS desactivado.
  */
 export const saveProductoServer = createServerFn({ method: 'POST' })
   .validator((input: any) => input)
@@ -37,8 +37,8 @@ export const saveProductoServer = createServerFn({ method: 'POST' })
     const rawData = data?.data || data || {};
     const cleanPayload = sanitizePayload(rawData);
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-    const { data: inserted, error } = await supabaseAdmin
+    const client = createClient(supabaseUrl, supabaseAnonKey);
+    const { data: inserted, error } = await client
       .from('productos')
       .insert([cleanPayload])
       .select();
@@ -52,7 +52,8 @@ export const saveProductoServer = createServerFn({ method: 'POST' })
   });
 
 /**
- * Server function para actualizar productos en Supabase usando service_role en el servidor.
+ * Server function para actualizar productos en Supabase.
+ * Usa anon key porque la tabla productos tiene RLS desactivado.
  */
 export const updateProductoServer = createServerFn({ method: 'POST' })
   .validator((input: any) => input)
@@ -65,9 +66,9 @@ export const updateProductoServer = createServerFn({ method: 'POST' })
     }
 
     const cleanPayload = sanitizePayload(updateData || rawData);
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+    const client = createClient(supabaseUrl, supabaseAnonKey);
 
-    let query = supabaseAdmin
+    let query = client
       .from('productos')
       .update({
         ...cleanPayload,
@@ -94,7 +95,8 @@ export const updateProductoServer = createServerFn({ method: 'POST' })
   });
 
 /**
- * Server function para eliminar productos en Supabase usando service_role en el servidor.
+ * Server function para eliminar productos en Supabase.
+ * Usa anon key porque la tabla productos tiene RLS desactivado.
  */
 export const deleteProductoServer = createServerFn({ method: 'POST' })
   .validator((input: any) => input)
@@ -106,8 +108,8 @@ export const deleteProductoServer = createServerFn({ method: 'POST' })
       throw new Error("Se requiere el ID del producto para eliminar.");
     }
 
-    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-    const { error } = await supabaseAdmin
+    const client = createClient(supabaseUrl, supabaseAnonKey);
+    const { error } = await client
       .from('productos')
       .delete()
       .eq('id', id);
