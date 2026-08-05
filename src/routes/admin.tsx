@@ -219,6 +219,39 @@ function SearchableProductSelect({ productos, value, onChange, error, inputStyle
   )
 }
 
+function determinarTipoDocArchivo(fileName: string): 'ficha_tecnica' | 'ficha_seguridad' {
+  const lower = fileName.toLowerCase();
+  if (lower.includes('sds') || lower.includes('msds') || lower.includes('seguridad')) {
+    return 'ficha_seguridad';
+  }
+  return 'ficha_tecnica';
+}
+
+function encontrarProductoPorNombreArchivo(fileName: string, listaProductos: Producto[]): Producto | null {
+  if (!fileName || !listaProductos || listaProductos.length === 0) return null;
+
+  let cleanName = fileName
+    .replace(/\.(pdf|docx?|gdoc)$/i, '')
+    .replace(/^(tds|sds|msds|ficha\s*tecnica|ficha\s*de\s*seguridad|hoja\s*de\s*seguridad)\s*[-_:]*\s*/i, '')
+    .replace(/[-_]/g, ' ')
+    .trim()
+    .toLowerCase();
+
+  if (!cleanName) return null;
+
+  // 1. Exact match
+  const exactMatch = listaProductos.find(p => p.nombre.toLowerCase().trim() === cleanName);
+  if (exactMatch) return exactMatch;
+
+  // 2. Substring match
+  const substringMatch = listaProductos.find(p => {
+    const pName = p.nombre.toLowerCase().trim();
+    return pName.length >= 3 && (cleanName.includes(pName) || pName.includes(cleanName));
+  });
+
+  return substringMatch || null;
+}
+
 function AdminPage() {
   const fileInputTdsRef = useRef<HTMLInputElement>(null)
   const fileInputSdsRef = useRef<HTMLInputElement>(null)
@@ -601,13 +634,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
           const yaEnCola = colaMigracion.some(x => x.fileName === item.name || (x.driveWebViewLink && x.driveWebViewLink === item.webViewLink))
           if (yaEnCola) continue
 
-          const pMatch = encontrarProductoPorNombreArchivo(item.name)
+          const pMatch = encontrarProductoPorNombreArchivo(item.name, productos)
           const tipo = item.tipoDoc || determinarTipoDocArchivo(item.name)
 
           let yaExisteEnBd = false
+          let errorMsg: string | undefined = undefined
+
           if (pMatch) {
-            const urlExistente = tipo === 'ficha_tecnica' ? (pMatch.ficha_tecnica_s3key || pMatch.ficha_tecnica_url) : (pMatch.ficha_seguridad_s3key || pMatch.ficha_seguridad_url)
-            yaExisteEnBd = !!urlExistente
+            const urlExistente = tipo === 'ficha_tecnica'
+              ? (pMatch.ficha_tecnica_url || pMatch.ficha_tecnica_s3key)
+              : (pMatch.ficha_seguridad_url || pMatch.ficha_seguridad_s3key)
+
+            if (urlExistente) {
+              yaExisteEnBd = true
+              errorMsg = `El producto '${pMatch.nombre}' ya tiene registrada una ${tipo === 'ficha_tecnica' ? 'ficha técnica' : 'ficha de seguridad'} en Supabase.`
+            }
           }
 
           nuevasFilas.push({
@@ -3130,14 +3171,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                   const yaEnCola = colaMigracion.some(x => x.fileName === file.name && x.file.size === file.size);
                   if (yaEnCola) return null;
 
-                  const pMatch = encontrarProductoPorNombreArchivo(file.name);
+                  const pMatch = encontrarProductoPorNombreArchivo(file.name, productos);
                   const tipo = determinarTipoDocArchivo(file.name);
 
-                  // Verificar si ya existe en Supabase
                   let yaExisteEnBd = false;
+                  let errorMsg: string | undefined = undefined;
+
                   if (pMatch) {
-                    const urlExistente = tipo === 'ficha_tecnica' ? pMatch.ficha_tecnica_url : pMatch.ficha_seguridad_url;
-                    yaExisteEnBd = !!urlExistente;
+                    const urlExistente = tipo === 'ficha_tecnica'
+                      ? (pMatch.ficha_tecnica_url || pMatch.ficha_tecnica_s3key)
+                      : (pMatch.ficha_seguridad_url || pMatch.ficha_seguridad_s3key);
+
+                    if (urlExistente) {
+                      yaExisteEnBd = true;
+                      errorMsg = `El producto '${pMatch.nombre}' ya tiene registrada una ${tipo === 'ficha_tecnica' ? 'ficha técnica' : 'ficha de seguridad'} en Supabase.`;
+                    }
                   }
 
                   return {
@@ -3147,7 +3195,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     productoAsociado: pMatch,
                     tipoDoc: tipo,
                     estado: 'pre_analisis' as const,
-                    errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
+                    errorMsg,
                     yaExisteEnBd
                   };
                 }).filter(Boolean) as FilaMigracion[];
@@ -3177,14 +3225,21 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                     const yaEnCola = colaMigracion.some(x => x.fileName === file.name && x.file.size === file.size);
                     if (yaEnCola) return null;
 
-                    const pMatch = encontrarProductoPorNombreArchivo(file.name);
+                    const pMatch = encontrarProductoPorNombreArchivo(file.name, productos);
                     const tipo = determinarTipoDocArchivo(file.name);
 
-                    // Verificar si ya existe en Supabase
                     let yaExisteEnBd = false;
+                    let errorMsg: string | undefined = undefined;
+
                     if (pMatch) {
-                      const urlExistente = tipo === 'ficha_tecnica' ? pMatch.ficha_tecnica_url : pMatch.ficha_seguridad_url;
-                      yaExisteEnBd = !!urlExistente;
+                      const urlExistente = tipo === 'ficha_tecnica'
+                        ? (pMatch.ficha_tecnica_url || pMatch.ficha_tecnica_s3key)
+                        : (pMatch.ficha_seguridad_url || pMatch.ficha_seguridad_s3key);
+
+                      if (urlExistente) {
+                        yaExisteEnBd = true;
+                        errorMsg = `El producto '${pMatch.nombre}' ya tiene registrada una ${tipo === 'ficha_tecnica' ? 'ficha técnica' : 'ficha de seguridad'} en Supabase.`;
+                      }
                     }
 
                     return {
@@ -3194,7 +3249,7 @@ Responde ÚNICAMENTE con el objeto JSON válido en formato de texto plano. No in
                       productoAsociado: pMatch,
                       tipoDoc: tipo,
                       estado: 'pre_analisis' as const,
-                      errorMsg: yaExisteEnBd ? 'Este PDF ya está registrado para este producto en la base de datos de Supabase.' : undefined,
+                      errorMsg,
                       yaExisteEnBd
                     };
                   }).filter(Boolean) as FilaMigracion[];
